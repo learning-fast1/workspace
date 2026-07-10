@@ -57,6 +57,7 @@ h2 {
 
 a {
   color: inherit;
+  text-decoration: none;
 }
 
 button, input[type="submit"] {
@@ -120,6 +121,35 @@ button, input[type="submit"] {
   padding: 0.9rem 1rem;
   margin-bottom: 0.6rem;
   text-decoration: none;
+}
+
+.student-card-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.btn-icon-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-muted, var(--color-text));
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.btn-icon-delete:hover {
+  background: var(--color-danger);
 }
 
 .student-card .code {
@@ -187,9 +217,16 @@ legend {
 
 .checkbox-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   padding: 0.3rem 0;
+}
+
+.checkbox-row input {
+  /* flex-start ευθυγραμμίζει σωστά το checkbox με την πρώτη γραμμή όταν το κείμενο τυλίγεται σε
+     δεύτερη γραμμή (πολλές επιλογές έχουν μακριά περιγραφικά κείμενα) — χωρίς αυτό το μικρό
+     margin, σε μονογραμμα labels το checkbox φαίνεται λίγο πιο ψηλά από το κέντρο του κειμένου. */
+  margin-top: 0.2rem;
 }
 
 .checkbox-row label {
@@ -367,18 +404,6 @@ legend {
   color: inherit;
   padding: 0;
   text-align: left;
-}
-
-.measurement-type-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0;
-}
-
-.measurement-type-option .hint {
-  margin: 0;
 }
 
 /* Home screen */

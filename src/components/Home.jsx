@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getLastBackupAt } from '../db.js'
+import { sessionDateMap } from '../utils/sessions.js'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const STALE_AFTER_DAYS = 14
@@ -24,7 +25,7 @@ async function findStaleGoals() {
   ])
 
   const activeStudentIds = new Set(students.filter((s) => s.active).map((s) => s.id))
-  const sessionDateById = Object.fromEntries(sessions.map((s) => [s.id, s.date]))
+  const sessionDateById = sessionDateMap(sessions)
 
   const lastMeasuredByGoal = {}
   for (const m of measurements) {
@@ -59,12 +60,12 @@ export default function Home() {
     <div className="page home-page">
       <div className="top-bar">
         <Link to="/settings" className="btn btn-link">⚙️ Ρυθμίσεις</Link>
-        <Link to="/students" className="btn btn-link">🗂️ Μαθητές</Link>
+        <Link to="/students" className="btn btn-link">Μαθητές</Link>
       </div>
 
       {backupReminder?.needed && (
         <div className="notice">
-          <h2>💾 {backupReminder.days === null ? 'Δεν έχεις κάνει ποτέ αντίγραφο ασφαλείας' : `${backupReminder.days} μέρες από το τελευταίο αντίγραφο ασφαλείας`}</h2>
+          <h2>{backupReminder.days === null ? 'Δεν έχεις κάνει ποτέ αντίγραφο ασφαλείας' : `${backupReminder.days} μέρες από το τελευταίο αντίγραφο ασφαλείας`}</h2>
           <p><Link to="/settings">Πήγαινε στις Ρυθμίσεις για λήψη →</Link></p>
         </div>
       )}

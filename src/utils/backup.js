@@ -1,4 +1,5 @@
-import db, { DATA_TABLE_NAMES, setLastBackupAt } from '../db.js'
+import db, { DATA_TABLE_NAMES, setLastBackupAt, ensureDomainTemplatesSeeded } from '../db.js'
+import { todayLocalISO } from './date.js'
 
 // Πλήρες στιγμιότυπο όλων των πινάκων δεδομένων (όχι appMeta — αυτό είναι μεταδεδομένα συσκευής).
 export async function buildBackupPayload() {
@@ -20,7 +21,7 @@ export async function exportBackupFile() {
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  const filename = `workspace-backup-${new Date().toISOString().slice(0, 10)}.json`
+  const filename = `workspace-backup-${todayLocalISO()}.json`
 
   const a = document.createElement('a')
   a.href = url
@@ -71,5 +72,8 @@ export async function restoreFromBackup(payload) {
       }
     }
   })
+  // Αν το backup δεν είχε (ή είχε άδειο) domainTemplates, ξαναγεμίζει με τα προεπιλεγμένα
+  // seed δεδομένα — αλλιώς οι προτάσεις τομέων θα έμεναν μόνιμα άδειες μετά την επαναφορά.
+  await ensureDomainTemplatesSeeded()
   await setLastBackupAt(new Date().toISOString())
 }

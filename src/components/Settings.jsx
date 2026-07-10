@@ -13,16 +13,29 @@ const TABLE_LABELS = {
 
 export default function Settings() {
   const fileInputRef = useRef(null)
+  const fileRequestIdRef = useRef(0) // ακυρώνει πιο αργές, ξεπερασμένες αναγνώσεις αρχείου
+
+  const [exporting, setExporting] = useState(false)
   const [exportStatus, setExportStatus] = useState(null)
+  const [exportError, setExportError] = useState(null)
+
   const [pendingRestore, setPendingRestore] = useState(null) // { payload, counts, filename }
   const [importError, setImportError] = useState(null)
   const [restoring, setRestoring] = useState(false)
+  const [restoreError, setRestoreError] = useState(null)
   const [restoreDone, setRestoreDone] = useState(false)
 
   async function handleExport() {
-    setExportStatus('exporting')
-    const { filename, counts } = await exportBackupFile()
-    setExportStatus({ filename, counts })
+    setExporting(true)
+    setExportError(null)
+    try {
+      const { filename, counts } = await exportBackupFile()
+      setExportStatus({ filename, counts })
+    } catch (err) {
+      setExportError(err?.message || 'Η λήψη απέτυχε. Δοκίμασε ξανά.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   function handleFileChosen(e) {
@@ -30,12 +43,17 @@ export default function Settings() {
     e.target.value = '' // επιτρέπει να ξαναδιαλέξει το ίδιο αρχείο
     if (!file) return
 
+    const requestId = ++fileRequestIdRef.current // κάθε νέα επιλογή ακυρώνει τυχόν προηγούμενη ανάγνωση σε εξέλιξη
+
     setImportError(null)
+    setRestoreError(null)
     setPendingRestore(null)
     setRestoreDone(false)
 
     const reader = new FileReader()
     reader.onload = () => {
+      if (fileRequestIdRef.current !== requestId) return // ξεπερασμένη ανάγνωση — αγνοείται
+
       let payload
       try {
         payload = JSON.parse(reader.result)
@@ -50,17 +68,26 @@ export default function Settings() {
       }
       setPendingRestore({ payload, counts: result.counts, filename: file.name })
     }
-    reader.onerror = () => setImportError('Δεν ήταν δυνατή η ανάγνωση του αρχείου.')
+    reader.onerror = () => {
+      if (fileRequestIdRef.current !== requestId) return
+      setImportError('Δεν ήταν δυνατή η ανάγνωση του αρχείου.')
+    }
     reader.readAsText(file)
   }
 
   async function handleConfirmRestore() {
     if (!pendingRestore) return
     setRestoring(true)
-    await restoreFromBackup(pendingRestore.payload)
-    setRestoring(false)
-    setRestoreDone(true)
-    setPendingRestore(null)
+    setRestoreError(null)
+    try {
+      await restoreFromBackup(pendingRestore.payload)
+      setRestoreDone(true)
+      setPendingRestore(null)
+    } catch (err) {
+      setRestoreError(err?.message || 'Η επαναφορά απέτυχε — τα δεδομένα ενδέχεται να είναι μερικώς ενημερωμένα. Δοκίμασε ξανά ή κάνε reload της σελίδας.')
+    } finally {
+      setRestoring(false)
+    }
   }
 
   return (
@@ -72,17 +99,18 @@ export default function Settings() {
       <h1>Ρυθμίσεις</h1>
 
       <div className="section">
-        <h2>💾 Αντίγραφο ασφαλείας</h2>
+        <h2>Αντίγραφο ασφαλείας</h2>
         <p className="hint">
           Όλα τα δεδομένα μένουν μόνο σε αυτή τη συσκευή. Κατέβασε τακτικά αντίγραφο ασφαλείας —
           αν καθαριστεί η μνήμη του browser ή αλλάξεις συσκευή, χωρίς αντίγραφο τα δεδομένα χάνονται οριστικά.
         </p>
         <div className="actions-row">
-          <button type="button" className="btn btn-primary" onClick={handleExport} disabled={exportStatus === 'exporting'}>
-            {exportStatus === 'exporting' ? 'Δημιουργία…' : '⬇️ Λήψη αντιγράφου ασφαλείας'}
+          <button type="button" className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Δημιουργία…' : '⬇️ Λήψη αντιγράφου ασφαλείας'}
           </button>
         </div>
-        {exportStatus && exportStatus !== 'exporting' && (
+        {exportError && <p className="hint">⚠️ {exportError}</p>}
+        {exportStatus && !exporting && (
           <p className="hint">
             ✓ Αποθηκεύτηκε ως «{exportStatus.filename}» —{' '}
             {Object.entries(exportStatus.counts).map(([t, c]) => `${TABLE_LABELS[t]}: ${c}`).join(', ')}.
@@ -118,6 +146,7 @@ export default function Settings() {
               {Object.entries(pendingRestore.counts).map(([t, c]) => `${TABLE_LABELS[t]}: ${c}`).join(', ')}.
             </p>
             <p><strong>Η επαναφορά θα ΔΙΑΓΡΑΨΕΙ όλα τα τρέχοντα δεδομένα της εφαρμογής και θα τα αντικαταστήσει με αυτά του αρχείου. Δεν μπορεί να αναιρεθεί.</strong></p>
+            {restoreError && <p>⚠️ {restoreError}</p>}
             <div className="actions-row">
               <button type="button" className="btn btn-danger" onClick={handleConfirmRestore} disabled={restoring}>
                 {restoring ? 'Γίνεται επαναφορά…' : 'Ναι, αντικατέστησε τα δεδομένα'}

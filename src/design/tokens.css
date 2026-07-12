@@ -1,0 +1,87 @@
+/* Design tokens του DESIGN_SYSTEM.md — ΣΚΟΠΙΣΜΕΝΑ στην κλάση .app-shell, όχι στο :root.
+   Το src/index.css (παλιά παστέλ παλέτα) εξακολουθεί να καθορίζει όλες τις υπάρχουσες σελίδες
+   μέσω των δικών του :root μεταβλητών με τα ΙΔΙΑ ονόματα (--color-bg, --color-border, ...).
+   Αν αυτά τα tokens μπαίνανε στο :root, θα άλλαζαν αμέσως την εμφάνιση κάθε υπάρχουσας σελίδας.
+   Η κλάση .app-shell εφαρμόζεται μόνο σε νέο UI που χτίζεται εντός του AppShell. */
+
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
+.app-shell {
+  --color-bg: #f7f9fc;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f1f5f9;
+
+  --color-primary: #4f6ef7;
+  --color-primary-hover: #405de6;
+  --color-primary-soft: #eef2ff;
+
+  --color-success: #2fa66a;
+  --color-success-soft: #eaf8f0;
+
+  --color-warning: #d99a2b;
+  --color-warning-soft: #fff6df;
+
+  --color-danger: #d9534f;
+  --color-danger-soft: #fdeeee;
+
+  --color-text: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-md: 16px;
+  --font-lg: 18px;
+  --font-xl: 24px;
+  --font-2xl: 32px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --shell-sidebar-width: 240px;
+  --shell-header-height: 64px;
+  --shell-bottom-nav-height: 64px;
+  --shell-radius: 12px;
+  --shell-radius-lg: 18px;
+
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* Reset για bare element selectors: το src/index.css (παλιό design) ορίζει π.χ. h1/h2/a με δικά
+   του χρώματα σε επίπεδο tag — αυτά «διαρρέουν» παντού, ακόμα και μέσα στο .app-shell, αφού τα
+   CSS custom properties είναι scoped αλλά τα element selectors όχι. Το κάνουμε ρητά εδώ με
+   μεγαλύτερη ειδικότητα (.app-shell h1 νικάει το απλό h1) ώστε το νέο UI να μην κληρονομεί
+   αθέλητα εμφάνιση από το παλιό stylesheet. */
+.app-shell h1,
+.app-shell h2,
+.app-shell h3,
+.app-shell h4 {
+  margin: 0;
+  color: inherit;
+  font-family: inherit;
+}
+
+.app-shell a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell button,
+.app-shell input {
+  font-family: inherit;
+}

@@ -1,0 +1,303 @@
+/* Dashboard (νέα αρχική οθόνη) — στυλ μόνο για ό,τι είναι εντός .app-shell (βλ. src/design/tokens.css).
+   Όλες οι κλάσεις με πρόθεμα "dashboard-" ώστε να μη συγκρούονται με τις παλιές global κλάσεις. */
+
+.dashboard-header {
+  margin-bottom: var(--space-6);
+}
+
+.dashboard-greeting {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  margin: 0 0 var(--space-1);
+}
+
+.dashboard-date {
+  color: var(--color-text-secondary);
+  font-size: var(--font-md);
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.dashboard-subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}
+
+/* Διακριτικό notification banner — για ήπιες υπενθυμίσεις (backup). Πιο «βαριά» ειδοποίηση με
+   λίστα (στόχοι χωρίς μέτρηση) παραμένει στο .dashboard-notice παρακάτω. */
+.dashboard-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--shell-radius);
+  padding: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: var(--font-sm);
+}
+
+.dashboard-banner-icon {
+  flex-shrink: 0;
+  color: var(--color-warning);
+}
+
+.dashboard-banner-text {
+  flex: 1;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-banner-link {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--shell-radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.dashboard-notice-icon {
+  flex-shrink: 0;
+  color: var(--color-warning);
+}
+
+.dashboard-notice-title {
+  font-weight: 600;
+  font-size: var(--font-sm);
+  margin: 0 0 var(--space-1);
+}
+
+.dashboard-notice ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-sm);
+}
+
+.dashboard-notice li {
+  margin-bottom: var(--space-1);
+}
+
+.dashboard-notice a {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.dashboard-section-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  margin: var(--space-12) 0 var(--space-4);
+}
+
+.dashboard-section-title:first-of-type {
+  margin-top: 0;
+}
+
+/* ---------- Stat cards ---------- */
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.dashboard-stat-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius-lg);
+  padding: var(--space-5);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--shell-radius);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  margin-bottom: var(--space-3);
+}
+
+/* Το metric είναι το κυρίαρχο στοιχείο — μεγάλο, βαρύ βάρος, πρώτο. Η περιγραφή ακολουθεί, μικρή. */
+.dashboard-stat-value {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.dashboard-stat-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}
+
+.dashboard-stat-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: 2px 0 0;
+}
+
+/* ---------- Quick actions ---------- */
+
+.dashboard-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.dashboard-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius-lg);
+  padding: var(--space-5);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-action-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--font-md);
+}
+
+.dashboard-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--shell-radius);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.dashboard-action-desc {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: calc(-1 * var(--space-2)) 0 0;
+}
+
+.dashboard-action-subrow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.dashboard-action-sublink {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border-radius: var(--shell-radius);
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.dashboard-action-sublink:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+/* ---------- Recent activity ---------- */
+
+.dashboard-activity {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius-lg);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.dashboard-activity-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-activity-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-activity-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.dashboard-activity-text {
+  flex: 1;
+  font-size: var(--font-sm);
+}
+
+.dashboard-activity-date {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.dashboard-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.dashboard-empty svg {
+  color: var(--color-border-strong);
+}
+
+.dashboard-empty-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  margin-top: var(--space-2);
+  border-radius: var(--shell-radius);
+  background: var(--color-primary);
+  color: #fff;
+  text-decoration: none;
+  font-size: var(--font-sm);
+  font-weight: 600;
+}

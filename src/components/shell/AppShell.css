@@ -1,0 +1,279 @@
+/* Layout styles του νέου AppShell — όλες οι κλάσεις με πρόθεμα "app-shell" ώστε να μη συγκρούονται
+   με τις υπάρχουσες global κλάσεις του src/index.css (.section, .card, .btn, ...).
+   Breakpoints: mobile (βάση) < 768px· tablet >= 768px· desktop >= 1024px. */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.app-shell-body {
+  display: flex;
+  flex: 1;
+  min-height: 100vh;
+}
+
+.app-shell-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Header ---------- */
+
+.app-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--shell-header-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-shell-header-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.app-shell-header-menu-btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.app-shell-search {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+}
+
+.app-shell-search input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.app-shell-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.app-shell-header-spacer {
+  flex: 1;
+}
+
+.app-shell-user-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 var(--space-2) 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.app-shell-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: var(--font-sm);
+}
+
+/* ---------- Sidebar (desktop: fixed· tablet: drawer· mobile: κρυφό, βλ. bottom nav) ---------- */
+
+.app-shell-sidebar {
+  display: none;
+}
+
+.app-shell-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--shell-header-height);
+  padding: 0 var(--space-4);
+  font-weight: 700;
+  font-size: var(--font-lg);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.app-shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+}
+
+.app-shell-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--shell-radius);
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.app-shell-nav-link:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+}
+
+.app-shell-nav-link.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.app-shell-nav-link svg {
+  flex-shrink: 0;
+}
+
+.app-shell-backdrop {
+  display: none;
+}
+
+/* ---------- Main content ---------- */
+
+.app-shell-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-5) var(--space-4) calc(var(--shell-bottom-nav-height) + var(--space-5));
+}
+
+/* ---------- Bottom navigation (μόνο mobile) ---------- */
+
+.app-shell-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  height: var(--shell-bottom-nav-height);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.app-shell-bottom-nav-link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-xs);
+  font-weight: 500;
+}
+
+.app-shell-bottom-nav-link.active {
+  color: var(--color-primary);
+}
+
+/* ---------- Tablet (>= 768px): sidebar γίνεται drawer πάνω από το περιεχόμενο ---------- */
+
+@media (min-width: 768px) {
+  .app-shell-main {
+    padding-bottom: var(--space-5);
+  }
+
+  .app-shell-bottom-nav {
+    display: none;
+  }
+
+  .app-shell-sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--shell-sidebar-width);
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    z-index: 30;
+  }
+
+  .app-shell-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .app-shell-sidebar.open ~ .app-shell-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    z-index: 25;
+  }
+}
+
+/* ---------- Desktop (>= 1024px): σταθερό sidebar, πάντα ανοιχτό ---------- */
+
+@media (min-width: 1024px) {
+  .app-shell-sidebar {
+    transform: none;
+    transition: none;
+  }
+
+  .app-shell-sidebar.open ~ .app-shell-backdrop {
+    display: none;
+  }
+
+  .app-shell-header-menu-btn {
+    display: none;
+  }
+
+  .app-shell-body {
+    padding-left: var(--shell-sidebar-width);
+  }
+
+  .app-shell-main {
+    padding: var(--space-6) var(--space-8);
+  }
+}

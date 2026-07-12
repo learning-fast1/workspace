@@ -16,7 +16,8 @@ export default function Header({ onMenuClick }) {
 
       <div className="app-shell-search">
         <Search size={18} />
-        <input type="text" placeholder="Αναζήτηση…" />
+        <input type="text" placeholder="Αναζήτηση…" disabled />
+        <span className="app-shell-search-soon">Σύντομα</span>
       </div>
 
       <div className="app-shell-header-spacer" />

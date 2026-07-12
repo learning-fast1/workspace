@@ -54,6 +54,14 @@
   background: var(--color-surface-soft);
 }
 
+.app-shell-header-menu-btn:focus-visible,
+.app-shell-user-menu:focus-visible,
+.app-shell-nav-link:focus-visible,
+.app-shell-bottom-nav-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .app-shell-search {
   flex: 1;
   min-width: 0;
@@ -82,6 +90,38 @@
 
 .app-shell-search input::placeholder {
   color: var(--color-text-muted);
+}
+
+/* Δεν κάνει ακόμα πραγματική αναζήτηση — σκόπιμα disabled + ρητή ένδειξη, ώστε να μη μοιάζει
+   λειτουργικό (COMPONENT_GUIDE.md: SearchBar «δεν εμφανίζεται ως λειτουργικό αν δεν αναζητά»). */
+.app-shell-search:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.app-shell-search input:disabled {
+  cursor: not-allowed;
+}
+
+.app-shell-search-soon {
+  /* Κρυφό σε στενές οθόνες όπου δεν υπάρχει αρκετός χώρος (θα συνέθλιβε το input) — η γκριζωμένη
+     disabled όψη (βλ. :has παραπάνω) παραμένει από μόνη της αρκετή ένδειξη εκεί. */
+  display: none;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  background: var(--color-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+@media (min-width: 640px) {
+  .app-shell-search-soon {
+    display: inline-block;
+  }
 }
 
 .app-shell-header-spacer {

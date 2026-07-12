@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CalendarDays,
   CalendarPlus,
+  ClipboardList,
   FileText,
   PlayCircle,
   Sparkles,
@@ -80,6 +81,7 @@ async function loadDashboardStats() {
   return {
     activeStudents: activeStudentIds.size,
     sessionsToday: sessions.filter((s) => s.date === today).length,
+    totalSessions: sessions.length,
     activeGoals: goals.filter((g) => activeStudentIds.has(g.studentId)).length
   }
 }
@@ -161,7 +163,7 @@ export default function Home() {
       <div className="dashboard-stats">
         <StatCard icon={Users} label="Μαθητές" value={stats ? stats.activeStudents : '—'} />
         <StatCard icon={CalendarDays} label="Συνεδρίες σήμερα" value={stats ? stats.sessionsToday : '—'} />
-        <StatCard icon={FileText} label="Εκκρεμείς εκθέσεις" value="—" emptyHint="Δεν παρακολουθείται ακόμα" />
+        <StatCard icon={ClipboardList} label="Συνολικές συνεδρίες" value={stats ? stats.totalSessions : '—'} />
         <StatCard icon={Target} label="Ενεργοί στόχοι" value={stats ? stats.activeGoals : '—'} />
       </div>
 
@@ -217,7 +219,8 @@ export default function Home() {
         {!recentActivity || recentActivity.length === 0 ? (
           <div className="dashboard-empty">
             <Sparkles size={28} />
-            <p>Δεν υπάρχει ακόμα δραστηριότητα. Ξεκίνα μια συνεδρία για να εμφανιστεί εδώ.</p>
+            <p className="dashboard-empty-title">Δεν υπάρχει ακόμα δραστηριότητα</p>
+            <p className="dashboard-empty-description">Ξεκίνα μια συνεδρία για να εμφανιστεί εδώ.</p>
             <Link to="/teaching/individual" className="dashboard-empty-action">
               <PlayCircle size={16} />
               Νέα συνεδρία

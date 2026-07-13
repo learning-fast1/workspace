@@ -64,6 +64,18 @@
   filter: brightness(0.93);
 }
 
+/* Νέο variant (Sprint 3, Teaching Mode) — θετική/επιτυχημένη καταχώρηση (π.χ. «Επιτυχία» σε
+   στόχο), ΟΧΙ ίδιο με primary (η κύρια ενέργεια της οθόνης) ούτε danger (η επιτυχία δεν είναι
+   σφάλμα). DESIGN_SYSTEM.md §3: «Το success για ενεργό, ολοκληρωμένο ή θετική πρόοδο». */
+.btn--success {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.btn--success:hover:not(:disabled) {
+  filter: brightness(0.93);
+}
+
 .btn__spinner {
   animation: btn-spin 0.6s linear infinite;
 }

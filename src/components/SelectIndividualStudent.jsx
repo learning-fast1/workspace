@@ -1,20 +1,29 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { PlayCircle, Users } from 'lucide-react'
 import { db } from '../db.js'
+import AppShell from './shell/AppShell.jsx'
+import PageHeader from './ui/PageHeader.jsx'
+import EmptyState from './ui/EmptyState.jsx'
+import Button from './ui/Button.jsx'
+import SelectableStudentRow from './SelectableStudentRow.jsx'
+import './SelectStudent.css'
 
-// Ατομικό: επιλογή ενός μαθητή πριν την έναρξη του Teaching Mode.
+// Ατομικό: επιλογή ενός μαθητή πριν την έναρξη του Teaching Mode. ΑΜΕΤΑΒΛΗΤΗ business logic
+// (ίδιο query/φιλτράρισμα/route target) — μόνο η παρουσίαση αλλάζει.
 export default function SelectIndividualStudent() {
   const navigate = useNavigate()
   const [selectedId, setSelectedId] = useState(null)
 
-  const allStudents = useLiveQuery(
-    () => db.students.orderBy('code').toArray(),
-    []
-  )
+  const allStudents = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
 
   if (!allStudents) {
-    return <div className="page">Φόρτωση…</div>
+    return (
+      <AppShell>
+        <p>Φόρτωση…</p>
+      </AppShell>
+    )
   }
 
   const students = allStudents.filter((s) => s.active)
@@ -22,42 +31,48 @@ export default function SelectIndividualStudent() {
   const selectionIsValid = selectedId !== null && students.some((s) => s.id === selectedId)
 
   return (
-    <div className="page">
-      <div className="top-bar">
-        <Link to="/" className="btn btn-link">← Πίσω</Link>
-      </div>
+    <AppShell>
+      <PageHeader
+        title="Ατομικό — Επίλεξε μαθητή"
+        back={{ label: 'Πίσω', onClick: () => navigate('/') }}
+      />
 
-      <h1>Ατομικό — Επίλεξε μαθητή</h1>
+      {students.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="Δεν υπάρχουν ενεργοί μαθητές"
+          description="Πρόσθεσε μαθητή από τη λίστα μαθητών για να ξεκινήσεις συνεδρία."
+          actionLabel="Λίστα μαθητών"
+          actionTo="/students"
+        />
+      ) : (
+        <>
+          <div className="select-student-list">
+            {students.map((s) => (
+              <SelectableStudentRow
+                key={s.id}
+                code={s.code}
+                nickname={s.nickname}
+                selected={selectedId === s.id}
+                onSelect={() => setSelectedId(s.id)}
+                mode="single"
+                name="individual-student"
+              />
+            ))}
+          </div>
 
-      {students.length === 0 && (
-        <p className="empty-state">Δεν υπάρχουν ενεργοί μαθητές. Πρόσθεσε μαθητή από τη λίστα.</p>
+          <div className="select-student-actions">
+            <Button
+              variant="primary"
+              icon={PlayCircle}
+              disabled={!selectionIsValid}
+              onClick={() => navigate(`/teaching/session/${selectedId}`)}
+            >
+              Έναρξη
+            </Button>
+          </div>
+        </>
       )}
-
-      {students.map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          className={`student-card select-student-card ${selectedId === s.id ? 'selected' : ''}`}
-          onClick={() => setSelectedId(s.id)}
-        >
-          <span>
-            <span className="code">{s.code}</span>
-            {s.nickname ? <span className="nickname"> — {s.nickname}</span> : null}
-          </span>
-          {selectedId === s.id && <span>✓</span>}
-        </button>
-      ))}
-
-      <div className="actions-row">
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={!selectionIsValid}
-          onClick={() => navigate(`/teaching/session/${selectedId}`)}
-        >
-          Έναρξη →
-        </button>
-      </div>
-    </div>
+    </AppShell>
   )
 }

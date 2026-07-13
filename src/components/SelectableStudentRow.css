@@ -1,0 +1,31 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.selectable-student-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  cursor: pointer;
+}
+
+.selectable-student-row__input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.selectable-student-row__code {
+  font-weight: 700;
+}
+
+.selectable-student-row__nickname {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+.selectable-student-row--selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}

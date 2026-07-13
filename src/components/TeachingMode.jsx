@@ -1,12 +1,26 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  ChevronLeft, ChevronRight, CircleCheck, MessageSquarePlus, UserCheck, UserX, X
+} from 'lucide-react'
 import { db } from '../db.js'
 import { sortByPriority } from '../config/goalOptions.js'
 import { DURATION_OPTIONS } from '../config/sessionOptions.js'
 import { domainName } from '../config/domains.js'
 import { todayLocalISO } from '../utils/date.js'
-import GoalRecorder from './GoalRecorder.jsx'
+import '../design/tokens.css'
+import Button from './ui/Button.jsx'
+import Modal from './ui/Modal.jsx'
+import FormField from './ui/FormField.jsx'
+import Input from './ui/Input.jsx'
+import Select from './ui/Select.jsx'
+import Textarea from './ui/Textarea.jsx'
+import EmptyState from './ui/EmptyState.jsx'
+import Tabs from './ui/Tabs.jsx'
+import ToggleRow from './ui/ToggleRow.jsx'
+import GoalRecorderCard from './GoalRecorderCard.jsx'
+import './TeachingMode.css'
 
 const PAGE_SIZE = 4
 
@@ -18,8 +32,15 @@ function chunk(array, size) {
   return chunks
 }
 
-// Teaching Mode: πλήρης οθόνη, μόνο οι ενεργοί στόχοι, καταχώρηση με ένα tap.
+// Teaching Mode: πλήρης οθόνη, μόνο οι ενεργοί στόχοι, καταχώρηση με ένα tap. Εξαιρείται ρητά από
+// το AppShell (COMPONENT_GUIDE.md) — καμία sidebar/header πλοήγηση, μηδενική περίσπαση. Εφαρμόζουμε
+// όμως την κλάση "app-shell" στο root ώστε να έχουμε πρόσβαση στα ίδια design tokens/components
+// (Button/Card/Modal...) χωρίς να εμφανίζεται καμία από τη sidebar/header/bottom-nav πλοήγηση —
+// αυτά τα δύο πράγματα (tokens vs πλοήγηση) είναι ανεξάρτητα στο src/design/tokens.css.
+//
 // Ατομικό = ένας μαθητής στο studentIds. Ομαδικό = πολλοί· μία κάρτα ανά μαθητή, swipe μεταξύ τους.
+// ΑΜΕΤΑΒΛΗΤΟ workflow ολοκλήρωσης συνεδρίας (status πάντα 'completed', activity/note πάντα κενά) —
+// μόνο η παρουσίαση αλλάζει σε αυτό το sprint.
 export default function TeachingMode() {
   const { studentIds: studentIdsParam } = useParams()
   const navigate = useNavigate()
@@ -30,7 +51,12 @@ export default function TeachingMode() {
   const [goalPage, setGoalPage] = useState(0)
   const [absentIds, setAbsentIds] = useState(() => new Set())
   const [measurements, setMeasurements] = useState({})
+  // Single-level αναίρεση ανά goalId: η τιμή ΠΡΙΝ την τελευταία αλλαγή. Ύπαρξη του key (όχι η τιμή
+  // του) δείχνει αν υπάρχει κάτι να αναιρεθεί — βλ. canUndo/undoMeasurement παρακάτω.
+  const [previousMeasurements, setPreviousMeasurements] = useState({})
   const [observationOpen, setObservationOpen] = useState(false)
+  const [endSessionOpen, setEndSessionOpen] = useState(false)
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false)
   const [sessionDate, setSessionDate] = useState(todayLocalISO)
   const [sessionDuration, setSessionDuration] = useState(null)
   const [customDuration, setCustomDuration] = useState('')
@@ -48,16 +74,21 @@ export default function TeachingMode() {
   )
 
   if (!rawStudents || !allGoals) {
-    return <div className="page">Φόρτωση…</div>
+    return <div className="app-shell teaching-mode"><p>Φόρτωση…</p></div>
   }
 
   const students = rawStudents.filter(Boolean)
 
   if (students.length === 0) {
     return (
-      <div className="page">
-        <p className="empty-state">Οι μαθητές αυτής της συνεδρίας δεν υπάρχουν πια.</p>
-        <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>← Αρχική</button>
+      <div className="app-shell teaching-mode">
+        <EmptyState
+          icon={UserX}
+          title="Οι μαθητές αυτής της συνεδρίας δεν υπάρχουν πια"
+          description="Μπορεί να διαγράφηκαν ενόσω ήταν ανοιχτή αυτή η συνεδρία."
+          actionLabel="Αρχική"
+          actionTo="/"
+        />
       </div>
     )
   }
@@ -99,20 +130,50 @@ export default function TeachingMode() {
           }
           return filtered
         })
+        setPreviousMeasurements((prevPrevious) => {
+          const filtered = { ...prevPrevious }
+          for (const goalId of Object.keys(filtered)) {
+            if (goalStudentMap[goalId] === studentId) delete filtered[goalId]
+          }
+          return filtered
+        })
       }
       return next
     })
   }
 
   function updateMeasurement(goalId, value) {
+    setPreviousMeasurements((prev) => ({ ...prev, [goalId]: measurements[goalId] }))
     setMeasurements((prev) => ({ ...prev, [goalId]: value }))
   }
 
-  function handleExit() {
-    if (hasMeasurements && !window.confirm('Θα χαθούν οι καταχωρήσεις αυτής της συνεδρίας. Έξοδος χωρίς αποθήκευση;')) {
-      return
+  function canUndo(goalId) {
+    return goalId in previousMeasurements
+  }
+
+  function undoMeasurement(goalId) {
+    setMeasurements((prev) => {
+      const next = { ...prev }
+      if (previousMeasurements[goalId] === undefined) {
+        delete next[goalId]
+      } else {
+        next[goalId] = previousMeasurements[goalId]
+      }
+      return next
+    })
+    setPreviousMeasurements((prev) => {
+      const next = { ...prev }
+      delete next[goalId]
+      return next
+    })
+  }
+
+  function requestExit() {
+    if (hasMeasurements) {
+      setExitConfirmOpen(true)
+    } else {
+      navigate('/')
     }
-    navigate('/')
   }
 
   function selectDuration(d) {
@@ -163,110 +224,163 @@ export default function TeachingMode() {
   }
 
   return (
-    <div className="teaching-mode">
-      <div className="teaching-top-bar">
-        <button type="button" className="btn btn-link" onClick={handleExit}>✕ Έξοδος</button>
-        <h1>{currentStudent ? `${currentStudent.code}${currentStudent.nickname ? ` — ${currentStudent.nickname}` : ''}` : ''}</h1>
-        <button type="button" className="btn btn-primary" disabled={!sessionDuration || savingSession} onClick={handleSaveSession}>
-          {savingSession ? 'Αποθήκευση…' : 'Τέλος'}
-        </button>
-      </div>
+    <div className="app-shell teaching-mode">
+      <header className="teaching-mode__header">
+        <Button variant="ghost" icon={X} onClick={requestExit}>Έξοδος</Button>
+        <p className="teaching-mode__student-name">
+          {currentStudent ? `${currentStudent.code}${currentStudent.nickname ? ` — ${currentStudent.nickname}` : ''}` : ''}
+        </p>
+        <Button variant="primary" icon={CircleCheck} onClick={() => setEndSessionOpen(true)}>
+          Τέλος
+        </Button>
+      </header>
 
       {isGroup && (
-        <div className="student-tabs">
-          {students.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`student-tab ${i === studentPage ? 'active' : ''} ${absentIds.has(s.id) ? 'absent' : ''}`}
-              onClick={() => changeStudentPage(i)}
-            >
-              {s.code}
-            </button>
-          ))}
-        </div>
-      )}
+        <>
+          <Tabs
+            tabs={students.map((s) => ({
+              id: String(s.id),
+              label: (
+                <span className={absentIds.has(s.id) ? 'teaching-mode__student-tab--absent' : ''}>
+                  {s.code}
+                </span>
+              )
+            }))}
+            activeId={String(currentStudent?.id)}
+            onChange={(id) => changeStudentPage(students.findIndex((s) => s.id === Number(id)))}
+          />
 
-      {isGroup && currentStudent && (
-        <button type="button" className="btn btn-secondary absent-toggle" onClick={() => toggleAbsent(currentStudent.id)}>
-          {isCurrentAbsent ? '✓ Σήμανση ως παρόντος' : '🚫 Σήμανση ως απόντος'}
-        </button>
+          {currentStudent && (
+            <Button
+              variant="secondary"
+              icon={isCurrentAbsent ? UserCheck : UserX}
+              className="teaching-mode__absent-toggle"
+              onClick={() => toggleAbsent(currentStudent.id)}
+            >
+              {isCurrentAbsent ? 'Σήμανση ως παρόντος' : 'Σήμανση ως απόντος'}
+            </Button>
+          )}
+        </>
       )}
 
       {isCurrentAbsent ? (
-        <p className="empty-state">{currentStudent.code} είναι σημειωμένος/η ως απών/απούσα σήμερα.</p>
+        <EmptyState
+          icon={UserX}
+          title={`${currentStudent.code} είναι σημειωμένος/η ως απών/απούσα σήμερα`}
+          description="Δεν καταγράφονται μετρήσεις για μαθητή που είναι σημειωμένος ως απών."
+        />
       ) : (
         <>
           {currentStudentGoals.length === 0 && (
-            <p className="empty-state">Δεν υπάρχουν ενεργοί στόχοι για αυτόν τον μαθητή.</p>
+            <EmptyState
+              icon={CircleCheck}
+              title="Δεν υπάρχουν ενεργοί στόχοι για αυτόν τον μαθητή"
+              description="Πρόσθεσε στόχους από την καρτέλα του μαθητή για να εμφανιστούν εδώ."
+            />
           )}
 
-          <div className="goal-cards">
-            {currentGoals.map((goal) => (
-              <div key={goal.id} className="teaching-goal-card">
-                <div className="goal-domain">{domainName(goal.domain)}</div>
-                <h2>{goal.title}</h2>
-                <GoalRecorder
+          {currentGoals.length > 0 && (
+            <div className="teaching-mode__goal-grid">
+              {currentGoals.map((goal) => (
+                <GoalRecorderCard
+                  key={goal.id}
+                  domainLabel={domainName(goal.domain)}
+                  title={goal.title}
+                  criterionHint={goal.criterion ? `Κριτήριο: ${goal.criterion}` : null}
                   goal={goal}
                   value={measurements[goal.id]}
                   onChange={(value) => updateMeasurement(goal.id, value)}
-                />
-              </div>
-            ))}
-          </div>
-
-          {goalPages.length > 1 && (
-            <div className="page-dots">
-              <button type="button" className="btn btn-secondary" disabled={clampedGoalPage === 0} onClick={() => setGoalPage(clampedGoalPage - 1)}>‹</button>
-              {goalPages.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={`page-dot ${i === clampedGoalPage ? 'active' : ''}`}
-                  onClick={() => setGoalPage(i)}
-                  aria-label={`Σελίδα στόχων ${i + 1}`}
+                  canUndo={canUndo(goal.id)}
+                  onUndo={() => undoMeasurement(goal.id)}
                 />
               ))}
-              <button type="button" className="btn btn-secondary" disabled={clampedGoalPage === goalPages.length - 1} onClick={() => setGoalPage(clampedGoalPage + 1)}>›</button>
+            </div>
+          )}
+
+          {goalPages.length > 1 && (
+            <div className="teaching-mode__pagination">
+              <Button
+                variant="secondary"
+                icon={ChevronLeft}
+                ariaLabel="Προηγούμενη σελίδα στόχων"
+                disabled={clampedGoalPage === 0}
+                onClick={() => setGoalPage(clampedGoalPage - 1)}
+              />
+              <div className="teaching-mode__page-dots">
+                {goalPages.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`teaching-mode__page-dot ${i === clampedGoalPage ? 'teaching-mode__page-dot--active' : ''}`}
+                    onClick={() => setGoalPage(i)}
+                    aria-label={`Σελίδα στόχων ${i + 1}`}
+                    aria-current={i === clampedGoalPage}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon={ChevronRight}
+                ariaLabel="Επόμενη σελίδα στόχων"
+                disabled={clampedGoalPage === goalPages.length - 1}
+                onClick={() => setGoalPage(clampedGoalPage + 1)}
+              />
             </div>
           )}
         </>
       )}
 
       {isGroup && (
-        <div className="page-dots student-page-dots">
-          <button type="button" className="btn btn-secondary" disabled={studentPage === 0} onClick={() => changeStudentPage(studentPage - 1)}>‹ Προηγ. μαθητής</button>
-          <button type="button" className="btn btn-secondary" disabled={studentPage === students.length - 1} onClick={() => changeStudentPage(studentPage + 1)}>Επόμ. μαθητής ›</button>
+        <div className="teaching-mode__student-nav">
+          <Button variant="secondary" icon={ChevronLeft} disabled={studentPage === 0} onClick={() => changeStudentPage(studentPage - 1)}>
+            Προηγ. μαθητής
+          </Button>
+          <Button
+            variant="secondary"
+            icon={ChevronRight}
+            disabled={studentPage === students.length - 1}
+            onClick={() => changeStudentPage(studentPage + 1)}
+          >
+            Επόμ. μαθητής
+          </Button>
         </div>
       )}
 
-      <div className="section">
-        <h2>Στοιχεία συνεδρίας</h2>
-        <div className="field">
-          <label htmlFor="sessionDate">Ημερομηνία</label>
-          <input
-            id="sessionDate"
-            type="date"
-            value={sessionDate}
-            onChange={(e) => setSessionDate(e.target.value)}
-          />
-          <p className="hint">Ξέχασες να την περάσεις χθες; Άλλαξε εδώ την ημερομηνία.</p>
-        </div>
-        <div className="field">
-          <label>Διάρκεια</label>
-          <div className="duration-options">
+      <button type="button" className="teaching-mode__fab" onClick={() => setObservationOpen(true)}>
+        <MessageSquarePlus size={20} aria-hidden="true" />
+        Παρατήρηση
+      </button>
+
+      <Modal
+        open={endSessionOpen}
+        onClose={() => setEndSessionOpen(false)}
+        title="Ολοκλήρωση συνεδρίας"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEndSessionOpen(false)}>Πίσω</Button>
+            <Button variant="primary" loading={savingSession} disabled={!sessionDuration} onClick={handleSaveSession}>
+              Αποθήκευση
+            </Button>
+          </>
+        }
+      >
+        <FormField htmlFor="sessionDate" label="Ημερομηνία" helperText="Ξέχασες να την περάσεις χθες; Άλλαξε εδώ την ημερομηνία.">
+          <Input id="sessionDate" type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+        </FormField>
+
+        <FormField htmlFor="customDuration" label="Διάρκεια">
+          <div className="teaching-mode__duration-options">
             {DURATION_OPTIONS.map((d) => (
-              <button
+              <Button
                 key={d}
-                type="button"
-                className={`btn ${sessionDuration === d ? 'btn-primary' : 'btn-secondary'}`}
+                variant={sessionDuration === d ? 'primary' : 'secondary'}
                 onClick={() => selectDuration(d)}
               >
                 {d}′
-              </button>
+              </Button>
             ))}
           </div>
-          <input
+          <Input
             id="customDuration"
             type="number"
             min="1"
@@ -274,12 +388,22 @@ export default function TeachingMode() {
             value={customDuration}
             onChange={(e) => handleCustomDurationChange(e.target.value)}
           />
-        </div>
-      </div>
+        </FormField>
+      </Modal>
 
-      <button type="button" className="fab-observation" onClick={() => setObservationOpen(true)}>
-        ➕ Παρατήρηση
-      </button>
+      <Modal
+        open={exitConfirmOpen}
+        onClose={() => setExitConfirmOpen(false)}
+        title="Απώλεια καταχωρήσεων"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setExitConfirmOpen(false)}>Συνέχεια συνεδρίας</Button>
+            <Button variant="danger" onClick={() => navigate('/')}>Έξοδος χωρίς αποθήκευση</Button>
+          </>
+        }
+      >
+        <p>Θα χαθούν οι καταχωρήσεις αυτής της συνεδρίας. Θέλεις σίγουρα να βγεις χωρίς αποθήκευση;</p>
+      </Modal>
 
       {observationOpen && (
         <ObservationPanel
@@ -319,38 +443,44 @@ function ObservationPanel({ students, defaultStudentId, onClose }) {
   }
 
   return (
-    <div className="overlay">
-      <div className="overlay-panel">
-        <h2>➕ Παρατήρηση</h2>
-        {students.length > 1 && (
-          <div className="field">
-            <label htmlFor="observationStudent">Μαθητής</label>
-            <select id="observationStudent" value={studentId} onChange={(e) => setStudentId(Number(e.target.value))}>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>{s.code}{s.nickname ? ` — ${s.nickname}` : ''}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div className="field">
-          <textarea
-            autoFocus
-            placeholder="Τι παρατήρησες;"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </div>
-        <label className="checkbox-row">
-          <input type="checkbox" checked={milestone} onChange={(e) => setMilestone(e.target.checked)} />
-          ⭐ Σημαντική στιγμή (milestone)
-        </label>
-        <div className="actions-row">
-          <button type="button" className="btn btn-primary" disabled={!text.trim() || saving} onClick={handleSave}>
-            {saving ? 'Αποθήκευση…' : 'Αποθήκευση'}
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Άκυρο</button>
-        </div>
-      </div>
-    </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="Παρατήρηση"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Άκυρο</Button>
+          <Button variant="primary" loading={saving} disabled={!text.trim()} onClick={handleSave}>
+            Αποθήκευση
+          </Button>
+        </>
+      }
+    >
+      {students.length > 1 && (
+        <FormField htmlFor="observationStudent" label="Μαθητής">
+          <Select
+            id="observationStudent"
+            value={studentId}
+            onChange={(e) => setStudentId(Number(e.target.value))}
+          >
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>{s.code}{s.nickname ? ` — ${s.nickname}` : ''}</option>
+            ))}
+          </Select>
+        </FormField>
+      )}
+
+      <FormField htmlFor="observationText" label="Τι παρατήρησες;">
+        <Textarea
+          id="observationText"
+          autoFocus
+          placeholder="π.χ. Πρώτη φορά ζήτησε μόνος του τουαλέτα"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </FormField>
+
+      <ToggleRow checked={milestone} onChange={setMilestone}>Σημαντική στιγμή (milestone)</ToggleRow>
+    </Modal>
   )
 }

@@ -1,0 +1,54 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.goal-recorder-card {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.goal-recorder-card__domain {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+.goal-recorder-card__title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Σκόπιμα μικρό/de-emphasized — δεν βοηθά το επόμενο tap, είναι απλώς υπενθύμιση. Σε πολύ στενά
+   κινητά μπορεί να χρειαστεί απόκρυψη ώστε να προστατευτεί ο χώρος του recorder. */
+.goal-recorder-card__criterion {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: 0;
+}
+
+.goal-recorder-card__undo {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-xs);
+  cursor: pointer;
+}
+
+.goal-recorder-card__undo:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-text-secondary);
+}
+
+.goal-recorder-card__undo:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

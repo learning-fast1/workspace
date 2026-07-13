@@ -66,6 +66,7 @@ Variants:
 - `secondary`: σημαντική δευτερεύουσα ενέργεια
 - `ghost`: διακριτική ενέργεια ή ακύρωση
 - `danger`: διαγραφή ή άλλη destructive ενέργεια
+- `success`: θετική/επιτυχημένη καταχώρηση (π.χ. «Επιτυχία» στο Teaching Mode) — ΔΕΝ είναι η κύρια ενέργεια της οθόνης (αυτό παραμένει `primary`) ούτε σφάλμα (αυτό παραμένει `danger`)
 
 Κανόνες:
 - Δεν χρησιμοποιούμε δύο primary buttons δίπλα-δίπλα.
@@ -360,5 +361,8 @@ Events:
 - Alert Banner
 - Dashboard Empty State
 - Recent Activity List
+- Full-screen Teaching Mode (κλάση "app-shell" απευθείας στο root, χωρίς το `<AppShell>` component — tokens χωρίς sidebar/header/bottom-nav)
+- Select (ui/Select.jsx)
+- Button variant `success`
 
 Αυτά αποτελούν το baseline για τις επόμενες οθόνες.

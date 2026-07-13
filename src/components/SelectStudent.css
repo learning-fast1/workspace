@@ -1,0 +1,15 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.select-student-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 480px;
+  margin-bottom: var(--space-6);
+}
+
+.select-student-actions {
+  display: flex;
+  justify-content: flex-end;
+  max-width: 480px;
+}

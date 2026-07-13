@@ -1,0 +1,132 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css) — εδώ εφαρμόζεται η κλάση
+   "app-shell" απευθείας στο root του Teaching Mode (όχι το <AppShell> component) ώστε να έχουμε
+   πρόσβαση στα tokens ΧΩΡΙΣ sidebar/header/bottom-nav (COMPONENT_GUIDE.md: full-screen exception). */
+
+.teaching-mode {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  padding-bottom: var(--space-12);
+  background: var(--color-bg);
+}
+
+.teaching-mode__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.teaching-mode__student-name {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--font-lg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.teaching-mode__absent-toggle {
+  margin-bottom: var(--space-2);
+}
+
+.teaching-mode__student-tab--absent {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.teaching-mode__goal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .teaching-mode__goal-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .teaching-mode__goal-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.teaching-mode__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.teaching-mode__page-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.teaching-mode__page-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-border-strong);
+  padding: 0;
+  cursor: pointer;
+}
+
+.teaching-mode__page-dot--active {
+  background: var(--color-primary);
+}
+
+.teaching-mode__student-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* Floating action button — συμπαγές, κάτω-δεξιά, ΟΧΙ πλατύ footer σε όλο το πλάτος
+   (ρητή απαγόρευση DESIGN_SYSTEM.md §17). */
+.teaching-mode__fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  cursor: pointer;
+}
+
+.teaching-mode__fab:hover {
+  background: var(--color-primary-hover);
+}
+
+.teaching-mode__fab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.teaching-mode__duration-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}

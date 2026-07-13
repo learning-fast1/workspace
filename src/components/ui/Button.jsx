@@ -15,10 +15,11 @@ export default function Button({
   type = 'button',
   disabled = false,
   ariaLabel,
+  className: extraClassName = '',
   children
 }) {
   const isDisabled = disabled || loading
-  const className = `btn btn--${variant}`
+  const className = `btn btn--${variant} ${extraClassName}`.trim()
   const content = (
     <>
       {loading ? <Loader2 size={18} className="btn__spinner" aria-hidden="true" /> : (Icon && <Icon size={18} aria-hidden="true" />)}

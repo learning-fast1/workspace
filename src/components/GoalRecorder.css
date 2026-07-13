@@ -1,0 +1,39 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.goal-recorder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.goal-recorder__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.goal-recorder__row--wrap {
+  flex-wrap: wrap;
+}
+
+.goal-recorder__row--stepper {
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+/* Το πιο συχνό tap ΟΛΗΣ της εφαρμογής — μεγαλύτερο από το ελάχιστο 44px (COMPONENT_GUIDE.md),
+   μέσω page-specific CSS πάνω στο ίδιο Button, όχι αλλαγή στο ίδιο το component API. Descendant
+   selector (όχι μόνο .goal-recorder__btn) επίτηδες — εξασφαλίζει μεγαλύτερη ειδικότητα από το
+   .btn του Button.css ανεξάρτητα από τη σειρά bundling των δύο CSS αρχείων. */
+.goal-recorder .goal-recorder__btn {
+  flex: 1;
+  min-height: 56px;
+  font-size: var(--font-md);
+}
+
+.goal-recorder__tally {
+  text-align: center;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+}

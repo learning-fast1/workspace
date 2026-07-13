@@ -1,20 +1,29 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { PlayCircle, Users } from 'lucide-react'
 import { db } from '../db.js'
+import AppShell from './shell/AppShell.jsx'
+import PageHeader from './ui/PageHeader.jsx'
+import EmptyState from './ui/EmptyState.jsx'
+import Button from './ui/Button.jsx'
+import SelectableStudentRow from './SelectableStudentRow.jsx'
+import './SelectStudent.css'
 
-// Ομαδικό: επιλογή πολλών μαθητών με checkboxes πριν την έναρξη του Teaching Mode.
+// Ομαδικό: επιλογή πολλών μαθητών με checkboxes πριν την έναρξη του Teaching Mode. ΑΜΕΤΑΒΛΗΤΗ
+// business logic — ίδιο query/φιλτράρισμα/route target, μόνο η παρουσίαση αλλάζει.
 export default function SelectGroupStudents() {
   const navigate = useNavigate()
   const [selectedIds, setSelectedIds] = useState([])
 
-  const allStudents = useLiveQuery(
-    () => db.students.orderBy('code').toArray(),
-    []
-  )
+  const allStudents = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
 
   if (!allStudents) {
-    return <div className="page">Φόρτωση…</div>
+    return (
+      <AppShell>
+        <p>Φόρτωση…</p>
+      </AppShell>
+    )
   }
 
   const students = allStudents.filter((s) => s.active)
@@ -27,42 +36,47 @@ export default function SelectGroupStudents() {
   }
 
   return (
-    <div className="page">
-      <div className="top-bar">
-        <Link to="/" className="btn btn-link">← Πίσω</Link>
-      </div>
+    <AppShell>
+      <PageHeader
+        title="Ομαδικό — Επίλεξε μαθητές"
+        back={{ label: 'Πίσω', onClick: () => navigate('/') }}
+      />
 
-      <h1>Ομαδικό — Επίλεξε μαθητές</h1>
+      {students.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="Δεν υπάρχουν ενεργοί μαθητές"
+          description="Πρόσθεσε μαθητή από τη λίστα μαθητών για να ξεκινήσεις συνεδρία."
+          actionLabel="Λίστα μαθητών"
+          actionTo="/students"
+        />
+      ) : (
+        <>
+          <div className="select-student-list">
+            {students.map((s) => (
+              <SelectableStudentRow
+                key={s.id}
+                code={s.code}
+                nickname={s.nickname}
+                selected={selectedIds.includes(s.id)}
+                onSelect={() => toggle(s.id)}
+                mode="multiple"
+              />
+            ))}
+          </div>
 
-      {students.length === 0 && (
-        <p className="empty-state">Δεν υπάρχουν ενεργοί μαθητές. Πρόσθεσε μαθητή από τη λίστα.</p>
+          <div className="select-student-actions">
+            <Button
+              variant="primary"
+              icon={PlayCircle}
+              disabled={validSelectedIds.length === 0}
+              onClick={() => navigate(`/teaching/session/${validSelectedIds.join(',')}`)}
+            >
+              Έναρξη
+            </Button>
+          </div>
+        </>
       )}
-
-      {students.map((s) => (
-        <label key={s.id} className="student-card select-student-checkbox">
-          <span>
-            <input
-              type="checkbox"
-              checked={selectedIds.includes(s.id)}
-              onChange={() => toggle(s.id)}
-            />
-            {' '}
-            <span className="code">{s.code}</span>
-            {s.nickname ? <span className="nickname"> — {s.nickname}</span> : null}
-          </span>
-        </label>
-      ))}
-
-      <div className="actions-row">
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={validSelectedIds.length === 0}
-          onClick={() => navigate(`/teaching/session/${validSelectedIds.join(',')}`)}
-        >
-          Έναρξη →
-        </button>
-      </div>
-    </div>
+    </AppShell>
   )
 }

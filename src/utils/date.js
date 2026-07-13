@@ -16,3 +16,9 @@ export function todayLocalISO() {
 export function formatDateEl(dateStr) {
   return new Date(dateStr).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// Σύντομη μορφή χωρίς έτος (π.χ. «9 Ιουλ») — μόνο για πολύ στενά πλαίσια εμφάνισης (π.χ. συμπαγές
+// stat card στο Hero του προφίλ μαθητή), όπου η πλήρης μορφή με έτος κόβεται με ellipsis.
+export function formatDateElShort(dateStr) {
+  return new Date(dateStr).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })
+}

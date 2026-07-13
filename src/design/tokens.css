@@ -57,6 +57,10 @@
   --shell-radius: 12px;
   --shell-radius-lg: 18px;
 
+  /* Focus ring για inputs/textareas (DESIGN_SYSTEM.md §10) — μία πηγή αλήθειας αντί για το ίδιο
+     literal rgba() επαναλαμβανόμενο σε κάθε αρχείο που έχει focusable πεδίο. */
+  --focus-ring: 0 0 0 3px rgba(79, 110, 247, 0.12);
+
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--color-text);
   background: var(--color-bg);

@@ -1,0 +1,13 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+/* Κοινό .toggle-row: βλ. ui/ToggleRow.css. Εδώ μόνο ό,τι είναι δικό αυτής της χρήσης. */
+.goals-list__toggle {
+  margin-bottom: var(--space-4);
+}
+
+.goals-list__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 900px;
+}

@@ -1,0 +1,43 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius-lg);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.card--soft {
+  background: var(--color-surface-soft);
+  box-shadow: none;
+}
+
+.card--alert {
+  border-left: 3px solid var(--color-warning);
+}
+
+.card--interactive {
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.card--interactive:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+/* Stretched-link μοτίβο, κοινό σε όλες τις "όλη η κάρτα clickable" χρήσεις (StudentCard, GoalCard):
+   ένα Link καλύπτει όλη την κάρτα, ενώ ένα OverflowMenu (ή άλλο interactive στοιχείο) μένει αδελφό
+   με μεγαλύτερο z-index ώστε τα δικά του κλικ να "νικάνε". Μία πηγή αλήθειας εδώ αντί να
+   ξαναγράφεται σε κάθε *Card.css. */
+.stretched-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.stretched-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

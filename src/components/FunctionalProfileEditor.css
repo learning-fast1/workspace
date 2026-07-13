@@ -1,0 +1,147 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.profile-editor__fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--space-4);
+}
+
+.profile-editor__legend {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 0;
+  margin-bottom: var(--space-2);
+}
+
+.profile-editor__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+/* ---------- Master-detail (desktop/tablet) — κρυφό σε mobile ---------- */
+
+.profile-editor__master-detail {
+  display: none;
+}
+
+.profile-editor__accordion {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .profile-editor__master-detail {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .profile-editor__accordion {
+    display: none;
+  }
+}
+
+.profile-editor__domain-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--color-border);
+  padding-right: var(--space-4);
+}
+
+.profile-editor__domain-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-editor__domain-btn:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+}
+
+.profile-editor__domain-btn--active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.profile-editor__domain-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.profile-editor__panel {
+  min-width: 0;
+}
+
+.profile-editor__panel-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  margin: 0 0 var(--space-4);
+}
+
+/* ---------- Accordion (mobile) ---------- */
+
+.profile-editor__accordion-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile-editor__accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-3) 0;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-md);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-editor__accordion-header:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.profile-editor__accordion-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.profile-editor__chevron {
+  transition: transform 160ms ease;
+}
+
+.profile-editor__chevron--open {
+  transform: rotate(180deg);
+}
+
+.profile-editor__accordion-body {
+  padding: 0 0 var(--space-4);
+}

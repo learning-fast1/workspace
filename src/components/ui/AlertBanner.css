@@ -1,0 +1,52 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--shell-radius);
+  border: 1px solid;
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-4);
+}
+
+.alert-banner__icon {
+  flex-shrink: 0;
+}
+
+.alert-banner__text {
+  color: var(--color-text);
+}
+
+.alert-banner--info {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.alert-banner--info .alert-banner__icon {
+  color: var(--color-primary);
+}
+
+.alert-banner--success {
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+}
+.alert-banner--success .alert-banner__icon {
+  color: var(--color-success);
+}
+
+.alert-banner--warning {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+}
+.alert-banner--warning .alert-banner__icon {
+  color: var(--color-warning);
+}
+
+.alert-banner--danger {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+}
+.alert-banner--danger .alert-banner__icon {
+  color: var(--color-danger);
+}

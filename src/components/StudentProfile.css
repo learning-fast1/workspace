@@ -1,0 +1,22 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.student-profile__notes {
+  max-width: 900px;
+  background: var(--color-surface-soft);
+  border-radius: var(--shell-radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.student-profile__notes-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-1);
+}
+
+.student-profile__notes-text {
+  font-size: var(--font-sm);
+  margin: 0;
+  white-space: pre-wrap;
+}

@@ -1,32 +1,114 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db.js'
+import { UserX } from 'lucide-react'
+import { db, deleteStudent } from '../db.js'
+import { sessionDateMap } from '../utils/sessions.js'
+import { measurementNumericValue, parseCriterionTarget } from '../utils/measurementValue.js'
+import { formatDateElShort } from '../utils/date.js'
+import AppShell from './shell/AppShell.jsx'
+import EmptyState from './ui/EmptyState.jsx'
+import Tabs from './ui/Tabs.jsx'
+import Modal from './ui/Modal.jsx'
+import Button from './ui/Button.jsx'
+import StudentProfileHero from './StudentProfileHero.jsx'
 import FunctionalProfileEditor from './FunctionalProfileEditor.jsx'
 import PreferencesEditor from './PreferencesEditor.jsx'
 import GoalsList from './GoalsList.jsx'
 import StudentTimeline from './StudentTimeline.jsx'
+import ReportTab from './ReportTab.jsx'
+import './StudentProfile.css'
+
+const TABS = [
+  { id: 'goals', label: 'Στόχοι' },
+  { id: 'sessions', label: 'Συνεδρίες' },
+  { id: 'profile', label: 'Προφίλ' },
+  { id: 'preferences', label: 'Ενισχυτές' },
+  { id: 'report', label: 'Έκθεση' }
+]
+
+// Συγκεντρωτικό query για τα 4 στατιστικά του Hero — ίδιο πνεύμα με το loadDashboardStats του
+// Home.jsx (ξεχωριστό, μικρό aggregate query ανά ενότητα οθόνης, όχι κοινόχρηστο cross-component
+// state). «Στόχοι στο κριτήριο»: μόνο ενεργοί στόχοι με μετρήσιμη τελευταία τιμή ΚΑΙ αναγνωρίσιμο
+// κριτήριο μετράνε ως «στο κριτήριο» — οι υπόλοιποι (π.χ. duration, ή χωρίς ακόμα μέτρηση)
+// παραμένουν στον παρονομαστή αλλά όχι στον αριθμητή, ώστε να μη δείχνουμε fake ακρίβεια.
+async function loadHeroStats(studentId) {
+  const [goals, measurements, sessions] = await Promise.all([
+    db.goals.where('studentId').equals(studentId).toArray(),
+    db.measurements.where('studentId').equals(studentId).toArray(),
+    db.sessions.toArray()
+  ])
+  const sessionDateById = sessionDateMap(sessions)
+  const activeGoals = goals.filter((g) => g.status === 'active')
+
+  let atCriterionCount = 0
+  for (const g of activeGoals) {
+    const goalMeasurements = measurements
+      .filter((m) => m.goalId === g.id)
+      .map((m) => ({ ...m, date: sessionDateById[m.sessionId] }))
+      .filter((m) => m.date)
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const latest = goalMeasurements[goalMeasurements.length - 1]
+    if (!latest) continue
+    // Το duration εξαιρείται σκόπιμα: η κατεύθυνση του «καλού» δεν είναι πάντα σαφής (π.χ. διάρκεια
+    // δραστηριότητας θέλουμε να ΑΥΞΗΘΕΙ, διάρκεια δύσκολης συμπεριφοράς θέλουμε να ΜΕΙΩΘΕΙ) — μια απλή
+    // "τιμή >= κριτήριο" σύγκριση θα έδειχνε ψευδώς «στο κριτήριο» ανεξάρτητα από ποια κατεύθυνση ισχύει.
+    if (g.measurementType === 'duration') continue
+    const numericValue = measurementNumericValue(g.measurementType, latest.value)
+    const criterionTarget = parseCriterionTarget(g.criterion, g.measurementType)
+    if (numericValue !== null && criterionTarget !== null && numericValue >= criterionTarget) {
+      atCriterionCount++
+    }
+  }
+
+  let totalSessions = 0
+  let lastSessionDate = null
+  for (const s of sessions) {
+    if (!s.studentIds?.includes(studentId)) continue
+    if (s.absentStudentIds?.includes(studentId)) continue
+    totalSessions++
+    if (!lastSessionDate || s.date > lastSessionDate) lastSessionDate = s.date
+  }
+
+  return {
+    activeGoalsCount: activeGoals.length,
+    totalSessions,
+    goalsAtCriterionLabel: activeGoals.length > 0 ? `${atCriterionCount}/${activeGoals.length}` : '—',
+    lastSessionLabel: lastSessionDate ? formatDateElShort(lastSessionDate) : 'Καμία ακόμα'
+  }
+}
 
 export default function StudentProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
   const studentId = Number(id)
+  const [activeTab, setActiveTab] = useState('goals')
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  // Τρίτο όρισμα (null) = τιμή-σημάδι "δεν έχει τρέξει ακόμα το query" — χωρίς αυτό, το `undefined`
-  // που επιστρέφει το useLiveQuery ΠΡΙΝ την πρώτη εκτέλεση είναι πανομοιότυπο με το `undefined` που
-  // επιστρέφει ένα ΠΡΑΓΜΑΤΙΚΟ resolved query για μαθητή που δεν υπάρχει — χωρίς διάκριση, η οθόνη θα
-  // έμενε για πάντα σε «Φόρτωση…» αντί να δείξει «δεν βρέθηκε» (π.χ. μετά από διαγραφή ή παλιό link).
+  // null = «δεν έχει τρέξει ακόμα» (βλ. ίδιο μοτίβο ήδη στην παλιά υλοποίηση) — χωρίς αυτό, ένας
+  // μαθητής που πραγματικά δεν υπάρχει δεν θα ξεχώριζε από «φορτώνει ακόμα».
   const student = useLiveQuery(() => db.students.get(studentId), [studentId], null)
+  const heroStats = useLiveQuery(() => loadHeroStats(studentId), [studentId])
 
   if (student === null) {
-    return <div className="page">Φόρτωση…</div>
+    return (
+      <AppShell>
+        <p>Φόρτωση…</p>
+      </AppShell>
+    )
   }
 
   if (!student) {
     return (
-      <div className="page">
-        <p className="empty-state">Ο μαθητής δεν βρέθηκε.</p>
-        <Link to="/students" className="btn btn-secondary">Πίσω στη λίστα</Link>
-      </div>
+      <AppShell>
+        <EmptyState
+          icon={UserX}
+          title="Ο μαθητής δεν βρέθηκε"
+          description="Μπορεί να διαγράφηκε ή ο σύνδεσμος να μην είναι πια έγκυρος."
+          actionLabel="Επιστροφή στη λίστα μαθητών"
+          actionTo="/students"
+        />
+      </AppShell>
     )
   }
 
@@ -42,42 +124,71 @@ export default function StudentProfile() {
     await db.students.update(studentId, { preferences })
   }
 
+  async function handleConfirmDelete() {
+    await deleteStudent(studentId)
+    navigate('/students')
+  }
+
   return (
-    <div className="page" key={studentId}>
-      <div className="top-bar">
-        <Link to="/students" className="btn btn-link">← Πίσω</Link>
-        {!student.active && <span className="badge-archived">Αρχειοθετημένος</span>}
-      </div>
-
-      <h1>{student.code}{student.nickname ? ` — ${student.nickname}` : ''}</h1>
-
-      <div className="section">
-        {student.grade && <p><strong>Τάξη:</strong> {student.grade}</p>}
-        {student.notes && <p><strong>Σημειώσεις:</strong> {student.notes}</p>}
-        <div className="actions-row">
-          <button className="btn btn-secondary" onClick={() => navigate(`/students/${studentId}/edit`)}>
-            ✏️ Επεξεργασία στοιχείων
-          </button>
-          <button className="btn btn-secondary" onClick={toggleActive}>
-            {student.active ? '🗄️ Αρχειοθέτηση' : '↩️ Επαναφορά'}
-          </button>
-          <Link to={`/students/${studentId}/report`} className="btn btn-secondary">📄 Προσχέδιο έκθεσης</Link>
-        </div>
-      </div>
-
-      <GoalsList studentId={studentId} />
-
-      <StudentTimeline studentId={studentId} />
-
-      <PreferencesEditor
-        preferences={student.preferences || {}}
-        onChange={handlePreferencesChange}
+    <AppShell key={studentId}>
+      <StudentProfileHero
+        code={student.code}
+        nickname={student.nickname}
+        grade={student.grade}
+        active={student.active}
+        activeGoalsCount={heroStats ? heroStats.activeGoalsCount : '—'}
+        totalSessions={heroStats ? heroStats.totalSessions : '—'}
+        goalsAtCriterionLabel={heroStats ? heroStats.goalsAtCriterionLabel : '—'}
+        lastSessionLabel={heroStats ? heroStats.lastSessionLabel : '—'}
+        sessionTo={`/teaching/session/${studentId}`}
+        onBack={() => navigate('/students')}
+        onEdit={() => navigate(`/students/${studentId}/edit`)}
+        onToggleActive={toggleActive}
+        onDelete={() => setConfirmDeleteOpen(true)}
       />
 
-      <FunctionalProfileEditor
-        functionalProfile={student.functionalProfile || []}
-        onChange={handleFunctionalProfileChange}
-      />
-    </div>
+      <Tabs tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+
+      {/* Όλα τα tab panels μένουν ΠΑΝΤΑ mounted (hidden attribute, όχι conditional unmount) — αλλιώς
+          η εναλλαγή tab θα πετούσε π.χ. ένα μισο-γραμμένο προσχέδιο έκθεσης στο tab Έκθεση. */}
+      <div role="tabpanel" id="tabpanel-goals" aria-labelledby="tab-goals" hidden={activeTab !== 'goals'}>
+        <GoalsList studentId={studentId} />
+      </div>
+      <div role="tabpanel" id="tabpanel-sessions" aria-labelledby="tab-sessions" hidden={activeTab !== 'sessions'}>
+        <StudentTimeline studentId={studentId} />
+      </div>
+      <div role="tabpanel" id="tabpanel-profile" aria-labelledby="tab-profile" hidden={activeTab !== 'profile'}>
+        {student.notes && (
+          <div className="student-profile__notes">
+            <h3 className="student-profile__notes-title">Σημειώσεις</h3>
+            <p className="student-profile__notes-text">{student.notes}</p>
+          </div>
+        )}
+        <FunctionalProfileEditor
+          functionalProfile={student.functionalProfile || []}
+          onChange={handleFunctionalProfileChange}
+        />
+      </div>
+      <div role="tabpanel" id="tabpanel-preferences" aria-labelledby="tab-preferences" hidden={activeTab !== 'preferences'}>
+        <PreferencesEditor preferences={student.preferences || {}} onChange={handlePreferencesChange} />
+      </div>
+      <div role="tabpanel" id="tabpanel-report" aria-labelledby="tab-report" hidden={activeTab !== 'report'}>
+        <ReportTab student={student} studentId={studentId} />
+      </div>
+
+      <Modal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        title={`Οριστική διαγραφή «${student.code}»`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmDeleteOpen(false)}>Ακύρωση</Button>
+            <Button variant="danger" onClick={handleConfirmDelete}>Διαγραφή οριστικά</Button>
+          </>
+        }
+      >
+        <p>Θα διαγραφούν επίσης όλοι οι στόχοι, οι μετρήσεις και οι παρατηρήσεις του. Δεν αναιρείται.</p>
+      </Modal>
+    </AppShell>
   )
 }

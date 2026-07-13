@@ -1,0 +1,35 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.student-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* Κοινό .toggle-row: βλ. ui/ToggleRow.css. Εδώ μόνο ό,τι είναι δικό αυτής της χρήσης. */
+.student-list-toggle {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.student-list-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+/* Tablet: ρητά 2 ανά σειρά (όχι auto-fit) — βλ. COMPONENT_GUIDE.md § Responsive κανόνες. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .student-list-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Desktop: ρητά 3 ανά σειρά. */
+@media (min-width: 1024px) {
+  .student-list-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

@@ -1,0 +1,58 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--shell-radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+.activity-item--link {
+  cursor: pointer;
+}
+
+.activity-item--link:hover {
+  background: var(--color-surface-soft);
+}
+
+.activity-item--link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.activity-item__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+  color: var(--color-text-secondary);
+}
+
+.activity-item--milestone .activity-item__icon {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.activity-item__text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-sm);
+}
+
+.activity-item--milestone .activity-item__text {
+  font-weight: 600;
+}
+
+.activity-item__date {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}

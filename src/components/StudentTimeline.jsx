@@ -1,18 +1,24 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Archive, CalendarDays, RefreshCw, Sparkles, FileText, Star, Target } from 'lucide-react'
 import { db } from '../db.js'
 import { formatDateEl as formatDate } from '../utils/date.js'
+import EmptyState from './ui/EmptyState.jsx'
+import ActivityItem from './ui/ActivityItem.jsx'
+import './StudentTimeline.css'
 
 const STATUS_EVENTS = {
-  achieved: { icon: '📈', text: (title) => `Επίτευξη κριτηρίου: ${title}` },
-  revised: { icon: '🎯', text: (title) => `Αναθεώρηση στόχου: ${title}` },
-  archived: { icon: '🗄️', text: (title) => `Αρχειοθέτηση στόχου: ${title}` }
+  achieved: { icon: Target, text: (title) => `Επίτευξη κριτηρίου: ${title}` },
+  revised: { icon: RefreshCw, text: (title) => `Αναθεώρηση στόχου: ${title}` },
+  archived: { icon: Archive, text: (title) => `Αρχειοθέτηση στόχου: ${title}` }
 }
 
 function formatMonth(monthStr) {
   return new Date(`${monthStr}-01`).toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })
 }
 
-// Χρονολογική αφήγηση της χρονιάς — παράγεται αυτόματα από στόχους, συνεδρίες και παρατηρήσεις, χωρίς δική του καταχώρηση.
+// Χρονολογική αφήγηση της χρονιάς — παράγεται αυτόματα από στόχους, συνεδρίες και παρατηρήσεις,
+// χωρίς δική του καταχώρηση (SPEC.md Βήμα 5β). Αυτό το tab («Συνεδρίες») δείχνει το ίδιο το
+// Timeline αντί για μια στεγνή λίστα συνεδριών — βλ. UX proposal §3.
 export default function StudentTimeline({ studentId }) {
   const goals = useLiveQuery(() => db.goals.where('studentId').equals(studentId).toArray(), [studentId])
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [])
@@ -22,14 +28,14 @@ export default function StudentTimeline({ studentId }) {
   )
 
   if (!goals || !allSessions || !observations) {
-    return null
+    return <p>Φόρτωση…</p>
   }
 
   const events = []
 
   for (const g of goals) {
     if (g.startDate) {
-      events.push({ key: `goal-new-${g.id}`, date: g.startDate, icon: '🎯', text: `Νέος στόχος: ${g.title}` })
+      events.push({ key: `goal-new-${g.id}`, date: g.startDate, icon: Target, text: `Νέος στόχος: ${g.title}`, to: `/students/${studentId}/goals/${g.id}` })
     }
     const statusEvent = STATUS_EVENTS[g.status]
     if (statusEvent && g.statusChangedAt) {
@@ -37,7 +43,8 @@ export default function StudentTimeline({ studentId }) {
         key: `goal-status-${g.id}`,
         date: g.statusChangedAt.slice(0, 10),
         icon: statusEvent.icon,
-        text: statusEvent.text(g.title)
+        text: statusEvent.text(g.title),
+        to: `/students/${studentId}/goals/${g.id}`
       })
     }
   }
@@ -53,7 +60,7 @@ export default function StudentTimeline({ studentId }) {
     events.push({
       key: `sessions-${month}`,
       date: `${month}-01`,
-      icon: '📅',
+      icon: CalendarDays,
       text: `${count} συνεδρί${count === 1 ? 'α' : 'ες'} (${formatMonth(month)})`
     })
   }
@@ -62,30 +69,56 @@ export default function StudentTimeline({ studentId }) {
     events.push({
       key: `observation-${o.id}`,
       date: o.date,
-      icon: o.milestone ? '⭐' : '📝',
+      icon: o.milestone ? Star : FileText,
       text: o.text,
       milestone: o.milestone
     })
   }
 
-  events.sort((a, b) => a.date.localeCompare(b.date))
+  // Πιο πρόσφατα πρώτα (COMPONENT_GUIDE.md § ActivityItem) — αντίστροφα από τη σημερινή σειρά.
+  events.sort((a, b) => b.date.localeCompare(a.date))
+
+  if (events.length === 0) {
+    return (
+      <EmptyState
+        icon={Sparkles}
+        title="Δεν υπάρχει ακόμα δραστηριότητα"
+        description="Το timeline γεμίζει αυτόματα από στόχους, συνεδρίες και παρατηρήσεις."
+      />
+    )
+  }
+
+  // Grouping ανά μήνα (COMPONENT_GUIDE.md § ActivityItem — «grouping ανά ημερομηνία σε μεγάλες λίστες»).
+  const groups = []
+  let currentGroup = null
+  for (const e of events) {
+    const month = e.date.slice(0, 7)
+    if (!currentGroup || currentGroup.month !== month) {
+      currentGroup = { month, label: formatMonth(month), items: [] }
+      groups.push(currentGroup)
+    }
+    currentGroup.items.push(e)
+  }
 
   return (
-    <div className="section">
-      <h2>Timeline</h2>
-      {events.length === 0 ? (
-        <p className="empty-state">Δεν υπάρχουν ακόμα καταχωρήσεις για το timeline.</p>
-      ) : (
-        <ul className="timeline">
-          {events.map((e) => (
-            <li key={e.key} className={`timeline-item ${e.milestone ? 'timeline-milestone' : ''}`}>
-              <span className="timeline-icon">{e.icon}</span>
-              <span className="timeline-text">{e.text}</span>
-              <span className="timeline-date">{formatDate(e.date)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="profile-timeline">
+      {groups.map((group) => (
+        <div key={group.month} className="profile-timeline__group">
+          <h3 className="profile-timeline__group-title">{group.label}</h3>
+          <div className="profile-timeline__items">
+            {group.items.map((e) => (
+              <ActivityItem
+                key={e.key}
+                icon={e.icon}
+                text={e.text}
+                dateLabel={formatDate(e.date)}
+                to={e.to}
+                milestone={e.milestone}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

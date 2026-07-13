@@ -1,0 +1,38 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Τιμές από DESIGN_SYSTEM.md §10. */
+
+.input {
+  height: 46px;
+  width: 100%;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  padding: 0 14px;
+  font: inherit;
+  font-size: var(--font-md);
+  color: var(--color-text);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.input--error {
+  border-color: var(--color-danger);
+}
+
+.input--error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-soft);
+}
+
+.input:disabled {
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}

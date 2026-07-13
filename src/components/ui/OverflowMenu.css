@@ -1,0 +1,79 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.overflow-menu {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.overflow-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.overflow-menu__trigger:hover {
+  background: var(--color-surface-soft);
+}
+
+.overflow-menu__trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.overflow-menu__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: auto;
+  z-index: 10;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+}
+
+.overflow-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.overflow-menu__item:hover {
+  background: var(--color-surface-soft);
+}
+
+.overflow-menu__item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.overflow-menu__item--danger {
+  color: var(--color-danger);
+}
+
+.overflow-menu__item--danger:hover {
+  background: var(--color-danger-soft);
+}

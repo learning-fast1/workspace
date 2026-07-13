@@ -1,0 +1,39 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Ελάχιστο ύψος 120px (COMPONENT_GUIDE.md). */
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  padding: var(--space-3) 14px;
+  font: inherit;
+  font-size: var(--font-md);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.textarea--error {
+  border-color: var(--color-danger);
+}
+
+.textarea--error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-soft);
+}
+
+.textarea:disabled {
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}

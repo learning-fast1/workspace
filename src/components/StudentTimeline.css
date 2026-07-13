@@ -1,0 +1,23 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.profile-timeline {
+  max-width: 900px;
+}
+
+.profile-timeline__group {
+  margin-bottom: var(--space-6);
+}
+
+.profile-timeline__group-title {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+  margin: 0 0 var(--space-2);
+}
+
+.profile-timeline__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

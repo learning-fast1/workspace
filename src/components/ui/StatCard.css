@@ -1,0 +1,46 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--shell-radius);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  margin-bottom: var(--space-3);
+}
+
+/* font-xl εδώ, όχι font-2xl σαν το Home.jsx (.dashboard-stat-value) — επίτηδες: αυτό το component
+   φιλοξενεί και τιμές με μεγαλύτερο κείμενο (π.χ. μορφοποιημένη ημερομηνία «12 Ιουλ 2026», όχι μόνο
+   μικρούς αριθμούς όπως στο dashboard). Στο font-2xl η ημερομηνία «κόβεται» με ellipsis σε mobile
+   πλάτος 2 στηλών — δοκιμάστηκε και επιβεβαιώθηκε οπτικά πριν επιλεγεί το μικρότερο μέγεθος. */
+.stat-card__value {
+  font-size: var(--font-xl);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-card__label {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}
+
+.stat-card__hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: 2px 0 0;
+}

@@ -1,0 +1,128 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.preferences-editor__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .preferences-editor__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.preferences-editor__card {
+  padding: var(--space-5);
+}
+
+.preferences-editor__card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.preferences-editor__card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--shell-radius);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.preferences-editor__card-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ---------- Restyle του υπάρχοντος ChipListEditor — ΜΟΝΟ μέσα σε .app-shell, ώστε να ΜΗΝ
+   επηρεάζεται η χρήση του στο TemplateSuggestions (παλιό design, GoalWizardForm, εκτός AppShell). ---------- */
+
+.app-shell .chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.app-shell .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-size: var(--font-sm);
+}
+
+.app-shell .chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  cursor: pointer;
+}
+
+.app-shell .chip-remove:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.app-shell .chip-remove:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.app-shell .add-item-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.app-shell .add-item-row input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.app-shell .add-item-row input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.app-shell .add-item-row .btn-secondary {
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell .add-item-row .btn-secondary:hover {
+  background: var(--color-surface-soft);
+}

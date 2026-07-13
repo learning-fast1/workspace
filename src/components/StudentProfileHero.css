@@ -1,0 +1,114 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.profile-hero {
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.profile-hero__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  margin: 0 0 var(--space-2) calc(-1 * var(--space-2));
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.profile-hero__back:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+}
+
+.profile-hero__back:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.profile-hero__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+
+.profile-hero__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.profile-hero__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: var(--font-xl);
+}
+
+.profile-hero__identity-text {
+  min-width: 0;
+}
+
+.profile-hero__name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.profile-hero__code {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  margin: 0;
+}
+
+.profile-hero__nickname {
+  color: var(--color-text-secondary);
+  font-size: var(--font-md);
+  margin: var(--space-1) 0 0;
+}
+
+.profile-hero__grade {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: 2px 0 0;
+}
+
+.profile-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.profile-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+/* 768px — ίδιο καθιερωμένο breakpoint με όλη την υπόλοιπη εφαρμογή (StudentList/StudentForm/
+   FunctionalProfileEditor/AppShell), όχι δικό του. */
+@media (min-width: 768px) {
+  .profile-hero__stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

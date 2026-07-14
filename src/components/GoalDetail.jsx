@@ -28,9 +28,19 @@ const PROMPT_LEVEL_RANK_TO_LABEL = Object.fromEntries(
   Object.entries(PROMPT_LEVEL_RANK).map(([value, rank]) => [rank, SHORT_LABEL_BY_VALUE[value] || value])
 )
 
-// Σημείο του γραφήματος με δικό του click — ανοίγει τις λεπτομέρειες της συνεδρίας στην οποία
-// μετρήθηκε (reuse του SessionDetailModal, όχι δεύτερη υλοποίηση). recharts κλωνοποιεί αυτό το
-// στοιχείο ανά data point, προσθέτοντας αυτόματα cx/cy/payload.
+// Σημείο του γραφήματος — ανοίγει τις λεπτομέρειες της συνεδρίας στην οποία μετρήθηκε (reuse του
+// SessionModal, όχι δεύτερη υλοποίηση). recharts κλωνοποιεί αυτό το στοιχείο ανά data point,
+// προσθέτοντας αυτόματα cx/cy/payload· χρησιμοποιείται και για το κανονικό dot και για το activeDot.
+//
+// ΣΗΜΑΝΤΙΚΟ: το ίδιο το circle ΔΕΝ έχει πλέον onClick για mouse/touch — το recharts διατηρεί ένα
+// δικό του, αόρατο, εσωτερικό tracking layer (για το Tooltip) που παραμένει από πάνω σε "active"
+// σημεία και καταναλώνει το pointer event πριν φτάσει σε ΟΠΟΙΟΔΗΠΟΤΕ δικό μας DOM element εκεί
+// (επιβεβαιώθηκε: ούτε το activeDot prop το λύνει, το πρόβλημα είναι πιο βαθιά στο recharts, όχι
+// στο ποιο δικό μας layer είναι "από πάνω"). Το mouse/touch click χειρίζεται πλέον στο επίπεδο του
+// ίδιου του LineChart (onClick + activePayload παρακάτω) — η ΙΔΙΑ μηχανή εντοπισμού "ποιο σημείο
+// είναι πλησιέστερο" που το recharts ήδη χρησιμοποιεί αξιόπιστα για το Tooltip, άρα εξίσου αξιόπιστη
+// και για το click. Το tabIndex/onKeyDown παραμένει ΕΔΩ (όχι στο chart-level onClick) — το πληκτρολόγιο
+// δεν περνάει από το ίδιο pointer-tracking layer, οπότε δεν έχει το ίδιο πρόβλημα και δουλεύει κανονικά.
 function ClickableDot({ cx, cy, payload, onSelect }) {
   if (cx == null || cy == null) return null
   return (
@@ -42,11 +52,15 @@ function ClickableDot({ cx, cy, payload, onSelect }) {
       stroke="#fff"
       strokeWidth={1.5}
       className="goal-detail__chart-dot"
-      onClick={() => onSelect(payload.sessionId)}
       role="button"
       tabIndex={0}
       aria-label={`Άνοιγμα συνεδρίας ${payload.date}`}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(payload.sessionId) }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(payload.sessionId)
+        }
+      }}
     />
   )
 }
@@ -143,7 +157,14 @@ export default function GoalDetail() {
         ) : (
           <>
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={chartData} margin={{ top: 10, right: 60, left: 0, bottom: 0 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 10, right: 60, left: 0, bottom: 0 }}
+                onClick={(state) => {
+                  const sessionId = state?.activePayload?.[0]?.payload?.sessionId
+                  if (sessionId) setViewingSessionId(sessionId)
+                }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis
@@ -164,7 +185,14 @@ export default function GoalDetail() {
                   dataKey="value"
                   stroke="var(--color-primary)"
                   strokeWidth={2}
+                  // Το recharts αποδίδει ΞΕΧΩΡΙΣΤΟ "active dot" layer πάνω από το κανονικό dot όταν ένα
+                  // σημείο γίνεται hover/active (για το Tooltip) — χωρίς δικό του activeDot, αυτό το
+                  // layer καταναλώνει το pointer event πριν φτάσει στο δικό μας onClick, κάνοντας το
+                  // κλικ αναξιόπιστο (επιβεβαιώθηκε live: raw κλικ στις συντεταγμένες του dot δεν
+                  // άνοιγε το modal). Ίδιο component και στα δύο — ό,τι layer βρίσκεται από πάνω τη
+                  // δεδομένη στιγμή, ανταποκρίνεται με το ίδιο onClick/onKeyDown.
                   dot={<ClickableDot onSelect={setViewingSessionId} />}
+                  activeDot={<ClickableDot onSelect={setViewingSessionId} />}
                 />
               </LineChart>
             </ResponsiveContainer>

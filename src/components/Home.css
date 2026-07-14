@@ -208,6 +208,17 @@
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
+/* Πιο έντονη οπτικά από τις υπόλοιπες quick actions — η πιο συχνή ενέργεια της ημέρας. */
+.dashboard-action-card--primary {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+.dashboard-action-card--primary .dashboard-action-icon {
+  background: var(--color-primary);
+  color: #fff;
+}
+
 .dashboard-action-link {
   display: flex;
   align-items: center;
@@ -354,4 +365,38 @@
   text-decoration: none;
   font-size: var(--font-sm);
   font-weight: 600;
+}
+
+/* ---------- Mobile "Νέα συνεδρία" FAB ---------- */
+/* Ίδιο σχήμα/θέση με το .teaching-mode__fab (TeachingMode.css) — συνειδητή μικρή επανάληψη ενός
+   καθιερωμένου μικρο-pattern (συμπαγές FAB κάτω-δεξιά), όχι νέο οπτικό ύφος. Ορατό ΜΟΝΟ σε mobile
+   πλάτη — σε tablet/desktop η κάρτα «Νέα συνεδρία» είναι ήδη άμεσα ορατή χωρίς scroll. */
+.dashboard-new-session-fab {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .dashboard-new-session-fab {
+    position: fixed;
+    right: var(--space-4);
+    bottom: calc(var(--shell-bottom-nav-height) + var(--space-4));
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 48px;
+    padding: 0 var(--space-4);
+    border-radius: 999px;
+    background: var(--color-primary);
+    color: #fff;
+    text-decoration: none;
+    font-size: var(--font-sm);
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  }
+
+  .dashboard-new-session-fab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }

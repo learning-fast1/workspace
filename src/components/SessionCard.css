@@ -1,0 +1,66 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.session-card {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Θέση/z-index/focus: βλ. .stretched-link στο ui/Card.css — εδώ πάνω σε <button>, όχι <Link>. */
+
+.session-card__top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.session-card__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-card__date {
+  font-weight: 700;
+  margin: 0;
+}
+
+.session-card__students {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+.session-card__student {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.session-card__student--absent {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.session-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.session-card__duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+}
+
+.session-card__preview {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

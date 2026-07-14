@@ -14,6 +14,11 @@ export const STATUSES = [
   { value: 'archived', label: 'Αρχειοθετημένος' }
 ]
 
+// Κοινή αντιστοίχιση σε Badge variant — μία πηγή αλήθειας για GoalCard/GoalDetail (και όπου
+// αλλού χρειαστεί), ώστε το ίδιο priority/status να μη ζωγραφίζεται διαφορετικά σε δύο οθόνες.
+export const PRIORITY_BADGE_VARIANT = { high: 'danger', medium: 'warning', low: 'neutral' }
+export const STATUS_BADGE_VARIANT = { active: 'primary', achieved: 'success', revised: 'warning', archived: 'neutral' }
+
 export function priorityLabel(value) {
   return PRIORITIES.find((p) => p.value === value)?.label || value
 }

@@ -38,10 +38,85 @@
   margin: var(--space-2) 0 0;
 }
 
+.report-tab__generate-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Ίδιο "discreet disclosure" pattern με .student-profile__activity-history — δεύτερη χρήση,
+   μικρή σκόπιμη επανάληψη CSS αντί για πρόωρη αφαίρεση σε κοινό component (βλ. σχόλιο εκεί). */
+.report-tab__history {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.report-tab__history > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  list-style: none;
+}
+
+.report-tab__history > summary::-webkit-details-marker {
+  display: none;
+}
+
+.report-tab__history > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: var(--space-2);
+  transition: transform 160ms ease;
+}
+
+.report-tab__history[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.report-tab__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.report-tab__history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.report-tab__history-item:hover {
+  background: var(--color-surface-soft);
+}
+
+.report-tab__draft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
 .report-tab__draft-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-md);
   font-weight: 600;
-  margin: 0 0 var(--space-3);
+  margin: 0;
 }
 
 .report-tab__textarea {

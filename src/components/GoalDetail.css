@@ -1,0 +1,40 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.goal-detail__info,
+.goal-detail__chart-card {
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.goal-detail__info p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-sm);
+}
+
+.goal-detail__badges {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.goal-detail__chart-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  margin: 0 0 var(--space-4);
+}
+
+.goal-detail__chart-dot {
+  cursor: pointer;
+}
+
+.goal-detail__chart-dot:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.goal-detail__chart-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: var(--space-2) 0 0;
+  text-align: center;
+}

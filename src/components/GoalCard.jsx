@@ -1,14 +1,11 @@
 import { Link } from 'react-router-dom'
 import { CalendarClock, Pencil } from 'lucide-react'
-import { STATUSES } from '../config/goalOptions.js'
+import { STATUSES, PRIORITY_BADGE_VARIANT, STATUS_BADGE_VARIANT } from '../config/goalOptions.js'
 import Card from './ui/Card.jsx'
 import Badge from './ui/Badge.jsx'
 import ProgressBar from './ui/ProgressBar.jsx'
 import OverflowMenu from './ui/OverflowMenu.jsx'
 import './GoalCard.css'
-
-const PRIORITY_BADGE_VARIANT = { high: 'danger', medium: 'warning', low: 'neutral' }
-const STATUS_BADGE_VARIANT = { active: 'primary', achieved: 'success', revised: 'warning', archived: 'neutral' }
 
 // Καθαρά presentational — καμία query. Όλα τα δεδομένα (progressPercent/progressLabel ήδη
 // κανονικοποιημένα, lastMeasuredLabel ήδη μορφοποιημένο) υπολογίζονται συγκεντρωτικά στο

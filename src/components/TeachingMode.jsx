@@ -14,6 +14,7 @@ import Button from './ui/Button.jsx'
 import Modal from './ui/Modal.jsx'
 import FormField from './ui/FormField.jsx'
 import Input from './ui/Input.jsx'
+import DateField from './ui/DateField.jsx'
 import Select from './ui/Select.jsx'
 import Textarea from './ui/Textarea.jsx'
 import EmptyState from './ui/EmptyState.jsx'
@@ -364,8 +365,8 @@ export default function TeachingMode() {
           </>
         }
       >
-        <FormField htmlFor="sessionDate" label="Ημερομηνία" helperText="Ξέχασες να την περάσεις χθες; Άλλαξε εδώ την ημερομηνία.">
-          <Input id="sessionDate" type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+        <FormField htmlFor="sessionDate" label="Ημερομηνία">
+          <DateField id="sessionDate" value={sessionDate} onChange={setSessionDate} />
         </FormField>
 
         <FormField htmlFor="customDuration" label="Διάρκεια">

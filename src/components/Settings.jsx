@@ -8,7 +8,8 @@ const TABLE_LABELS = {
   domainTemplates: 'Templates τομέων',
   sessions: 'Συνεδρίες',
   measurements: 'Μετρήσεις',
-  observations: 'Παρατηρήσεις'
+  observations: 'Παρατηρήσεις',
+  reports: 'Εκθέσεις'
 }
 
 export default function Settings() {

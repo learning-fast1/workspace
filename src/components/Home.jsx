@@ -169,17 +169,9 @@ export default function Home() {
 
       <h2 className="dashboard-section-title">Γρήγορες ενέργειες</h2>
       <div className="dashboard-actions">
-        <div className="dashboard-action-card">
-          <Link to="/students/new" className="dashboard-action-link">
-            <span className="dashboard-action-icon">
-              <UserPlus size={20} />
-            </span>
-            Νέος μαθητής
-          </Link>
-          <p className="dashboard-action-desc">Πρόσθεσε νέο μαθητή στο σύστημα.</p>
-        </div>
-
-        <div className="dashboard-action-card">
+        {/* «Νέα συνεδρία» πρώτη και οπτικά πιο έντονη (--primary) — η πιο συχνή ενέργεια της ημέρας
+            (SPEC.md: «η συνεδρία είναι το κέντρο»), ΟΧΙ nav item (βλ. shell/navItems.js). */}
+        <div className="dashboard-action-card dashboard-action-card--primary">
           <span className="dashboard-action-link">
             <span className="dashboard-action-icon">
               <CalendarPlus size={20} />
@@ -191,6 +183,16 @@ export default function Home() {
             <Link to="/teaching/individual" className="dashboard-action-sublink">Ατομικό</Link>
             <Link to="/teaching/group" className="dashboard-action-sublink">Ομαδικό</Link>
           </div>
+        </div>
+
+        <div className="dashboard-action-card">
+          <Link to="/students/new" className="dashboard-action-link">
+            <span className="dashboard-action-icon">
+              <UserPlus size={20} />
+            </span>
+            Νέος μαθητής
+          </Link>
+          <p className="dashboard-action-desc">Πρόσθεσε νέο μαθητή στο σύστημα.</p>
         </div>
 
         <div className="dashboard-action-card">
@@ -213,6 +215,14 @@ export default function Home() {
           <p className="dashboard-action-desc">Επαναφορά δεδομένων από αρχείο JSON.</p>
         </div>
       </div>
+
+      {/* Mobile-only συντόμευση — ένα tap στο πιο συχνό ξεκίνημα (ατομικό) χωρίς να χρειάζεται
+          scroll μέχρι τις γρήγορες ενέργειες. Κρυφό σε tablet/desktop (βλ. Home.css) όπου η κάρτα
+          παραπάνω είναι ήδη άμεσα ορατή. Ίδιο οπτικό pattern με το teaching-mode__fab. */}
+      <Link to="/teaching/individual" className="dashboard-new-session-fab" aria-label="Νέα συνεδρία">
+        <CalendarPlus size={20} aria-hidden="true" />
+        Νέα συνεδρία
+      </Link>
 
       <h2 className="dashboard-section-title">Πρόσφατη δραστηριότητα</h2>
       <div className="dashboard-activity">

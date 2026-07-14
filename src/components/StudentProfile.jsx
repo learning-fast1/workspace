@@ -16,6 +16,7 @@ import FunctionalProfileEditor from './FunctionalProfileEditor.jsx'
 import PreferencesEditor from './PreferencesEditor.jsx'
 import GoalsList from './GoalsList.jsx'
 import StudentTimeline from './StudentTimeline.jsx'
+import SessionHistory from './SessionHistory.jsx'
 import ReportTab from './ReportTab.jsx'
 import './StudentProfile.css'
 
@@ -155,7 +156,14 @@ export default function StudentProfile() {
         <GoalsList studentId={studentId} />
       </div>
       <div role="tabpanel" id="tabpanel-sessions" aria-labelledby="tab-sessions" hidden={activeTab !== 'sessions'}>
-        <StudentTimeline studentId={studentId} />
+        <SessionHistory studentId={studentId} embedded />
+        {/* Δευτερεύουσα προβολή — η αφηγηματική χρονολόγηση (goals/sessions/observations μαζί) δεν
+            χάνεται, απλά δεν κυριαρχεί πλέον οπτικά. Native <details> αντί για tab: αποφεύγει nested
+            tabs-μέσα-σε-tab, μηδενικό επιπλέον state, δωρεάν προσβασιμότητα (πληκτρολόγιο/screen reader). */}
+        <details className="student-profile__activity-history">
+          <summary>Ιστορικό δραστηριότητας</summary>
+          <StudentTimeline studentId={studentId} />
+        </details>
       </div>
       <div role="tabpanel" id="tabpanel-profile" aria-labelledby="tab-profile" hidden={activeTab !== 'profile'}>
         {student.notes && (

@@ -43,6 +43,22 @@ db.version(5).stores({
   appMeta: 'key'
 })
 
+db.version(6).stores({
+  students: '++id, code, active',
+  goals: '++id, studentId, status, priority',
+  domainTemplates: 'domain',
+  sessions: '++id, date',
+  measurements: '++id, sessionId, studentId, goalId',
+  observations: '++id, studentId, date',
+  appMeta: 'key',
+  // Επίμονο (persisted) προσχέδιο έκθεσης — αντικαθιστά το εφήμερο local state του ReportTab, ώστε
+  // να επιβιώνει σε refresh/αλλαγή tab και να υπάρχει ιστορικό εκθέσεων ανά μαθητή. `type`: σήμερα
+  // πάντα 'progress' — το πεδίο υπάρχει από τώρα ώστε μελλοντικοί τύποι έκθεσης (π.χ. AI-generated
+  // σύνοψη) να μην απαιτήσουν νέο migration, μόνο νέα τιμή. `status`: 'draft' | 'final' — καθαρά
+  // ετικέτα/φίλτρο, δεν κλειδώνει την επεξεργασία.
+  reports: '++id, studentId, generatedAt'
+})
+
 // Ονόματα πινάκων δεδομένων προς backup — αντλείται απευθείας από το σχήμα της Dexie (όχι
 // ξεχωριστή χειροκίνητη λίστα), ώστε ένας νέος πίνακας σε μελλοντική db.version() να μπαίνει
 // αυτόματα στο backup χωρίς να χρειάζεται να θυμηθεί κανείς να τον προσθέσει εδώ.
@@ -165,6 +181,24 @@ export async function deleteStudent(studentId) {
     }
 
     await db.students.delete(studentId)
+  })
+}
+
+// Διαγραφή συνεδρίας: οι μετρήσεις της διαγράφονται μαζί της (δεν έχουν νόημα χωρίς τη συνεδρία
+// που τις παρήγαγε). Οι παρατηρήσεις που τυχόν συνδέονται με sessionId ΔΕΝ διαγράφονται — μόνο
+// αποσυνδέονται (sessionId: null) — παραμένουν έγκυρο ιστορικό γεγονός ακόμα κι αν η συνεδρία
+// διαγραφεί (π.χ. λανθασμένη καταχώρηση).
+export async function deleteSession(sessionId) {
+  await db.transaction('rw', [db.sessions, db.measurements, db.observations], async () => {
+    await db.measurements.where('sessionId').equals(sessionId).delete()
+    // sessionId δεν είναι indexed πεδίο στο observations (μόνο studentId/date) — φιλτράρισμα στη
+    // μνήμη αντί για .where(), ίδιο μοτίβο με το deleteStudent() παραπάνω.
+    const allObservations = await db.observations.toArray()
+    const linkedObservations = allObservations.filter((o) => o.sessionId === sessionId)
+    for (const o of linkedObservations) {
+      await db.observations.update(o.id, { sessionId: null })
+    }
+    await db.sessions.delete(sessionId)
   })
 }
 

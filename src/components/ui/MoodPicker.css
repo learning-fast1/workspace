@@ -1,0 +1,72 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.mood-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mood-picker__label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.mood-picker__options {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.mood-picker__option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.mood-picker__option:hover {
+  background: var(--color-surface-soft);
+}
+
+.mood-picker__option--selected.mood-picker__option--success {
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.mood-picker__option--selected.mood-picker__option--primary {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.mood-picker__option--selected.mood-picker__option--neutral {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
+.mood-picker__option--selected.mood-picker__option--warning {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.mood-picker__option--selected.mood-picker__option--danger {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.mood-picker__option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

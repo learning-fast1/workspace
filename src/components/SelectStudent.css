@@ -13,3 +13,10 @@
   justify-content: flex-end;
   max-width: 480px;
 }
+
+.select-student-warning {
+  max-width: 480px;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: 0 0 var(--space-3);
+}

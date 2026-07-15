@@ -17,6 +17,7 @@ import { db, getLastBackupAt } from '../db.js'
 import { sessionDateMap } from '../utils/sessions.js'
 import { formatDateEl, todayLocalISO } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
+import TodayQueue from './TodayQueue.jsx'
 import './Home.css'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
@@ -31,17 +32,21 @@ async function checkBackupReminder() {
   return { needed: days > BACKUP_REMINDER_AFTER_DAYS, days }
 }
 
-// Ενεργοί στόχοι (ενεργών μαθητών) χωρίς μέτρηση πάνω από STALE_AFTER_DAYS μέρες.
-// Reference ημερομηνία: η πιο πρόσφατη μέτρηση του στόχου, αλλιώς η ημερομηνία έναρξής του.
+// Ενεργοί στόχοι (ενεργών μαθητών) χωρίς μέτρηση πάνω από STALE_AFTER_DAYS μέρες, ΕΚΤΟΣ όσων
+// μαθητών βρίσκονται ήδη στη σημερινή «Η μέρα μου» — αυτοί βλέπουν το ίδιο σήμα inline στη δική
+// τους γραμμή (utils/attentionSignal.js), ώστε να μη φαίνεται δύο φορές (Sprint 5 Product Design:
+// «Για μαθητή εκτός σημερινής ουράς παραμένει μια πολύ μικρή, ξεχωριστή γραμμή»).
 async function findStaleGoals() {
-  const [students, goals, measurements, sessions] = await Promise.all([
+  const [students, goals, measurements, sessions, todayQueue] = await Promise.all([
     db.students.toArray(),
     db.goals.where('status').equals('active').toArray(),
     db.measurements.toArray(),
-    db.sessions.toArray()
+    db.sessions.toArray(),
+    db.dailyQueue.where('date').equals(todayLocalISO()).toArray()
   ])
 
   const activeStudentIds = new Set(students.filter((s) => s.active).map((s) => s.id))
+  const queuedStudentIds = new Set(todayQueue.flatMap((e) => e.studentIds))
   const sessionDateById = sessionDateMap(sessions)
 
   const lastMeasuredByGoal = {}
@@ -57,6 +62,7 @@ async function findStaleGoals() {
   const stale = []
   for (const g of goals) {
     if (!activeStudentIds.has(g.studentId)) continue
+    if (queuedStudentIds.has(g.studentId)) continue
     const referenceDate = lastMeasuredByGoal[g.id] || g.startDate
     if (!referenceDate) continue
     const days = Math.floor((today - new Date(referenceDate)) / MS_PER_DAY)
@@ -78,26 +84,36 @@ async function loadDashboardStats() {
   ])
   const activeStudentIds = new Set(students.filter((s) => s.active).map((s) => s.id))
   const today = todayLocalISO()
+  // Sprint 6: μια notHeld συνεδρία δεν μετράει σαν πραγματική συνεδρία εδώ — ίδιο σκεπτικό με το
+  // loadHeroStats/loadRecentActivity παραπάνω.
+  const heldSessions = sessions.filter((s) => s.status !== 'notHeld')
   return {
     activeStudents: activeStudentIds.size,
-    sessionsToday: sessions.filter((s) => s.date === today).length,
-    totalSessions: sessions.length,
+    sessionsToday: heldSessions.filter((s) => s.date === today).length,
+    totalSessions: heldSessions.length,
     activeGoals: goals.filter((g) => activeStudentIds.has(g.studentId)).length
   }
 }
 
 async function loadRecentActivity() {
-  const [sessions, students] = await Promise.all([
-    db.sessions.orderBy('date').reverse().limit(5).toArray(),
+  // Sprint 6: μια συνεδρία που καταγράφηκε απευθείας ως notHeld (δεν πραγματοποιήθηκε) δεν είναι
+  // πραγματική δραστηριότητα διδασκαλίας — δεν πρέπει να εμφανίζεται σαν «Συνεδρία με Χ» εδώ, ίδιο
+  // σκεπτικό με το loadHeroStats του StudentProfile.jsx. Παίρνουμε λίγο παραπάνω από 5 πριν το
+  // φίλτρο, ώστε η λίστα να μην αδειάζει άδικα όταν οι πιο πρόσφατες εγγραφές ήταν notHeld.
+  const [recentSessions, students] = await Promise.all([
+    db.sessions.orderBy('date').reverse().limit(20).toArray(),
     db.students.toArray()
   ])
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
-  return sessions.map((s) => ({
-    id: s.id,
-    date: s.date,
-    durationMinutes: s.durationMinutes,
-    studentLabel: s.studentIds.map((id) => studentById[id]?.code).filter(Boolean).join(', ') || '—'
-  }))
+  return recentSessions
+    .filter((s) => s.status !== 'notHeld')
+    .slice(0, 5)
+    .map((s) => ({
+      id: s.id,
+      date: s.date,
+      durationMinutes: s.durationMinutes,
+      studentLabel: s.studentIds.map((id) => studentById[id]?.code).filter(Boolean).join(', ') || '—'
+    }))
 }
 
 function StatCard({ icon: Icon, label, value, emptyHint }) {
@@ -141,6 +157,8 @@ export default function Home() {
         </div>
       )}
 
+      <TodayQueue />
+
       {staleGoals && staleGoals.length > 0 && (
         <div className="dashboard-notice">
           <AlertTriangle size={20} className="dashboard-notice-icon" />
@@ -169,16 +187,17 @@ export default function Home() {
 
       <h2 className="dashboard-section-title">Γρήγορες ενέργειες</h2>
       <div className="dashboard-actions">
-        {/* «Νέα συνεδρία» πρώτη και οπτικά πιο έντονη (--primary) — η πιο συχνή ενέργεια της ημέρας
-            (SPEC.md: «η συνεδρία είναι το κέντρο»), ΟΧΙ nav item (βλ. shell/navItems.js). */}
-        <div className="dashboard-action-card dashboard-action-card--primary">
+        {/* «Νέα συνεδρία» πλέον ίδιου βάρους με τις υπόλοιπες — για έκτακτη/απρόγραμμη συνεδρία
+            εκτός «Η μέρα μου», που είναι πλέον ο πρωταγωνιστής της Αρχικής (Sprint 5). ΟΧΙ nav
+            item (βλ. shell/navItems.js). */}
+        <div className="dashboard-action-card">
           <span className="dashboard-action-link">
             <span className="dashboard-action-icon">
               <CalendarPlus size={20} />
             </span>
             Νέα συνεδρία
           </span>
-          <p className="dashboard-action-desc">Ξεκίνα ατομική ή ομαδική συνεδρία τώρα.</p>
+          <p className="dashboard-action-desc">Ξεκίνα έκτακτη ατομική ή ομαδική συνεδρία τώρα.</p>
           <div className="dashboard-action-subrow">
             <Link to="/teaching/individual" className="dashboard-action-sublink">Ατομικό</Link>
             <Link to="/teaching/group" className="dashboard-action-sublink">Ομαδικό</Link>

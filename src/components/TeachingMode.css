@@ -130,3 +130,16 @@
   gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
+
+.teaching-mode__mood-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.teaching-mode__mood-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  margin: 0;
+}

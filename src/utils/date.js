@@ -20,6 +20,24 @@ export function yesterdayLocalISO() {
   return toLocalISO(d)
 }
 
+// Ημέρα εβδομάδας (0=Κυριακή...6=Σάββατο) από ένα YYYY-MM-DD string. ΟΧΙ new Date(dateStr).getDay()
+// απευθείας — το string-based Date parsing γίνεται σε UTC, που κοντά στα μεσάνυχτα μπορεί να
+// δώσει τη ΛΑΘΟΣ ημέρα σε τοπική ώρα Ελλάδας (ίδιο ζήτημα με το toLocalISO παραπάνω). Ο (year,
+// monthIndex, day) constructor πάντα ερμηνεύεται σε τοπική ώρα.
+export function weekdayOf(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day).getDay()
+}
+
+// Προσθέτει (ή αφαιρεί, με αρνητικό delta) μέρες σε ένα YYYY-MM-DD string, σε τοπική ώρα —
+// ίδιο σκεπτικό με το weekdayOf παραπάνω (constructor (y,m,d), όχι string parsing σε UTC).
+export function addDays(dateStr, delta) {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const d = new Date(year, month - 1, day)
+  d.setDate(d.getDate() + delta)
+  return toLocalISO(d)
+}
+
 // Ελληνική, ανθρώπινα αναγνώσιμη μορφή μιας ημερομηνίας YYYY-MM-DD (π.χ. «9 Ιουλ 2026»).
 export function formatDateEl(dateStr) {
   return new Date(dateStr).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: 'numeric' })

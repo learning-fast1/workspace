@@ -26,15 +26,24 @@
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
-/* Stretched-link μοτίβο, κοινό σε όλες τις "όλη η κάρτα clickable" χρήσεις (StudentCard, GoalCard):
-   ένα Link καλύπτει όλη την κάρτα, ενώ ένα OverflowMenu (ή άλλο interactive στοιχείο) μένει αδελφό
-   με μεγαλύτερο z-index ώστε τα δικά του κλικ να "νικάνε". Μία πηγή αλήθειας εδώ αντί να
-   ξαναγράφεται σε κάθε *Card.css. */
+/* Stretched-link μοτίβο, κοινό σε όλες τις "όλη η κάρτα clickable" χρήσεις (StudentCard, GoalCard,
+   SessionCard, TodayQueueItem): ένα στοιχείο καλύπτει όλη την κάρτα, ενώ ένα OverflowMenu (ή άλλο
+   interactive στοιχείο) μένει αδελφό με μεγαλύτερο z-index ώστε τα δικά του κλικ να "νικάνε". Μία
+   πηγή αλήθειας εδώ αντί να ξαναγράφεται σε κάθε *Card.css.
+   Background/border/padding/font reset: no-op όταν το στοιχείο είναι `<Link>`/`<a>` (ήδη διάφανο
+   από προεπιλογή), αλλά ΑΠΑΡΑΙΤΗΤΟ όταν είναι `<button>` (SessionCard/TodayQueueItem) — χωρίς αυτό
+   ο browser αποδίδει το προεπιλεγμένο αδιαφανές γκρι φόντο του button ΠΑΝΩ από το περιεχόμενο της
+   κάρτας, κρύβοντάς το οπτικά παρότι υπάρχει σωστά στο DOM (βρέθηκε σε πραγματικό έλεγχο, Sprint 5). */
 .stretched-link {
   position: absolute;
   inset: 0;
   z-index: 1;
   border-radius: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
 .stretched-link:focus-visible {

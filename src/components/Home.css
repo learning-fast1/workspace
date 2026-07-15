@@ -208,17 +208,6 @@
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
-/* Πιο έντονη οπτικά από τις υπόλοιπες quick actions — η πιο συχνή ενέργεια της ημέρας. */
-.dashboard-action-card--primary {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary);
-}
-
-.dashboard-action-card--primary .dashboard-action-icon {
-  background: var(--color-primary);
-  color: #fff;
-}
-
 .dashboard-action-link {
   display: flex;
   align-items: center;

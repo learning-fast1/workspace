@@ -21,10 +21,10 @@ import ReportTab from './ReportTab.jsx'
 import './StudentProfile.css'
 
 const TABS = [
-  { id: 'goals', label: 'Στόχοι' },
-  { id: 'sessions', label: 'Συνεδρίες' },
   { id: 'profile', label: 'Προφίλ' },
   { id: 'preferences', label: 'Ενισχυτές' },
+  { id: 'goals', label: 'Στόχοι' },
+  { id: 'sessions', label: 'Συνεδρίες' },
   { id: 'report', label: 'Έκθεση' }
 ]
 
@@ -67,6 +67,9 @@ async function loadHeroStats(studentId) {
   for (const s of sessions) {
     if (!s.studentIds?.includes(studentId)) continue
     if (s.absentStudentIds?.includes(studentId)) continue
+    // Sprint 6: μια συνεδρία που καταγράφηκε απευθείας ως notHeld (δεν πραγματοποιήθηκε) δεν
+    // μετράει ως πραγματική συνεδρία εδώ — ίδιο σκεπτικό με το absentStudentIds παραπάνω.
+    if (s.status === 'notHeld') continue
     totalSessions++
     if (!lastSessionDate || s.date > lastSessionDate) lastSessionDate = s.date
   }
@@ -152,19 +155,6 @@ export default function StudentProfile() {
 
       {/* Όλα τα tab panels μένουν ΠΑΝΤΑ mounted (hidden attribute, όχι conditional unmount) — αλλιώς
           η εναλλαγή tab θα πετούσε π.χ. ένα μισο-γραμμένο προσχέδιο έκθεσης στο tab Έκθεση. */}
-      <div role="tabpanel" id="tabpanel-goals" aria-labelledby="tab-goals" hidden={activeTab !== 'goals'}>
-        <GoalsList studentId={studentId} />
-      </div>
-      <div role="tabpanel" id="tabpanel-sessions" aria-labelledby="tab-sessions" hidden={activeTab !== 'sessions'}>
-        <SessionHistory studentId={studentId} embedded />
-        {/* Δευτερεύουσα προβολή — η αφηγηματική χρονολόγηση (goals/sessions/observations μαζί) δεν
-            χάνεται, απλά δεν κυριαρχεί πλέον οπτικά. Native <details> αντί για tab: αποφεύγει nested
-            tabs-μέσα-σε-tab, μηδενικό επιπλέον state, δωρεάν προσβασιμότητα (πληκτρολόγιο/screen reader). */}
-        <details className="student-profile__activity-history">
-          <summary>Ιστορικό δραστηριότητας</summary>
-          <StudentTimeline studentId={studentId} />
-        </details>
-      </div>
       <div role="tabpanel" id="tabpanel-profile" aria-labelledby="tab-profile" hidden={activeTab !== 'profile'}>
         {student.notes && (
           <div className="student-profile__notes">
@@ -179,6 +169,19 @@ export default function StudentProfile() {
       </div>
       <div role="tabpanel" id="tabpanel-preferences" aria-labelledby="tab-preferences" hidden={activeTab !== 'preferences'}>
         <PreferencesEditor preferences={student.preferences || {}} onChange={handlePreferencesChange} />
+      </div>
+      <div role="tabpanel" id="tabpanel-goals" aria-labelledby="tab-goals" hidden={activeTab !== 'goals'}>
+        <GoalsList studentId={studentId} />
+      </div>
+      <div role="tabpanel" id="tabpanel-sessions" aria-labelledby="tab-sessions" hidden={activeTab !== 'sessions'}>
+        <SessionHistory studentId={studentId} embedded />
+        {/* Δευτερεύουσα προβολή — η αφηγηματική χρονολόγηση (goals/sessions/observations μαζί) δεν
+            χάνεται, απλά δεν κυριαρχεί πλέον οπτικά. Native <details> αντί για tab: αποφεύγει nested
+            tabs-μέσα-σε-tab, μηδενικό επιπλέον state, δωρεάν προσβασιμότητα (πληκτρολόγιο/screen reader). */}
+        <details className="student-profile__activity-history">
+          <summary>Ιστορικό δραστηριότητας</summary>
+          <StudentTimeline studentId={studentId} />
+        </details>
       </div>
       <div role="tabpanel" id="tabpanel-report" aria-labelledby="tab-report" hidden={activeTab !== 'report'}>
         <ReportTab student={student} studentId={studentId} />

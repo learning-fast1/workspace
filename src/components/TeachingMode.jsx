@@ -17,6 +17,7 @@ import Input from './ui/Input.jsx'
 import DateField from './ui/DateField.jsx'
 import Select from './ui/Select.jsx'
 import Textarea from './ui/Textarea.jsx'
+import MoodPicker from './ui/MoodPicker.jsx'
 import EmptyState from './ui/EmptyState.jsx'
 import Tabs from './ui/Tabs.jsx'
 import ToggleRow from './ui/ToggleRow.jsx'
@@ -61,6 +62,8 @@ export default function TeachingMode() {
   const [sessionDate, setSessionDate] = useState(todayLocalISO)
   const [sessionDuration, setSessionDuration] = useState(null)
   const [customDuration, setCustomDuration] = useState('')
+  // Διάθεση μαθητή κατά τη συνεδρία — προαιρετική, ανά μαθητή (Sprint 5). { [studentId]: moodValue }.
+  const [moods, setMoods] = useState({})
   const [savingSession, setSavingSession] = useState(false)
   // Ref εκτός από state: το setState δεν εφαρμόζεται συγχρονισμένα, οπότε δύο κλικ στο ίδιο tick
   // (γρήγορο διπλό tap) θα διάβαζαν και τα δύο το παλιό savingSession=false. Το ref ενημερώνεται αμέσως.
@@ -188,6 +191,15 @@ export default function TeachingMode() {
     setSessionDuration(value && n > 0 ? n : null)
   }
 
+  function setMood(studentId, value) {
+    setMoods((prev) => {
+      const next = { ...prev }
+      if (value === null) delete next[studentId]
+      else next[studentId] = value
+      return next
+    })
+  }
+
   async function handleSaveSession() {
     if (savingSessionRef.current) return // αποτρέπει διπλή αποθήκευση από γρήγορο διπλό tap
     savingSessionRef.current = true
@@ -200,7 +212,8 @@ export default function TeachingMode() {
         absentStudentIds: [...absentIds],
         durationMinutes: sessionDuration,
         activity: '',
-        note: ''
+        note: '',
+        moods
       })
 
       const entries = Object.entries(measurements)
@@ -390,6 +403,19 @@ export default function TeachingMode() {
             onChange={(e) => handleCustomDurationChange(e.target.value)}
           />
         </FormField>
+
+        <div className="teaching-mode__mood-section">
+          <p className="teaching-mode__mood-title">Διάθεση μαθητή</p>
+          {isGroup
+            ? students
+                .filter((s) => !absentIds.has(s.id))
+                .map((s) => (
+                  <MoodPicker key={s.id} label={s.code} value={moods[s.id] || null} onChange={(v) => setMood(s.id, v)} />
+                ))
+            : students[0] && (
+                <MoodPicker value={moods[students[0].id] || null} onChange={(v) => setMood(students[0].id, v)} />
+              )}
+        </div>
       </Modal>
 
       <Modal

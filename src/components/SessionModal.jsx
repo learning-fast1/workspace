@@ -14,6 +14,8 @@ import Input from './ui/Input.jsx'
 import DateField from './ui/DateField.jsx'
 import Select from './ui/Select.jsx'
 import Textarea from './ui/Textarea.jsx'
+import MoodPicker from './ui/MoodPicker.jsx'
+import { moodOption } from '../config/moodOptions.js'
 import './SessionModal.css'
 
 // Αυτόνομο query με βάση μόνο το sessionId — επαναχρησιμοποιήσιμο από οπουδήποτε (Session History,
@@ -59,6 +61,7 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
   const [customDuration, setCustomDuration] = useState('')
   const [activity, setActivity] = useState('')
   const [note, setNote] = useState('')
+  const [moods, setMoods] = useState({})
   const [saving, setSaving] = useState(false)
 
   const detail = useLiveQuery(() => loadSessionDetail(sessionId), [sessionId])
@@ -80,6 +83,16 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
     setCustomDuration('')
     setActivity(s.activity || '')
     setNote(s.note || '')
+    setMoods(s.moods || {})
+  }
+
+  function setMood(studentId, value) {
+    setMoods((prev) => {
+      const next = { ...prev }
+      if (value === null) delete next[studentId]
+      else next[studentId] = value
+      return next
+    })
   }
 
   function handleEditClick() {
@@ -106,7 +119,7 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
   async function handleSave() {
     setSaving(true)
     try {
-      await db.sessions.update(sessionId, { date, status, durationMinutes: duration, activity, note })
+      await db.sessions.update(sessionId, { date, status, durationMinutes: duration, activity, note, moods })
       setMode('view')
     } finally {
       setSaving(false)
@@ -190,6 +203,20 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
           <FormField htmlFor="sessionModalNote" label="Σημείωση">
             <Textarea id="sessionModalNote" value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
+
+          <div className="session-modal__mood-section">
+            <p className="session-modal__mood-title">Διάθεση μαθητή</p>
+            {session.studentIds
+              .filter((id) => !session.absentStudentIds?.includes(id))
+              .map((id) => (
+                <MoodPicker
+                  key={id}
+                  label={studentById[id]?.code}
+                  value={moods[id] || null}
+                  onChange={(v) => setMood(id, v)}
+                />
+              ))}
+          </div>
         </div>
       ) : (
         <div className="session-detail">
@@ -214,12 +241,14 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
             const isAbsent = session.absentStudentIds?.includes(studentId)
             const studentMeasurements = measurementsByStudent[studentId] || []
             const studentObservations = observations.filter((o) => o.studentId === studentId)
+            const studentMoodDef = moodOption(session.moods?.[studentId])
 
             return (
               <div key={studentId} className="session-detail__student">
                 <h3 className="session-detail__student-name">
                   {student?.code || '—'}
                   {isAbsent && <Badge variant="neutral">Απών</Badge>}
+                  {studentMoodDef && <studentMoodDef.icon size={16} aria-label={studentMoodDef.label} />}
                 </h3>
 
                 {!isAbsent && studentMeasurements.length === 0 && studentObservations.length === 0 && (

@@ -7,9 +7,14 @@ import GoalWizardForm from './components/GoalWizardForm.jsx'
 import GoalDetail from './components/GoalDetail.jsx'
 import SelectIndividualStudent from './components/SelectIndividualStudent.jsx'
 import SelectGroupStudents from './components/SelectGroupStudents.jsx'
+import AddIndividualToToday from './components/AddIndividualToToday.jsx'
+import AddGroupToToday from './components/AddGroupToToday.jsx'
 import TeachingMode from './components/TeachingMode.jsx'
 import SessionHistory from './components/SessionHistory.jsx'
 import Settings from './components/Settings.jsx'
+import SchedulePage from './components/SchedulePage.jsx'
+import MonthlyCalendarPage from './components/MonthlyCalendarPage.jsx'
+import DayDetailPage from './components/DayDetailPage.jsx'
 
 // HashRouter: απαραίτητο για GitHub Pages ώστε refresh/deep links να δουλεύουν χωρίς server routing.
 export default function App() {
@@ -27,8 +32,13 @@ export default function App() {
         <Route path="/students/:id/goals/:goalId/edit" element={<GoalWizardForm mode="edit" />} />
         <Route path="/teaching/individual" element={<SelectIndividualStudent />} />
         <Route path="/teaching/group" element={<SelectGroupStudents />} />
+        <Route path="/today/add-individual" element={<AddIndividualToToday />} />
+        <Route path="/today/add-group" element={<AddGroupToToday />} />
         <Route path="/teaching/session/:studentIds" element={<TeachingMode />} />
         <Route path="/sessions" element={<SessionHistory />} />
+        <Route path="/schedule" element={<SchedulePage />} />
+        <Route path="/schedule/calendar" element={<MonthlyCalendarPage />} />
+        <Route path="/schedule/day/:date" element={<DayDetailPage />} />
       </Routes>
     </HashRouter>
   )

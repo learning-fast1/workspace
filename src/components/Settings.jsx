@@ -9,7 +9,11 @@ const TABLE_LABELS = {
   sessions: 'Συνεδρίες',
   measurements: 'Μετρήσεις',
   observations: 'Παρατηρήσεις',
-  reports: 'Εκθέσεις'
+  reports: 'Εκθέσεις',
+  dailyQueue: 'Σημερινή σειρά',
+  scheduleSlots: 'Πρόγραμμα',
+  scheduleExceptions: 'Εξαιρέσεις προγράμματος',
+  calendarEvents: 'Γεγονότα ημερολογίου'
 }
 
 export default function Settings() {

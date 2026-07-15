@@ -89,3 +89,12 @@
 .app-shell input {
   font-family: inherit;
 }
+
+/* Ενιαία 24ωρη μορφή ώρας παντού (Sprint 6 διόρθωση) — χωρίς αυτό, native <input type="time">
+   εμφανίζει 12ωρη μορφή με AM/PM σε browsers/λειτουργικά με 12ωρη τοπική ρύθμιση (π.χ. Windows
+   en-US), ενώ η υπόλοιπη εφαρμογή δείχνει πάντα 24ωρη ώρα. Το κρύψιμο του ampm πεδίου αναγκάζει
+   το Chromium να ερμηνεύσει/εμφανίσει το πεδίο ώρας σε εύρος 0-23 (επιβεβαιωμένο). Αφορά μόνο
+   WebKit/Chromium (-webkit- prefix) — δεν υπάρχει αντίστοιχο αξιόπιστο hook για άλλες μηχανές.*/
+.app-shell input[type="time"]::-webkit-datetime-edit-ampm-field {
+  display: none;
+}

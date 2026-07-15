@@ -1,0 +1,3 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css).
+   Καμία δική του διάταξη χρειάζεται προς το παρόν — η φόρμα βασίζεται εξ ολοκλήρου στο ήδη
+   υπάρχον FormField/Modal layout. Το αρχείο μένει για συνέπεια με τα υπόλοιπα components. */

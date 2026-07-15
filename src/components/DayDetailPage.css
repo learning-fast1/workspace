@@ -1,0 +1,49 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.day-detail__events {
+  margin-bottom: var(--space-6);
+}
+
+.day-detail__events-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.day-detail__events-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+}
+
+.day-detail__events-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.day-detail__event {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3);
+}
+
+.day-detail__event-title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.day-detail__event-time {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+/* Ρητή ένδειξη ότι η γραμμή είναι πατήσιμη (Sprint 6 διόρθωση) — πριν χρειαζόταν να «μαντέψει»
+   κανείς ότι όλη η κάρτα ανοίγει επεξεργασία/διαγραφή. */
+.day-detail__event-edit-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}

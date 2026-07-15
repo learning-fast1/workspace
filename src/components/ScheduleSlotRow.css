@@ -1,0 +1,76 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.schedule-slot-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.schedule-slot-row--paused {
+  opacity: 0.55;
+}
+
+.schedule-slot-row__color {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--slot-color);
+}
+
+/* Ώρα+διάρκεια στοιβαγμένα σε ένα συμπαγές block (αντί για ξεχωριστά flex στοιχεία στις δύο
+   άκρες της γραμμής) — η ώρα παραμένει το πιο εμφανές στοιχείο (Product Design: «η ώρα να
+   αναδεικνύεται περισσότερο οπτικά»), αλλά η στοίβαξη ελευθερώνει οριζόντιο χώρο για το όνομα σε
+   στενές στήλες του εβδομαδιαίου προγράμματος (πραγματικό bug που διορθώθηκε εδώ — 5 στήλες σε
+   ρεαλιστικό πλάτος desktop δεν άφηναν καθόλου χώρο για το όνομα με την παλιά, πλατύτερη διάταξη). */
+.schedule-slot-row__time-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+}
+
+.schedule-slot-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-slot-row__names {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-slot-row__label {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-slot-row__duration {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.schedule-slot-row__paused-tag {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}

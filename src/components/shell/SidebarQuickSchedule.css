@@ -1,0 +1,63 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Desktop/tablet μόνο — δεν
+   εμφανίζεται καθόλου στο mobile bottom nav (δεν γίνεται καν mount εκτός sidebar, βλ. Sidebar.jsx). */
+
+.sidebar-quick-schedule {
+  margin: 0 var(--space-4) var(--space-4);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
+.sidebar-quick-schedule__title {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.sidebar-quick-schedule__empty {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.sidebar-quick-schedule__list {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sidebar-quick-schedule__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.sidebar-quick-schedule__time {
+  font-weight: 700;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.sidebar-quick-schedule__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-quick-schedule__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+}

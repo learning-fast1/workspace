@@ -1,0 +1,141 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css).
+   Πλήρες grid μήνα σε ΟΛΑ τα breakpoints (Product Design, αναθεωρημένος γύρος — όχι agenda-list
+   σε mobile). Τα κελιά μένουν σκόπιμα ελάχιστα: αριθμός + το πολύ λίγες μικρές κουκκίδες — καμία
+   λίστα ονομάτων μέσα στο κελί, όλη η αλληλεπίδραση μετατίθεται στη λεπτομέρεια ημέρας. */
+
+.monthly-calendar__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.monthly-calendar__month-label {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  min-width: 200px;
+  text-align: center;
+}
+
+.monthly-calendar__weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.monthly-calendar__weekday {
+  text-align: center;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.monthly-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+
+/* Sprint 6 διόρθωση: min-height αντί για aspect-ratio:1 — τα κελιά χρειάζονται λίγο παραπάνω ύψος
+   για να χωρέσουν τις χρωματιστές ετικέτες με τίτλο (βλ. παρακάτω), όχι πια απλές τελείες. */
+.monthly-calendar__cell {
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: var(--space-1) var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-family: inherit;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.monthly-calendar__cell:hover {
+  background: var(--color-surface-soft);
+}
+
+.monthly-calendar__cell--outside {
+  opacity: 0.35;
+}
+
+.monthly-calendar__cell--today {
+  border-color: var(--color-primary);
+  border-width: 2px;
+}
+
+.monthly-calendar__cell-number {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 0 var(--space-1);
+}
+
+/* Ετικέτες κάτω από τον αριθμό — μικρές, διακριτικές, με πραγματικό τίτλο (Sprint 6 διόρθωση,
+   αντικαθιστά τις προηγούμενες αφηρημένες τελείες). Ρητό truncation (ellipsis) σε κάθε ετικέτα
+   ΚΑΙ max-width:100% στο container ώστε να ΜΗΝ προκαλείται ποτέ οριζόντιο overflow στο κελί. */
+.monthly-calendar__cell-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.monthly-calendar__label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 600;
+  padding: 1px var(--space-1);
+  border-radius: 4px;
+}
+
+.monthly-calendar__label--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.monthly-calendar__label--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.monthly-calendar__label--primary {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.monthly-calendar__label--neutral {
+  background: var(--color-surface-soft);
+  color: var(--color-text-secondary);
+}
+
+.monthly-calendar__label-more {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  padding: 0 var(--space-1);
+}
+
+@media (max-width: 767px) {
+  .monthly-calendar__cell {
+    min-height: 64px;
+  }
+
+  .monthly-calendar__cell-number {
+    font-size: var(--font-xs);
+  }
+
+  .monthly-calendar__label {
+    font-size: 9px;
+  }
+}

@@ -1,0 +1,96 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css).
+   Desktop (>=1024px): όλες οι μέρες-στήλες δίπλα-δίπλα, καμία εναλλαγή. Tablet/mobile (<1024px):
+   μία μέρα τη φορά μέσω του day-tabs επιλογέα — βλ. SchedulePage.jsx (μία μόνο κλάση,
+   .schedule-page__day--inactive, ελέγχεται εδώ με media query, όχι με ξεχωριστό JS breakpoint
+   hook — ίδιο πνεύμα με Sidebar/BottomNav). */
+
+.schedule-page__day-tabs {
+  display: none;
+  margin-bottom: var(--space-4);
+}
+
+/* Οι 5 στήλες μοιράζονται ΠΑΝΤΑ ισόποσα τον διαθέσιμο χώρο (minmax(0, 1fr), όχι σταθερό ελάχιστο
+   πλάτος σε px) — έτσι χωράνε πάντα πλήρως, χωρίς οριζόντιο scroll, σε ΚΑΘΕ πλάτος desktop
+   (>=1024px, βλ. DESIGN_SYSTEM breakpoints), ακόμα και στο ίδιο το όριο του breakpoint. Ένα
+   προηγούμενο πέρασμα είχε minmax(200px, 1fr), που σε ρεαλιστικά desktop πλάτη (1024-1440px, με
+   240px sidebar) ανάγκαζε την Παρασκευή εκτός οθόνης με οριζόντιο scroll — πραγματικό bug. Η
+   στενότητα κάθε στήλης απορροφάται από το ήδη υπάρχον truncation (ellipsis) στο όνομα/ετικέτα
+   του ScheduleSlotRow, όχι από σταθερό αριθμό pixel. Το overflow-x παραμένει ως καθαρά αμυντικό
+   δίχτυ ασφαλείας — σε πρακτικούς όρους δεν πρέπει να χρειαστεί ποτέ σε αυτό το εύρος πλατών. */
+.schedule-page__days {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.schedule-page__day {
+  min-width: 0;
+}
+
+/* Στοιβαγμένο (τίτλος πάνω, ενέργειες από κάτω) αντί για μία γραμμή — σε 200px στήλη, «Αντιγραφή»
+   + «Πρόσθεσε» δίπλα-δίπλα με τον τίτλο δεν χωράνε ποτέ άνετα (πραγματικό bug που βρέθηκε εδώ:
+   τα κουμπιά επικαλύπτονταν οπτικά). Οι ενέργειες τυλίγονται (flex-wrap) αν χρειαστεί ακόμα και
+   έτσι σε πολύ στενή στήλη. */
+.schedule-page__day-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.schedule-page__day-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+}
+
+.schedule-page__day-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.schedule-page__day-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Σύντομο, διακριτικό μήνυμα αντί για πλήρες EmptyState (Sprint 6 διόρθωση) — 5 επαναλαμβανόμενα
+   μεγάλα EmptyState (εικονίδιο+τίτλος+περιγραφή) σε μια άδεια εβδομάδα ήταν οπτικά βαριά· το
+   κουμπί «Πρόσθεσε» βρίσκεται ήδη στην κεφαλίδα της στήλης, δεν χρειάζεται να επαναληφθεί εδώ. */
+.schedule-page__day-empty {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-3) 0;
+}
+
+.schedule-page__copy-hint {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-2);
+}
+
+.schedule-page__copy-days {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1023px) {
+  .schedule-page__day-tabs {
+    display: block;
+  }
+
+  .schedule-page__days {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-page__day--inactive {
+    display: none;
+  }
+}

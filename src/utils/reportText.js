@@ -14,11 +14,14 @@ export function generateReportText({ student, dateFrom, dateTo, goals, sessions,
   lines.push(`Περίοδος: ${formatDate(dateFrom)} – ${formatDate(dateTo)}`)
   lines.push('')
 
-  // sessions: όλες όσες περιλαμβάνουν τον μαθητή στο studentIds (παρόν ή απών). Οι μετρήσεις/χρόνος
-  // στήριξης μετράνε μόνο τις συνεδρίες όπου ήταν πράγματι παρών.
-  const attendedSessions = sessions.filter((s) => !s.absentStudentIds?.includes(student.id))
+  // sessions: όλες όσες περιλαμβάνουν τον μαθητή στο studentIds (παρόν ή απών) — ΕΚΤΟΣ από όσες
+  // καταγράφηκαν απευθείας ως notHeld (Sprint 6: δεν πραγματοποιήθηκαν καθόλου, δεν είναι ούτε
+  // «παρουσία» ούτε «απουσία μέσα σε πραγματική συνεδρία» — απλά δεν μετράνε σε καμία στήλη εδώ).
+  // Οι μετρήσεις/χρόνος στήριξης μετράνε μόνο τις συνεδρίες όπου ήταν πράγματι παρών.
+  const heldSessions = sessions.filter((s) => s.status !== 'notHeld')
+  const attendedSessions = heldSessions.filter((s) => !s.absentStudentIds?.includes(student.id))
   const totalMinutes = attendedSessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0)
-  const absenceCount = sessions.length - attendedSessions.length
+  const absenceCount = heldSessions.length - attendedSessions.length
 
   lines.push('## Σύνοψη περιόδου')
   lines.push(`Συνεδρίες: ${attendedSessions.length}`)

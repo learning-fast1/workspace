@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { exportBackupFile, validateBackupPayload, restoreFromBackup } from '../utils/backup.js'
+import AccountSection from './AccountSection.jsx'
 
 const TABLE_LABELS = {
   students: 'Μαθητές',
@@ -102,6 +103,10 @@ export default function Settings() {
       </div>
 
       <h1>Ρυθμίσεις</h1>
+
+      {/* Sprint 5A Phase 1 — πρώτη ενότητα, πάνω από το Σχολικό έτος (Technical Plan §Flows,
+          ροή 1). Δεν αποδίδει τίποτα αν CLOUD_ENABLED=false (βλ. AccountSection.jsx). */}
+      <AccountSection />
 
       <div className="section">
         <h2>Αντίγραφο ασφαλείας</h2>

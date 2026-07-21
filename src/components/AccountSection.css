@@ -1,0 +1,7 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Ζει μέσα στο legacy .section
+   του Settings.jsx (βλ. σχόλιο στο AccountSection.jsx) — μόνο τα δικά της, εσωτερικά στοιχεία
+   (φόρμα email/OTP) χρησιμοποιούν το νεότερο design system μέσω FormField/Input/Button. */
+
+.account-section__form {
+  max-width: 360px;
+}

@@ -1,12 +1,25 @@
 import Dexie from 'dexie'
+import dexieCloud from 'dexie-cloud-addon'
 import { DOMAINS, DOMAIN_IDS } from './config/domains.js'
 import { DOMAIN_TEMPLATES_SEED } from './config/domainTemplates.js'
 import { addDays, todayLocalISO } from './utils/date.js'
 import { resolveOccurrencesForDate } from './utils/scheduleResolution.js'
 import { sameStudentSet, matchedSession } from './utils/dailyQueue.js'
 
-// Όλα τα δεδομένα μένουν τοπικά στη συσκευή (IndexedDB) — καμία αποστολή σε server.
-export const db = new Dexie('workspace')
+// Sprint 5A Phase 1 — η ΠΑΡΟΥΣΙΑ του env var είναι το ίδιο το feature flag. Exported ώστε το
+// auth module (src/auth/) να διαβάζει ΤΟ ΙΔΙΟ flag αντί να ξαναδιαβάζει ανεξάρτητα το
+// import.meta.env (μία πηγή αλήθειας, καμία εξάρτηση σε σειρά import μεταξύ modules).
+export const CLOUD_ENABLED = Boolean(import.meta.env.VITE_DEXIE_CLOUD_URL)
+
+// Το dexie-cloud-addon πρέπει να περαστεί ΕΔΩ, στον constructor (Phase 0 §Εύρημα 2) — η ίδια η
+// ύπαρξη του db.cloud API εξαρτάται από αυτό. Σκόπιμα ΟΧΙ Dexie.addons.push(dexieCloud) (global
+// registration): θα ενεργοποιούσε το addon για κάθε μελλοντικό Dexie instance ανεξάρτητα από το
+// flag, με συμπεριφορά που θα εξαρτιόταν εύθραυστα από τη σειρά import μεταξύ modules. Με flag
+// off, το δεύτερο όρισμα είναι {} — η βάση λειτουργεί ακριβώς όπως πριν, χωρίς cloud addon.
+//
+// Όλα τα δεδομένα μένουν τοπικά στη συσκευή (IndexedDB) — καμία αποστολή σε server, εκτός αν
+// ενεργός ο λογαριασμός ΚΑΙ ξεκινήσει ρητά sync σε μελλοντικό sprint (βλ. unsyncedTables παρακάτω).
+export const db = new Dexie('workspace', CLOUD_ENABLED ? { addons: [dexieCloud] } : {})
 
 db.version(1).stores({
   // ++id: auto-increment primary key. Δείκτες σε code/active για γρήγορη λίστα/φιλτράρισμα.
@@ -113,6 +126,18 @@ db.version(8).stores({
   // schedule/sessions (Technical Plan §7). category προαιρετική.
   calendarEvents: '++id, date'
 })
+
+// Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables
+// είναι πλήρες μόνο μετά από αυτές) και πριν από οποιοδήποτε query/open. unsyncedTables παίρνει
+// ΚΥΡΙΟΛΕΚΤΙΚΑ όλους τους πίνακες — καμία εξαίρεση — ώστε η σύνδεση λογαριασμού σε αυτή τη φάση να
+// είναι αποκλειστικά ταυτότητα, χωρίς κανένα δεδομένο μαθητή να μπορεί να συγχρονιστεί (μηχανισμός,
+// όχι μόνο πρόθεση). Το ΠΟΙΟΙ πίνακες θα συγχρονίζονται πραγματικά αποφασίζεται σε μελλοντικό sprint.
+if (CLOUD_ENABLED) {
+  db.cloud.configure({
+    databaseUrl: import.meta.env.VITE_DEXIE_CLOUD_URL,
+    unsyncedTables: db.tables.map((t) => t.name)
+  })
+}
 
 // Ονόματα πινάκων δεδομένων προς backup — αντλείται απευθείας από το σχήμα της Dexie (όχι
 // ξεχωριστή χειροκίνητη λίστα), ώστε ένας νέος πίνακας σε μελλοντική db.version() να μπαίνει

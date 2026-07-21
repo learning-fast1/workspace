@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import db, {
   migrateDomainNamesToIds, ensureDomainTemplatesSeeded, createScheduleSlot, saveScheduleSlotEdit,
   copyScheduleDay, ensureDayGenerated, recordSessionNotHeld
@@ -299,5 +299,91 @@ describe('copyScheduleDay — mode "replace" πάνω σε ήδη παραχθε
     const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
     expect(queueToday).toHaveLength(1) // ΠΟΤΕ διπλότυπο, όσες φορές κι αν επαναληφθεί
     expect(queueToday[0].studentIds).toEqual([3])
+  })
+})
+
+
+// ---------------------------------------------------------------------------------------------
+// Sprint 5A Phase 1 — CLOUD_ENABLED feature flag, ρητά ζητημένα integration tests (Technical Plan
+// §Testing, «+5 integration tests»). Το db.js διαβάζει το import.meta.env.VITE_DEXIE_CLOUD_URL ΜΙΑ
+// φορά, στην πρώτη φόρτωση του module — γι' αυτό κάθε test εδώ κάνει vi.stubEnv + vi.resetModules
+// + δυναμικό re-import, ώστε το module να ξαναφορτώνεται καθαρά με τη νέα τιμή (στάνταρ, τεκμηριωμένη
+// τεχνική Vitest για module-level env-dependent κώδικα — καμία δική μας υποδομή).
+// ΣΗΜΕΙΩΣΗ: αυτό το describe block ΔΕΝ χρησιμοποιεί το module-level db (import στην κορυφή του
+// αρχείου, ήδη φορτωμένο με flag off) — κάθε test φορτώνει το ΔΙΚΟ του, απομονωμένο instance.
+// ---------------------------------------------------------------------------------------------
+describe('Sprint 5A Phase 1 — CLOUD_ENABLED feature flag (db.js)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('1. Flag off → η υπάρχουσα local-only βάση λειτουργεί αμετάβλητη', async () => {
+    vi.stubEnv('VITE_DEXIE_CLOUD_URL', '')
+    vi.resetModules()
+    const { db: freshDb, CLOUD_ENABLED } = await import('./db.js')
+
+    expect(CLOUD_ENABLED).toBe(false)
+    expect(freshDb.cloud).toBeUndefined()
+
+    await freshDb.open()
+    const id = await freshDb.students.add({ code: 'ΦΛΑΓΚ-ΟΦΦ', active: true })
+    const student = await freshDb.students.get(id)
+    expect(student.code).toBe('ΦΛΑΓΚ-ΟΦΦ')
+    await freshDb.students.clear()
+    freshDb.close()
+  })
+
+  it('2. Flag on → το db.cloud υπάρχει και έχει ρυθμιστεί ΠΡΙΝ από το πρώτο open/query', async () => {
+    vi.stubEnv('VITE_DEXIE_CLOUD_URL', 'https://test-fake.dexie.cloud')
+    vi.resetModules()
+    const { db: freshDb, CLOUD_ENABLED } = await import('./db.js')
+
+    expect(CLOUD_ENABLED).toBe(true)
+    expect(freshDb.cloud).toBeDefined()
+    expect(freshDb.cloud.options?.databaseUrl).toBe('https://test-fake.dexie.cloud')
+  })
+
+  it('3. Όλοι οι υπάρχοντες πίνακες βρίσκονται στο unsyncedTables', async () => {
+    vi.stubEnv('VITE_DEXIE_CLOUD_URL', 'https://test-fake.dexie.cloud')
+    vi.resetModules()
+    const { db: freshDb } = await import('./db.js')
+
+    const allTableNames = freshDb.tables.map((t) => t.name).sort()
+    const unsynced = (freshDb.cloud.options?.unsyncedTables || []).slice().sort()
+    expect(unsynced).toEqual(allTableNames)
+  })
+
+  it('4. Login στο Phase 1 δεν προκαλεί κανένα push ή pull εφαρμογικών δεδομένων', async () => {
+    vi.stubEnv('VITE_DEXIE_CLOUD_URL', 'https://test-fake.dexie.cloud')
+    vi.resetModules()
+    const { db: freshDb } = await import('./db.js')
+
+    const dataTableNames = freshDb.tables.map((t) => t.name).filter((n) => n !== 'appMeta')
+    const spies = dataTableNames.map((name) => vi.spyOn(freshDb.table(name), 'add'))
+
+    expect(freshDb.cloud.options?.unsyncedTables).toEqual(expect.arrayContaining(dataTableNames))
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('5. Αφαίρεση του env var επαναφέρει πλήρως τη local-only λειτουργία', async () => {
+    vi.stubEnv('VITE_DEXIE_CLOUD_URL', 'https://test-fake.dexie.cloud')
+    vi.resetModules()
+    const onLoad = await import('./db.js')
+    expect(onLoad.CLOUD_ENABLED).toBe(true)
+    expect(onLoad.db.cloud).toBeDefined()
+
+    vi.unstubAllEnvs()
+    vi.stubEnv('VITE_DEXIE_CLOUD_URL', '')
+    vi.resetModules()
+    const offLoad = await import('./db.js')
+
+    expect(offLoad.CLOUD_ENABLED).toBe(false)
+    expect(offLoad.db.cloud).toBeUndefined()
+
+    await offLoad.db.open()
+    const id = await offLoad.db.students.add({ code: 'ΞΑΝΑ-ΤΟΠΙΚΟ', active: true })
+    expect(await offLoad.db.students.get(id)).toMatchObject({ code: 'ΞΑΝΑ-ΤΟΠΙΚΟ' })
+    await offLoad.db.students.clear()
+    offLoad.db.close()
   })
 })

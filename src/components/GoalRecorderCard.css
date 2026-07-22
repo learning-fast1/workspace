@@ -1,30 +1,110 @@
 /* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
 
 .goal-recorder-card {
-  padding: var(--space-5);
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Product polish (feedback χρήστη): οι συμπτυγμένες κάρτες ήταν λίγο πιο ψηλές από όσο χρειάζεται —
+   λιγότεροι στόχοι χωρούσαν στην οθόνη κατά τη διάρκεια μιας συνεδρίας. ~10-15% μείωση ύψους μέσω
+   στενότερου κάθετου padding ΚΑΙ tighter line-height στο κείμενο παρακάτω — ΧΩΡΙΣ αλλαγή σε
+   font-size ή περιεχόμενο, ώστε η αναγνωσιμότητα να μένει ίδια. Το min-height:44px ΔΕΝ αγγίζεται
+   (ελάχιστο μέγεθος touch target, a11y) — το πραγματικό ύψος με περιεχόμενο είναι ήδη πολύ πάνω
+   από αυτό το όριο, οπότε η μείωση padding δεν το πλησιάζει καν.*/
+.goal-recorder-card__header {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  min-height: 44px;
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.goal-recorder-card__header:hover {
+  background: var(--color-surface-soft);
+}
+
+.goal-recorder-card__header:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.goal-recorder-card__header-text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 2px;
+}
+
+.goal-recorder-card__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  margin-top: 2px;
 }
 
 .goal-recorder-card__domain {
   color: var(--color-text-secondary);
   font-size: var(--font-sm);
+  line-height: 1.25;
   margin: 0;
 }
 
 .goal-recorder-card__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-lg);
   font-weight: 700;
+  line-height: 1.25;
   margin: 0;
 }
 
-/* Σκόπιμα μικρό/de-emphasized — δεν βοηθά το επόμενο tap, είναι απλώς υπενθύμιση. Σε πολύ στενά
-   κινητά μπορεί να χρειαστεί απόκρυψη ώστε να προστατευτεί ο χώρος του recorder. */
+.goal-recorder-card__recorded-badge {
+  flex-shrink: 0;
+  color: var(--color-success);
+}
+
+/* UX improvement (accordion) — περίληψη στόχου, ορατή ΜΟΝΟ όσο ο στόχος είναι συμπτυγμένος. */
+.goal-recorder-card__description {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.25;
+  margin: 2px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Σκόπιμα μικρό/de-emphasized — δεν βοηθά το επόμενο tap, είναι απλώς υπενθύμιση. Το κριτήριο είναι
+   ελεύθερο κείμενο του χρήστη — μια πολύ μεγάλη λέξη/συνεχόμενοι χαρακτήρες χωρίς κενά (π.χ. επικόλληση
+   URL) θα ξέφευγαν από την κάρτα χωρίς overflow-wrap (κανονικό word-wrap σπάει ΜΟΝΟ σε κενά). Το
+   overflow-wrap: anywhere σπάει ΜΟΝΟ όταν χρειάζεται για να μη ξεχειλίσει — κανονικές ελληνικές
+   προτάσεις με κενά συνεχίζουν να τυλίγονται φυσιολογικά, ΧΩΡΙΣ σπάσιμο μέσα σε κανονικές λέξεις. */
 .goal-recorder-card__criterion {
   color: var(--color-text-muted);
   font-size: var(--font-xs);
-  margin: 0;
+  line-height: 1.25;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Product polish (feedback χρήστη, Teaching Mode) — +8px κάθετο padding (πάνω ΚΑΙ κάτω) για πιο
+   άνετο περιεχόμενο, χωρίς να μεγαλώνει αισθητά η κάρτα ούτε να αλλάζει το οριζόντιο padding. */
+.goal-recorder-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 8px var(--space-5) calc(var(--space-5) + 8px);
 }
 
 .goal-recorder-card__undo {

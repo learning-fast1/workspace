@@ -773,6 +773,43 @@ describe('transitionGoalStatus — atomicity (rollback αν αποτύχει τ�
   })
 })
 
+describe('Schema v10 (Κλινική εκτίμηση στόχου ανά συνεδρία) — καθαρή εγκατάσταση', () => {
+  it('ο νέος πίνακας sessionGoalAssessments υπάρχει και είναι άδειος χωρίς προϋπάρχοντα δεδομένα', async () => {
+    expect(await db.sessionGoalAssessments.count()).toBe(0)
+  })
+
+  it('&[sessionId+goalId] είναι compound unique — δεύτερη εγγραφή για τον ίδιο συνδυασμό απορρίπτεται', async () => {
+    await db.sessionGoalAssessments.add({ sessionId: 1, studentId: 1, goalId: 1, rating: 'improved', note: '' })
+    await expect(
+      db.sessionGoalAssessments.add({ sessionId: 1, studentId: 1, goalId: 1, rating: 'stable', note: '' })
+    ).rejects.toThrow()
+  })
+})
+
+describe('deleteStudent/deleteSession — cascade delete του sessionGoalAssessments', () => {
+  it('deleteStudent αφαιρεί ΚΑΙ τις κλινικές εκτιμήσεις του μαθητή', async () => {
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    const goalId = await db.goals.add({ studentId, domain: 'reading', title: 'Στόχος', status: 'active', priority: 'medium', startDate: '2025-01-01' })
+    const sessionId = await db.sessions.add({ date: '2025-01-01', studentIds: [studentId], status: 'completed' })
+    await db.sessionGoalAssessments.add({ sessionId, studentId, goalId, rating: 'improved', note: '' })
+
+    await deleteStudent(studentId)
+
+    expect(await db.sessionGoalAssessments.where('studentId').equals(studentId).count()).toBe(0)
+  })
+
+  it('deleteSession αφαιρεί ΚΑΙ τις κλινικές εκτιμήσεις της συνεδρίας', async () => {
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    const goalId = await db.goals.add({ studentId, domain: 'reading', title: 'Στόχος', status: 'active', priority: 'medium', startDate: '2025-01-01' })
+    const sessionId = await db.sessions.add({ date: '2025-01-01', studentIds: [studentId], status: 'completed' })
+    await db.sessionGoalAssessments.add({ sessionId, studentId, goalId, rating: 'improved', note: '' })
+
+    await deleteSession(sessionId)
+
+    expect(await db.sessionGoalAssessments.where('sessionId').equals(sessionId).count()).toBe(0)
+  })
+})
+
 describe('createGoal (Technical Plan Στάδιο 2)', () => {
   it('δημιουργεί goal με status "active" και ακριβώς 1 goalEvent τύπου "created", ατομικά', async () => {
     const goalId = await createGoal({ studentId: 1, domain: 'reading', title: 'Νέος στόχος', description: '', baseline: '', criterion: '8/10', measurementType: 'successRatio', supportLevel: '', priority: 'high', startDate: '2025-06-01' })

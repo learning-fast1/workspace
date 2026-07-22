@@ -19,6 +19,12 @@ function ruleBodyFor(css, selector) {
 }
 
 describe('Κριτήριο — overflow-wrap σε κάθε σημείο όπου αποδίδεται ελεύθερο κείμενο κριτηρίου', () => {
+  it('GoalRecorderCard.css: .goal-recorder-card__criterion έχει overflow-wrap: anywhere', () => {
+    const body = ruleBodyFor(readCss('./GoalRecorderCard.css'), '.goal-recorder-card__criterion')
+    expect(body).toBeTruthy()
+    expect(body).toMatch(/overflow-wrap:\s*anywhere/)
+  })
+
   it('GoalDetail.css: .goal-detail__criterion έχει overflow-wrap: anywhere', () => {
     const body = ruleBodyFor(readCss('./GoalDetail.css'), '.goal-detail__criterion')
     expect(body).toBeTruthy()

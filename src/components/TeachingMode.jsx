@@ -4,7 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ChevronLeft, ChevronRight, CircleCheck, MessageSquarePlus, UserCheck, UserX, X
 } from 'lucide-react'
-import { db } from '../db.js'
+import { db, transitionGoalStatus } from '../db.js'
+import { isEmptyRecordedValue } from '../utils/measurementTypes/index.js'
 import { sortByPriority } from '../config/goalOptions.js'
 import { DURATION_OPTIONS } from '../config/sessionOptions.js'
 import { domainName } from '../config/domains.js'
@@ -24,16 +25,6 @@ import ToggleRow from './ui/ToggleRow.jsx'
 import GoalRecorderCard from './GoalRecorderCard.jsx'
 import './TeachingMode.css'
 
-const PAGE_SIZE = 4
-
-function chunk(array, size) {
-  const chunks = []
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size))
-  }
-  return chunks
-}
-
 // Teaching Mode: πλήρης οθόνη, μόνο οι ενεργοί στόχοι, καταχώρηση με ένα tap. Εξαιρείται ρητά από
 // το AppShell (COMPONENT_GUIDE.md) — καμία sidebar/header πλοήγηση, μηδενική περίσπαση. Εφαρμόζουμε
 // όμως την κλάση "app-shell" στο root ώστε να έχουμε πρόσβαση στα ίδια design tokens/components
@@ -50,12 +41,18 @@ export default function TeachingMode() {
   const isGroup = studentIds.length > 1
 
   const [studentPage, setStudentPage] = useState(0)
-  const [goalPage, setGoalPage] = useState(0)
+  // UX improvement (accordion): μόνο ένας στόχος ανοιχτός τη φορά· null = όλοι συμπτυγμένοι.
+  // Μηδενίζεται σε αλλαγή μαθητή/tab (changeStudentPage) — κάθε μαθητής ξεκινά με όλους κλειστούς.
+  const [expandedGoalId, setExpandedGoalId] = useState(null)
   const [absentIds, setAbsentIds] = useState(() => new Set())
   const [measurements, setMeasurements] = useState({})
   // Single-level αναίρεση ανά goalId: η τιμή ΠΡΙΝ την τελευταία αλλαγή. Ύπαρξη του key (όχι η τιμή
   // του) δείχνει αν υπάρχει κάτι να αναιρεθεί — βλ. canUndo/undoMeasurement παρακάτω.
   const [previousMeasurements, setPreviousMeasurements] = useState({})
+  // Κλινική εκτίμηση ανά στόχο (συμπληρωματική του measurement) — { [goalId]: { rating, note } }.
+  // Απουσία key = καμία εκτίμηση, ΠΟΤΕ συνάγεται αυτόματα. Καμία ανάγκη undo ξεχωριστό από το
+  // click-to-deselect του ίδιου του GoalClinicalAssessment (βλ. updateClinicalAssessment παρακάτω).
+  const [clinicalAssessments, setClinicalAssessments] = useState({})
   const [observationOpen, setObservationOpen] = useState(false)
   const [endSessionOpen, setEndSessionOpen] = useState(false)
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false)
@@ -65,6 +62,7 @@ export default function TeachingMode() {
   // Διάθεση μαθητή κατά τη συνεδρία — προαιρετική, ανά μαθητή (Sprint 5). { [studentId]: moodValue }.
   const [moods, setMoods] = useState({})
   const [savingSession, setSavingSession] = useState(false)
+  const [saveError, setSaveError] = useState(null)
   // Ref εκτός από state: το setState δεν εφαρμόζεται συγχρονισμένα, οπότε δύο κλικ στο ίδιο tick
   // (γρήγορο διπλό tap) θα διάβαζαν και τα δύο το παλιό savingSession=false. Το ref ενημερώνεται αμέσως.
   const savingSessionRef = useRef(false)
@@ -98,6 +96,10 @@ export default function TeachingMode() {
   }
 
   const goalStudentMap = Object.fromEntries(allGoals.map((g) => [g.id, g.studentId]))
+  // Στάδιο 8 — χρειάζεται για να ξέρουμε ΠΟΙΟΥ τύπου είναι κάθε goalId στο handleSaveSession
+  // παρακάτω (isEmptyRecordedValue), ώστε π.χ. ένα άθικτο textarea Περιγραφικής παρατήρησης να ΜΗΝ
+  // παράγει κενή εγγραφή measurement.
+  const goalTypeMap = Object.fromEntries(allGoals.map((g) => [g.id, g.measurementType]))
 
   function goalsFor(studentId) {
     return sortByPriority(allGoals.filter((g) => g.studentId === studentId))
@@ -106,17 +108,18 @@ export default function TeachingMode() {
   // clamp: αν διαγράφηκε ο μαθητής που ήταν στην τελευταία σελίδα, η σελίδα μπορεί να μείνει εκτός ορίων.
   const currentStudent = students[Math.min(studentPage, students.length - 1)]
   const currentStudentGoals = currentStudent ? goalsFor(currentStudent.id) : []
-  const goalPages = chunk(currentStudentGoals, PAGE_SIZE)
-  // ίδιο clamp με το studentPage παραπάνω: αν λιγόστεψαν οι στόχοι ενόσω ο δάσκαλος ήταν σε
-  // επόμενη σελίδα (π.χ. αρχειοθέτηση από άλλη καρτέλα), η σελίδα να μη μείνει εκτός ορίων.
-  const clampedGoalPage = Math.min(goalPage, Math.max(goalPages.length - 1, 0))
-  const currentGoals = goalPages[clampedGoalPage] || []
   const isCurrentAbsent = currentStudent ? absentIds.has(currentStudent.id) : false
-  const hasMeasurements = Object.keys(measurements).length > 0
+  const hasMeasurements = Object.keys(measurements).length > 0 || Object.keys(clinicalAssessments).length > 0
 
   function changeStudentPage(index) {
     setStudentPage(index)
-    setGoalPage(0)
+    setExpandedGoalId(null)
+  }
+
+  // UX improvement (accordion): κλικ στον ήδη ανοιχτό στόχο τον κλείνει (κανένας ανοιχτός)· κλικ σε
+  // άλλον στόχο τον ανοίγει και αυτόματα κλείνει τον προηγούμενο (μία μεταβλητή, όχι Set).
+  function toggleExpandedGoal(goalId) {
+    setExpandedGoalId((prev) => (prev === goalId ? null : goalId))
   }
 
   function toggleAbsent(studentId) {
@@ -141,6 +144,13 @@ export default function TeachingMode() {
           }
           return filtered
         })
+        setClinicalAssessments((prevAssessments) => {
+          const filtered = { ...prevAssessments }
+          for (const goalId of Object.keys(filtered)) {
+            if (goalStudentMap[goalId] === studentId) delete filtered[goalId]
+          }
+          return filtered
+        })
       }
       return next
     })
@@ -149,6 +159,20 @@ export default function TeachingMode() {
   function updateMeasurement(goalId, value) {
     setPreviousMeasurements((prev) => ({ ...prev, [goalId]: measurements[goalId] }))
     setMeasurements((prev) => ({ ...prev, [goalId]: value }))
+  }
+
+  // value === null σημαίνει «καμία εκτίμηση» (deselect) — αφαιρεί το key εντελώς, ΔΕΝ αποθηκεύει
+  // null (ίδια σύμβαση με το «απουσία = καμία εκτίμηση» του GoalClinicalAssessment/schema).
+  function updateClinicalAssessment(goalId, value) {
+    setClinicalAssessments((prev) => {
+      const next = { ...prev }
+      if (value === null) {
+        delete next[goalId]
+      } else {
+        next[goalId] = value
+      }
+      return next
+    })
   }
 
   function canUndo(goalId) {
@@ -204,33 +228,76 @@ export default function TeachingMode() {
     if (savingSessionRef.current) return // αποτρέπει διπλή αποθήκευση από γρήγορο διπλό tap
     savingSessionRef.current = true
     setSavingSession(true)
+    setSaveError(null)
     try {
-      const sessionId = await db.sessions.add({
-        date: sessionDate,
-        studentIds,
-        status: 'completed',
-        absentStudentIds: [...absentIds],
-        durationMinutes: sessionDuration,
-        activity: '',
-        note: '',
-        moods
+      // ΟΛΟΚΛΗΡΗ η αποθήκευση της συνεδρίας (session + measurements + κλινικές εκτιμήσεις + τυχόν
+      // μεταβάσεις κατάστασης στόχου σε "Κατακτήθηκε") μέσα σε ΜΙΑ συναλλαγή — αν οτιδήποτε πετάξει
+      // (π.χ. μη έγκυρη μετάβαση κατάστασης), ΤΙΠΟΤΑ δεν γράφεται μερικώς. Η transitionGoalStatus
+      // ανοίγει τη ΔΙΚΗ της db.transaction(db.goals, db.goalEvents) — η Dexie αναγνωρίζει το ambient
+      // context εδώ (και οι δύο πίνακες ήδη μέσα στη λίστα παρακάτω) και ΣΥΜΜΕΤΕΧΕΙ, δεν φωλιάζει.
+      await db.transaction('rw', [db.sessions, db.measurements, db.sessionGoalAssessments, db.goals, db.goalEvents], async () => {
+        const sessionId = await db.sessions.add({
+          date: sessionDate,
+          studentIds,
+          status: 'completed',
+          absentStudentIds: [...absentIds],
+          durationMinutes: sessionDuration,
+          activity: '',
+          note: '',
+          moods
+        })
+
+        // Στάδιο 8 — κενό textarea (Περιγραφική παρατήρηση) σημαίνει «καμία μέτρηση καταγράφηκε»,
+        // ΟΧΙ «καταγράφηκε κενή τιμή» (σε αντίθεση με π.χ. έναν μετρητή στο 0, που ΕΙΝΑΙ πραγματική
+        // καταγραφή) — φιλτράρεται εδώ, στο ΜΟΝΑΔΙΚΟ σημείο που γράφει στη βάση, ώστε να μην
+        // χρειαστεί το γενικό undo (which only replaces a value, never removes the key) να ξέρει
+        // τίποτα γι' αυτό.
+        const entries = Object.entries(measurements).filter(
+          ([goalId, value]) => !isEmptyRecordedValue(goalTypeMap[goalId], value)
+        )
+        if (entries.length > 0) {
+          await db.measurements.bulkAdd(
+            entries.map(([goalId, value]) => ({
+              sessionId,
+              studentId: goalStudentMap[goalId],
+              goalId: Number(goalId),
+              value,
+              context: isGroup ? 'group' : 'individual',
+              note: ''
+            }))
+          )
+        }
+
+        // Κλινική εκτίμηση — ΠΛΗΡΩΣ προαιρετική, ΠΟΤΕ συναγόμενη· μόνο goals με ρητά επιλεγμένη
+        // βαθμίδα γράφουν εγγραφή (βλ. §4 του product proposal — Επιλογή Α για μη-δουλεμένους στόχους:
+        // καμία εγγραφή = αυτόματα "δεν δουλεύτηκε", καμία ρητή σήμανση).
+        const assessmentEntries = Object.entries(clinicalAssessments)
+        if (assessmentEntries.length > 0) {
+          await db.sessionGoalAssessments.bulkAdd(
+            assessmentEntries.map(([goalId, { rating, note }]) => ({
+              sessionId,
+              studentId: goalStudentMap[goalId],
+              goalId: Number(goalId),
+              rating,
+              note: note || ''
+            }))
+          )
+        }
+
+        // "Κατακτήθηκε" ΔΕΝ είναι απλώς μία βαθμίδα — ενεργοποιεί το ΗΔΗ υπάρχον, αναλλοίωτο
+        // transitionGoalStatus (ΚΑΝΕΝΑΣ δεύτερος μηχανισμός ολοκλήρωσης στόχου). Εκτελείται εδώ,
+        // ΟΧΙ στο κλικ επιβεβαίωσης — αν ο δάσκαλος βγει χωρίς αποθήκευση, ο στόχος παραμένει active.
+        for (const [goalId, { rating, note }] of assessmentEntries) {
+          if (rating !== 'mastered') continue
+          // sessionId εδώ επιτρέπει στο utils/goalHistory.js να συγχωνεύσει αξιόπιστα αυτό το
+          // goalEvent με την αντίστοιχη "mastered" εγγραφή sessionGoalAssessments σε μία γραμμή.
+          await transitionGoalStatus(Number(goalId), 'achieved', { note: note || '', trigger: 'teachingMode', sessionId })
+        }
       })
 
-      const entries = Object.entries(measurements)
-      if (entries.length > 0) {
-        await db.measurements.bulkAdd(
-          entries.map(([goalId, value]) => ({
-            sessionId,
-            studentId: goalStudentMap[goalId],
-            goalId: Number(goalId),
-            value,
-            context: isGroup ? 'group' : 'individual',
-            note: ''
-          }))
-        )
-      }
-
       navigate('/')
+    } catch (err) {
+      setSaveError(err?.message || 'Η αποθήκευση της συνεδρίας απέτυχε. Δοκίμασε ξανά.')
     } finally {
       savingSessionRef.current = false
       setSavingSession(false)
@@ -293,52 +360,27 @@ export default function TeachingMode() {
             />
           )}
 
-          {currentGoals.length > 0 && (
-            <div className="teaching-mode__goal-grid">
-              {currentGoals.map((goal) => (
+          {currentStudentGoals.length > 0 && (
+            <div className="teaching-mode__goal-list">
+              {currentStudentGoals.map((goal) => (
                 <GoalRecorderCard
                   key={goal.id}
                   domainLabel={domainName(goal.domain)}
                   title={goal.title}
+                  description={goal.description}
                   criterionHint={goal.criterion ? `Κριτήριο: ${goal.criterion}` : null}
                   goal={goal}
                   value={measurements[goal.id]}
                   onChange={(value) => updateMeasurement(goal.id, value)}
                   canUndo={canUndo(goal.id)}
                   onUndo={() => undoMeasurement(goal.id)}
+                  isRecorded={goal.id in measurements}
+                  expanded={expandedGoalId === goal.id}
+                  onToggleExpand={() => toggleExpandedGoal(goal.id)}
+                  clinicalAssessment={clinicalAssessments[goal.id]}
+                  onClinicalAssessmentChange={(value) => updateClinicalAssessment(goal.id, value)}
                 />
               ))}
-            </div>
-          )}
-
-          {goalPages.length > 1 && (
-            <div className="teaching-mode__pagination">
-              <Button
-                variant="secondary"
-                icon={ChevronLeft}
-                ariaLabel="Προηγούμενη σελίδα στόχων"
-                disabled={clampedGoalPage === 0}
-                onClick={() => setGoalPage(clampedGoalPage - 1)}
-              />
-              <div className="teaching-mode__page-dots">
-                {goalPages.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`teaching-mode__page-dot ${i === clampedGoalPage ? 'teaching-mode__page-dot--active' : ''}`}
-                    onClick={() => setGoalPage(i)}
-                    aria-label={`Σελίδα στόχων ${i + 1}`}
-                    aria-current={i === clampedGoalPage}
-                  />
-                ))}
-              </div>
-              <Button
-                variant="secondary"
-                icon={ChevronRight}
-                ariaLabel="Επόμενη σελίδα στόχων"
-                disabled={clampedGoalPage === goalPages.length - 1}
-                onClick={() => setGoalPage(clampedGoalPage + 1)}
-              />
             </div>
           )}
         </>
@@ -416,6 +458,8 @@ export default function TeachingMode() {
                 <MoodPicker value={moods[students[0].id] || null} onChange={(v) => setMood(students[0].id, v)} />
               )}
         </div>
+
+        {saveError && <p className="teaching-mode__save-error" role="alert">{saveError}</p>}
       </Modal>
 
       <Modal

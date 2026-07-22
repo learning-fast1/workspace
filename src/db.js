@@ -178,6 +178,34 @@ db.version(9).stores({
   await backfillGoalEventsCore(tx.table('goals'), tx.table('goalEvents'))
 })
 
+db.version(10).stores({
+  students: '++id, code, active',
+  goals: '++id, studentId, status, priority',
+  domainTemplates: 'domain',
+  sessions: '++id, date',
+  measurements: '++id, sessionId, studentId, goalId',
+  observations: '++id, studentId, date',
+  appMeta: 'key',
+  reports: '++id, studentId, generatedAt',
+  dailyQueue: '++id, date',
+  scheduleSlots: '++id, seriesId, dayOfWeek',
+  scheduleExceptions: '++id, seriesId, originalDate',
+  calendarEvents: '++id, date',
+  schoolYears: '++id, isActive',
+  schoolYearParticipation: '++id, studentId, schoolYearId, &[studentId+schoolYearId]',
+  goalEvents: '++id, goalId, at',
+  goalTemplates: '++id, domain',
+  // Κλινική εκτίμηση στόχου ανά συνεδρία (Teaching Mode) — ΣΥΜΠΛΗΡΩΜΑΤΙΚΗ του measurements, ΠΟΤΕ
+  // υποκατάστατο· ένα ξεχωριστός πίνακας (ίδιο μοτίβο με το observations) αντί για πεδίο πάνω στο
+  // measurements, ακριβώς επειδή μπορεί να υπάρχει εκτίμηση ΧΩΡΙΣ καμία μέτρηση εκείνη τη συνεδρία.
+  // &[sessionId+goalId]: το πολύ ΜΙΑ εκτίμηση ανά (συνεδρία, στόχος), ίδιο compound-unique idiom με
+  // το schoolYearParticipation. rating: 'worsened'|'stable'|'improved'|'mastered' — ΠΟΤΕ συνάγεται
+  // αυτόματα (π.χ. από ύπαρξη measurement)· απουσία γραμμής = καμία εκτίμηση, ΟΧΙ "stable" εξ ορισμού.
+  // 'mastered' ΔΕΝ είναι απλώς μια ακόμη βαθμίδα — ενεργοποιεί το ΗΔΗ υπάρχον transitionGoalStatus
+  // (goal → 'achieved'), μέσα στο ίδιο handleSaveSession, όχι δεύτερος μηχανισμός ολοκλήρωσης.
+  sessionGoalAssessments: '++id, sessionId, studentId, goalId, &[sessionId+goalId]'
+})
+
 // Sprint 5A Phase 2, Commit 1 — ΘΕΜΕΛΙΟ ΜΟΝΟ: παράλληλες "_v2" δηλώσεις, ίδιοι indexed δείκτες με
 // τις αντίστοιχες παλιές, string `id` αντί για `++id` (Phase 2 Technical Plan §1 — plain id, όχι
 // @id, καμία εξάρτηση σε server-assigned prefix/αρχικό sync). Οι ΠΑΛΙΕΣ δηλώσεις παραπάνω ΔΕΝ
@@ -489,10 +517,12 @@ export async function ensureDomainTemplatesSeeded() {
 // Οι ομαδικές συνεδρίες δεν διαγράφονται — αφαιρείται μόνο ο μαθητής από τη συνεδρία, εκτός
 // αν έμενε μόνος του σε αυτήν, οπότε η συνεδρία διαγράφεται κι εκείνη (δεν έχει πια νόημα).
 export async function deleteStudent(studentId) {
-  await db.transaction('rw', [db.students, db.goals, db.measurements, db.observations, db.sessions, db.scheduleSlots], async () => {
+  await db.transaction('rw', [db.students, db.goals, db.measurements, db.observations, db.sessions, db.scheduleSlots, db.sessionGoalAssessments], async () => {
     await db.goals.where('studentId').equals(studentId).delete()
     await db.measurements.where('studentId').equals(studentId).delete()
     await db.observations.where('studentId').equals(studentId).delete()
+    // Ίδιο σκεπτικό με τα measurements παραπάνω — μια κλινική εκτίμηση χωρίς τον μαθητή της δεν έχει νόημα.
+    await db.sessionGoalAssessments.where('studentId').equals(studentId).delete()
 
     // studentIds δεν είναι indexed (πίνακας) — φιλτράρισμα στη μνήμη αντί για .where().
     const allSessions = await db.sessions.toArray()
@@ -529,8 +559,10 @@ export async function deleteStudent(studentId) {
 // αποσυνδέονται (sessionId: null) — παραμένουν έγκυρο ιστορικό γεγονός ακόμα κι αν η συνεδρία
 // διαγραφεί (π.χ. λανθασμένη καταχώρηση).
 export async function deleteSession(sessionId) {
-  await db.transaction('rw', [db.sessions, db.measurements, db.observations], async () => {
+  await db.transaction('rw', [db.sessions, db.measurements, db.observations, db.sessionGoalAssessments], async () => {
     await db.measurements.where('sessionId').equals(sessionId).delete()
+    // Ίδιο σκεπτικό με τα measurements παραπάνω — μια κλινική εκτίμηση χωρίς τη συνεδρία της δεν έχει νόημα.
+    await db.sessionGoalAssessments.where('sessionId').equals(sessionId).delete()
     // sessionId δεν είναι indexed πεδίο στο observations (μόνο studentId/date) — φιλτράρισμα στη
     // μνήμη αντί για .where(), ίδιο μοτίβο με το deleteStudent() παραπάνω.
     const allObservations = await db.observations.toArray()

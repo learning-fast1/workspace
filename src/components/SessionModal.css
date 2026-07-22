@@ -19,6 +19,31 @@
   margin: 0;
 }
 
+.session-modal__goals-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.session-modal__student-goals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.session-modal__student-goals-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  margin: var(--space-2) 0 0;
+}
+
+.session-modal__save-error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-3) 0 0;
+}
+
 .session-detail {
   display: flex;
   flex-direction: column;
@@ -60,13 +85,68 @@
   margin: 0;
 }
 
-.session-detail__measurement {
-  margin: 0 0 var(--space-1);
+/* Ομαδοποίηση ανά στόχο (Minor UX Polish) — τίτλος στόχου μία φορά, μέτρηση + κλινική εκτίμηση
+   ως ξεχωριστές, οπτικά διαφοροποιημένες γραμμές από κάτω του. */
+.session-detail__goal-entry {
+  margin: 0 0 var(--space-3);
+}
+
+.session-detail__goal-entry-title {
+  margin: 0 0 2px;
   font-size: var(--font-sm);
+  font-weight: 600;
 }
 
 .session-detail__measurement-domain {
   color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* Bug report: χωρίς flex-wrap, μια πολύ μεγάλη/συνεχόμενη τιμή (π.χ. Περιγραφική παρατήρηση)
+   ανάγκαζε ΟΛΑ τα παιδιά της γραμμής (icon + ετικέτα + τιμή) να σμικρύνονται μαζί για να χωρέσουν
+   σε ΜΙΑ γραμμή — με το overflow-wrap:anywhere (κληρονομημένο από το .modal__body) αυτό σήμαινε
+   ότι ακόμα και η ίδια η λέξη «Μέτρηση:» έσπαγε γράμμα-γράμμα. flex-wrap: wrap αφήνει την τιμή να
+   πάει σε νέα γραμμή/να τυλιχτεί μόνη της· flex-shrink: 0 στο icon/ετικέτα τα κρατά στο φυσικό τους
+   μέγεθος πάντα. */
+.session-detail__measurement,
+.session-detail__assessment {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: var(--font-sm);
+}
+
+.session-detail__row-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.session-detail__measurement .session-detail__row-icon {
+  color: var(--color-primary);
+}
+
+.session-detail__row-label {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* Κλινική εκτίμηση (Teaching Mode) — οπτικά ξεχωριστή οικογένεια πληροφορίας από τη μέτρηση:
+   πράσινο (ίδιο χρωματικό λεξιλόγιο με το ActivityItem--assessment στο ενοποιημένο Ιστορικό, βλ.
+   GoalDetail.jsx) icon + label, italic κείμενο — υποκειμενική κρίση, ΟΧΙ αντικειμενική τιμή. */
+.session-detail__assessment {
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+.session-detail__assessment .session-detail__row-icon {
+  color: var(--color-success);
+}
+
+.session-detail__assessment .session-detail__row-label {
+  font-style: normal;
 }
 
 .session-detail__observation {

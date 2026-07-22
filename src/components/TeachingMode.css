@@ -40,49 +40,16 @@
   text-decoration: line-through;
 }
 
-.teaching-mode__goal-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-4);
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .teaching-mode__goal-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .teaching-mode__goal-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-.teaching-mode__pagination {
+/* UX improvement — accordion: κάθετη λίστα (ΟΧΙ πολύστηλο grid) γιατί μόνο ένας στόχος τη φορά
+   είναι ανοιχτός/ψηλός· πολλαπλές στήλες θα δημιουργούσαν ανισοϋψείς, ασύμμετρες γραμμές. Δουλεύει
+   χωρίς σελιδοποίηση ακόμη και με 15-20 στόχους αφού οι συμπτυγμένοι στόχοι είναι πολύ συμπαγείς. */
+.teaching-mode__goal-list {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   gap: var(--space-3);
-}
-
-.teaching-mode__page-dots {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.teaching-mode__page-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-border-strong);
-  padding: 0;
-  cursor: pointer;
-}
-
-.teaching-mode__page-dot--active {
-  background: var(--color-primary);
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .teaching-mode__student-nav {
@@ -142,4 +109,10 @@
   font-size: var(--font-sm);
   font-weight: 600;
   margin: 0;
+}
+
+.teaching-mode__save-error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-3) 0 0;
 }

@@ -88,8 +88,14 @@ export default function GoalDetail() {
     () => db.goalEvents.where('goalId').equals(Number(goalId)).toArray(),
     [goalId]
   )
+  // Κλινικές εκτιμήσεις (Teaching Mode) — συμπληρωματικές του measurement, μέχρι πρότινος αόρατες
+  // εκτός βάσης· τώρα τροφοδοτούν το ενοποιημένο ιστορικό παρακάτω (utils/goalHistory.js).
+  const assessments = useLiveQuery(
+    () => db.sessionGoalAssessments.where('goalId').equals(Number(goalId)).toArray(),
+    [goalId]
+  )
 
-  if (goal === null || !measurements || !sessions || !goalEvents) {
+  if (goal === null || !measurements || !sessions || !goalEvents || !assessments) {
     return (
       <AppShell>
         <p>Φόρτωση…</p>
@@ -154,6 +160,7 @@ export default function GoalDetail() {
   const historyEntries = buildGoalHistoryFeed(goal, {
     goalEvents,
     measurements,
+    assessments,
     sessionDateById
   })
 

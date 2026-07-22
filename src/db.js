@@ -127,11 +127,37 @@ db.version(8).stores({
   calendarEvents: '++id, date'
 })
 
+// Sprint 5A Phase 2, Commit 1 — ΘΕΜΕΛΙΟ ΜΟΝΟ: παράλληλες "_v2" δηλώσεις, ίδιοι indexed δείκτες με
+// τις αντίστοιχες παλιές, string `id` αντί για `++id` (Phase 2 Technical Plan §1 — plain id, όχι
+// @id, καμία εξάρτηση σε server-assigned prefix/αρχικό sync). Οι ΠΑΛΙΕΣ δηλώσεις παραπάνω ΔΕΝ
+// αγγίζονται καθόλου. ΚΑΜΙΑ migration/activeTable/switchover λογική ακόμα — αυτό είναι απλώς το
+// σχήμα· τίποτα δεν γράφει ή διαβάζει από αυτούς τους πίνακες μέχρι το Commit 2.
+// domainTemplates_v2 ΕΠΙΤΗΔΕΣ 'id, domain' (ΟΧΙ 'domain' ως primary key όπως ο παλιός πίνακας) —
+// το domain name από μόνο του δεν είναι global μοναδικό μεταξύ χρηστών (Phase 2 Technical Plan
+// Rev.2 §1, ζωντανά επιβεβαιωμένο με δύο πραγματικούς χρήστες και το ίδιο 'communication').
+db.version(11).stores({
+  students_v2: 'id, code, active',
+  goals_v2: 'id, studentId, status, priority',
+  domainTemplates_v2: 'id, domain',
+  sessions_v2: 'id, date',
+  measurements_v2: 'id, sessionId, studentId, goalId',
+  observations_v2: 'id, studentId, date',
+  appMeta: 'key', // ΚΑΜΙΑ _v2 εκδοχή — μόνιμα τοπικό/ανά-συσκευή, ποτέ δεν συγχρονίζεται
+  reports_v2: 'id, studentId, generatedAt',
+  dailyQueue_v2: 'id, date',
+  scheduleSlots_v2: 'id, seriesId, dayOfWeek',
+  scheduleExceptions_v2: 'id, seriesId, originalDate',
+  calendarEvents_v2: 'id, date'
+})
+
 // Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables
 // είναι πλήρες μόνο μετά από αυτές) και πριν από οποιοδήποτε query/open. unsyncedTables παίρνει
 // ΚΥΡΙΟΛΕΚΤΙΚΑ όλους τους πίνακες — καμία εξαίρεση — ώστε η σύνδεση λογαριασμού σε αυτή τη φάση να
 // είναι αποκλειστικά ταυτότητα, χωρίς κανένα δεδομένο μαθητή να μπορεί να συγχρονιστεί (μηχανισμός,
 // όχι μόνο πρόθεση). Το ΠΟΙΟΙ πίνακες θα συγχρονίζονται πραγματικά αποφασίζεται σε μελλοντικό sprint.
+// Σκόπιμα ΑΝΑΛΛΟΙΩΤΟ σε αυτό το commit: το blanket db.tables.map() sweep ήδη καλύπτει και τους
+// νέους _v2 πίνακες αυτόματα (παραμένουν unsynced, όπως πρέπει μέχρι να υπάρξει πραγματική sync
+// λογική) — η ρητή, generation-aware αναδιατύπωση είναι Commit 2 (Phase 2 Technical Plan Rev.3 §helpers).
 if (CLOUD_ENABLED) {
   db.cloud.configure({
     databaseUrl: import.meta.env.VITE_DEXIE_CLOUD_URL,

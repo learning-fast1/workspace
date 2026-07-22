@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { formatMeasurementValue, measurementNumericValue, parseCriterionTarget } from './measurementValue.js'
+import {
+  formatMeasurementValue, measurementNumericValue, parseCriterionTarget,
+  latestDatedMeasurement
+} from './measurementValue.js'
 
 describe('measurementNumericValue', () => {
   it('υπολογίζει ποσοστό επιτυχίας', () => {
@@ -76,3 +79,36 @@ describe('parseCriterionTarget', () => {
     expect(parseCriterionTarget(null, 'successRatio')).toBe(null)
   })
 })
+
+describe('latestDatedMeasurement (Sprint 7 Στάδιο 8 — εξήχθη από GoalsList.jsx)', () => {
+  it('βρίσκει τη μέτρηση με το πιο πρόσφατο date', () => {
+    const measurements = [
+      { id: 1, date: '2026-01-01', value: { successes: 1, attempts: 2 } },
+      { id: 2, date: '2026-03-01', value: { successes: 3, attempts: 4 } },
+      { id: 3, date: '2026-02-01', value: { successes: 2, attempts: 3 } }
+    ]
+    expect(latestDatedMeasurement(measurements).id).toBe(2)
+  })
+
+  it('αγνοεί μετρήσεις χωρίς date', () => {
+    const measurements = [{ id: 1, date: undefined }, { id: 2, date: '2026-01-01' }]
+    expect(latestDatedMeasurement(measurements).id).toBe(2)
+  })
+
+  it('null όταν καμία μέτρηση δεν έχει date (ή άδειο array)', () => {
+    expect(latestDatedMeasurement([])).toBe(null)
+    expect(latestDatedMeasurement([{ id: 1, date: undefined }])).toBe(null)
+  })
+
+  it('ΔΕΝ μεταλλάσσει το input array (immutable)', () => {
+    const measurements = [{ id: 1, date: '2026-02-01' }, { id: 2, date: '2026-01-01' }]
+    const snapshot = JSON.stringify(measurements)
+    latestDatedMeasurement(measurements)
+    expect(JSON.stringify(measurements)).toBe(snapshot)
+  })
+})
+
+// computeProgressPercent (το παλιό, 3-ορισμάτων) αφαιρέθηκε στο Technical Plan Στάδιο 9α — το
+// GoalsList.jsx (μοναδικός caller, repo-wide επιβεβαιωμένο) καλεί πλέον αποκλειστικά το
+// utils/measurementTypes/index.js. Η ισοδύναμη κάλυψη (συμπεριλαμβανομένου του regression για το
+// promptLevel pseudo-progress) ζει πλέον στο src/utils/measurementTypes/measurementTypes.test.js.

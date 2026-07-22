@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CalendarX2, Filter, SearchX } from 'lucide-react'
-import { db, deleteSession } from '../db.js'
+import { CalendarX2, Filter, History, SearchX } from 'lucide-react'
+import { db, deleteSession, getActiveSchoolYear } from '../db.js'
+import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
 import { todayLocalISO, formatDateEl } from '../utils/date.js'
 import { SESSION_STATUSES } from '../config/sessionOptions.js'
 import AppShell from './shell/AppShell.jsx'
@@ -55,17 +56,44 @@ function matchesSearch(session, query) {
 // «Συνεδρίες»). embedded: true όταν φιλοξενείται μέσα σε άλλη σελίδα (όχι δικό της AppShell/PageHeader).
 export default function SessionHistory({ studentId, embedded = false }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  // Αρχικοποίηση από URL query params (Technical Plan Στάδιο 11, σημεία 1/5) — π.χ. από «Δες
+  // συνεδρίες αυτού του έτους» στις Ρυθμίσεις. Το ίδιο το φιλτράρισμα γίνεται ΑΠΟΚΛΕΙΣΤΙΚΑ μέσω
+  // dateFrom/dateTo (ήδη υπάρχον idiom παρακάτω) — καμία δεύτερη λογική. yearLabel υπάρχει ΜΟΝΟ
+  // για την ορατή ένδειξη «Προβολή ιστορικού έτους» — δεν επηρεάζει το φιλτράρισμα.
+  const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '')
+  const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '')
+  const [yearLabel, setYearLabel] = useState(searchParams.get('yearLabel') || '')
 
   const [activeSession, setActiveSession] = useState(null) // { id, mode: 'view'|'edit' } | null
   const [pendingDelete, setPendingDelete] = useState(null) // { id, dateLabel } | null
 
   const sessions = useLiveQuery(() => loadSessions(studentId), [studentId])
+  const activeSchoolYear = useLiveQuery(() => getActiveSchoolYear(), [])
+
+  // «Επιστροφή σε Όλα» (σημείο 5) — καθαρίζει ΚΑΙ το local state ΚΑΙ το URL, ώστε refresh/κοινή
+  // χρήση του συνδέσμου να μη γυρίσει κατά λάθος στο ιστορικό φίλτρο.
+  function clearHistoricalYearFilter() {
+    setDateFrom('')
+    setDateTo('')
+    setYearLabel('')
+    setSearchParams({}, { replace: true })
+  }
+
+  // «Επιστροφή στο τρέχον έτος» (σημείο 5, η δεύτερη επιτρεπτή διαδρομή) — ίδιο idiom μετατροπής
+  // (schoolYearToDateRange) με τον σύνδεσμο των Ρυθμίσεων, όχι δεύτερος αλγόριθμος.
+  function viewActiveSchoolYear() {
+    if (!activeSchoolYear) return
+    const { dateFrom: from, dateTo: to } = schoolYearToDateRange(activeSchoolYear)
+    setDateFrom(from)
+    setDateTo(to)
+    setYearLabel(activeSchoolYear.label)
+    setSearchParams({ dateFrom: from, dateTo: to, yearLabel: activeSchoolYear.label }, { replace: true })
+  }
 
   const filtered = useMemo(() => {
     if (!sessions) return []
@@ -135,6 +163,21 @@ export default function SessionHistory({ studentId, embedded = false }) {
         />
       )}
 
+      {yearLabel && (
+        <div className="session-history__year-banner" role="status">
+          <History size={16} aria-hidden="true" />
+          <span className="session-history__year-banner-text">
+            Προβολή ιστορικού σχολικού έτους: <strong>{yearLabel}</strong> ({formatDateEl(dateFrom)} – {formatDateEl(dateTo)})
+          </span>
+          <div className="session-history__year-banner-actions">
+            <Button variant="ghost" onClick={clearHistoricalYearFilter}>Όλες οι συνεδρίες</Button>
+            {activeSchoolYear && activeSchoolYear.label !== yearLabel && (
+              <Button variant="ghost" onClick={viewActiveSchoolYear}>Τρέχον έτος ({activeSchoolYear.label})</Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {sessions && sessions.length > 0 && (
         <div className="session-history__toolbar">
           <SearchBar
@@ -167,8 +210,18 @@ export default function SessionHistory({ studentId, embedded = false }) {
             <option value="individual">Μόνο ατομικό</option>
             <option value="group">Μόνο ομαδικό</option>
           </Select>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Από ημερομηνία" />
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Έως ημερομηνία" />
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setYearLabel('') }}
+            aria-label="Από ημερομηνία"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setYearLabel('') }}
+            aria-label="Έως ημερομηνία"
+          />
         </div>
       )}
 
@@ -190,7 +243,7 @@ export default function SessionHistory({ studentId, embedded = false }) {
           title="Δεν βρέθηκαν συνεδρίες"
           description="Δοκίμασε διαφορετικό όρο αναζήτησης ή διαφορετικά φίλτρα."
           actionLabel="Καθαρισμός αναζήτησης"
-          onAction={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); setDateFrom(''); setDateTo('') }}
+          onAction={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); clearHistoricalYearFilter() }}
         />
       )}
 

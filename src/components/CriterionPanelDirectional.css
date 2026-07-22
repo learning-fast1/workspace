@@ -1,0 +1,11 @@
+.criterion-panel-directional__error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}
+
+.criterion-panel-directional__preview {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}

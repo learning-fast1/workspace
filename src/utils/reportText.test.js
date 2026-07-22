@@ -82,26 +82,138 @@ describe('generateReportText — πορεία στόχου', () => {
   })
 })
 
+// Stage 10 (Regression Gate) — bug fix: το reportText.js χρησιμοποιούσε το παλιό, 4-τύπων
+// formatMeasurementValue/measurementNumericValue/parseCriterionTarget — checklist/ratingScale/
+// frequency/narrative έδειχναν ουσιαστικά τίποτα. Τώρα ΑΠΟΚΛΕΙΣΤΙΚΑ registry
+// (formatRecordedValue/computeProgressPercent/meetsCriterion) — καμία hardcoded λίστα τύπων στο
+// ίδιο το reportText.js. Καλύπτει και τους 8 τύπους, ρητά διακρίνοντας supportsProgress true/false.
+describe('generateReportText — και οι 8 τύποι μέτρησης, αποκλειστικά μέσω registry', () => {
+  const sessions = [
+    { id: 1, date: '2026-01-05', studentIds: [1], durationMinutes: 20, absentStudentIds: [] },
+    { id: 2, date: '2026-02-05', studentIds: [1], durationMinutes: 20, absentStudentIds: [] }
+  ]
+
+  it('checklist (supportsProgress: true) — αναγνωρίζει βελτίωση, Τρέχον επίπεδο σωστό (ΟΧΙ «—»)', () => {
+    const goal = {
+      id: 1, domain: 'reading', title: 'Βήματα πλυσίματος χεριών', baseline: '',
+      measurementType: 'checklist',
+      criterionConfig: { items: [{ id: 'a', label: 'Βρέχει χέρια' }, { id: 'b', label: 'Σαπούνι' }, { id: 'c', label: 'Ξέβγαλμα' }, { id: 'd', label: 'Στέγνωμα' }], targetCompletedCount: 4 },
+      criterion: '4 από 4 στοιχεία', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [
+      { id: 1, sessionId: 1, goalId: 1, value: { completedItemIds: ['a'] } },
+      { id: 2, sessionId: 2, goalId: 1, value: { completedItemIds: ['a', 'b', 'c', 'd'] } }
+    ]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).not.toContain('Τρέχον επίπεδο: —')
+    expect(text).toMatch(/Πορεία: Βελτίωση από .* σε .*\./)
+    expect(text).toContain('Κριτήριο: 4 από 4 στοιχεία — Επιτεύχθηκε.')
+  })
+
+  it('taskAnalysis (supportsProgress: true) — αναγνωρίζει πτώση', () => {
+    const goal = {
+      id: 1, domain: 'self-care', title: 'Βήματα ντυσίματος', baseline: '',
+      measurementType: 'taskAnalysis',
+      criterionConfig: { steps: [{ id: 'a', label: 'Παντελόνι', order: 1 }, { id: 'b', label: 'Μπλούζα', order: 2 }, { id: 'c', label: 'Παπούτσια', order: 3 }], targetCompletedCount: 3 },
+      criterion: '3 από 3 βήματα', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [
+      { id: 1, sessionId: 1, goalId: 1, value: { completedStepIds: ['a', 'b', 'c'] } },
+      { id: 2, sessionId: 2, goalId: 1, value: { completedStepIds: ['a'] } }
+    ]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).toMatch(/Πορεία: Πτώση από .* σε .*\./)
+  })
+
+  it('duration (supportsProgress: false) — ΧΩΡΙΣ επινοημένη Βελτίωση/Πτώση, τίμια χρονολογική καταγραφή· achievement ΔΟΥΛΕΥΕΙ ανεξάρτητα', () => {
+    const goal = {
+      id: 1, domain: 'attention', title: 'Παραμονή σε εργασία', baseline: '',
+      measurementType: 'duration',
+      criterionConfig: { direction: 'increase', targetMinutes: 10, context: '' },
+      criterion: 'Αύξηση σε τουλάχιστον 10′', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [
+      { id: 1, sessionId: 1, goalId: 1, value: { minutes: 4 } },
+      { id: 2, sessionId: 2, goalId: 1, value: { minutes: 12 } }
+    ]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).not.toMatch(/Βελτίωση|Πτώση|Σταθερό επίπεδο/)
+    expect(text).toContain('Πορεία: 2 καταγραφές στην περίοδο — από «4 λεπτά» έως «12 λεπτά».')
+    // Το meetsCriterion ΔΕΝ εξαρτάται από το supportsProgress — η επίτευξη υπολογίζεται κανονικά.
+    expect(text).toContain('Κριτήριο: Αύξηση σε τουλάχιστον 10′ — Επιτεύχθηκε.')
+  })
+
+  it('promptLevel (supportsProgress: false) — Τρέχον επίπεδο σωστό, καμία επινοημένη πορεία', () => {
+    const goal = {
+      id: 1, domain: 'oral-language', title: 'Ζητά βοήθεια', baseline: '',
+      measurementType: 'promptLevel', criterionConfig: { targetLevel: 'independent' },
+      criterion: 'Ανεξάρτητα', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [{ id: 1, sessionId: 1, goalId: 1, value: { level: 'verbal' } }]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).toContain('Τρέχον επίπεδο: Λεκτική υπόδειξη')
+    expect(text).toContain('Πορεία: Μία μέτρηση καταγράφηκε στην περίοδο.')
+  })
+
+  it('frequency (supportsProgress: false) — Τρέχον επίπεδο σωστό, achievement δουλεύει', () => {
+    const goal = {
+      id: 1, domain: 'behavior', title: 'Διακοπή δραστηριότητας', baseline: '',
+      measurementType: 'frequency', criterionConfig: { direction: 'decrease', targetCount: 0, context: '' },
+      criterion: 'Μείωση σε το πολύ 0 φορές', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [{ id: 1, sessionId: 1, goalId: 1, value: { count: 0 } }]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).toContain('Τρέχον επίπεδο: 0 φορές')
+    expect(text).toContain('Κριτήριο: Μείωση σε το πολύ 0 φορές — Επιτεύχθηκε.')
+  })
+
+  it('ratingScale (supportsProgress: false) — Τρέχον επίπεδο σωστό, achievement δουλεύει', () => {
+    const goal = {
+      id: 1, domain: 'social-skills', title: 'Συμμετοχή σε ομαδικό παιχνίδι', baseline: '',
+      measurementType: 'ratingScale',
+      criterionConfig: { targetLevel: 4, levelDescriptions: { 1: 'Καθόλου', 2: 'Λίγο', 3: 'Μέτρια', 4: 'Αρκετά', 5: 'Πλήρως' } },
+      criterion: '4 — Αρκετά', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [{ id: 1, sessionId: 1, goalId: 1, value: { level: 4 } }]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).toContain('Κριτήριο: 4 — Αρκετά — Επιτεύχθηκε.')
+  })
+
+  it('narrative (supportsProgress: false, meetsCriterion πάντα notComputable) — καμία κρίση επίτευξης, μόνο το κριτήριο ως έχει', () => {
+    const goal = {
+      id: 1, domain: 'emotional-development', title: 'Διαχείριση θυμού', baseline: '',
+      measurementType: 'narrative', criterionConfig: { successDescription: 'Ζητά βοήθεια αντί να φωνάζει' },
+      criterion: 'Ζητά βοήθεια αντί να φωνάζει', status: 'active', startDate: '2025-09-01'
+    }
+    const measurements = [{ id: 1, sessionId: 1, goalId: 1, value: { note: 'Καλή πρόοδος σήμερα' } }]
+    const text = generateReportText(baseArgs({ goals: [goal], sessions, measurements }))
+    expect(text).toContain('Τρέχον επίπεδο: Καλή πρόοδος σήμερα')
+    expect(text).toContain('Κριτήριο: Ζητά βοήθεια αντί να φωνάζει')
+    expect(text).not.toContain('Ζητά βοήθεια αντί να φωνάζει — Επιτεύχθηκε')
+    expect(text).not.toContain('Ζητά βοήθεια αντί να φωνάζει — Δεν έχει επιτευχθεί')
+  })
+})
+
 describe('generateReportText — ταξινόμηση τομέων/στόχων', () => {
   it('εμφανίζει τους τομείς με τη σταθερή σειρά του domains.js, όχι με τη σειρά δημιουργίας των στόχων', () => {
     const goals = [
       { id: 1, domain: 'behavior', title: 'Στόχος συμπεριφοράς', status: 'active', startDate: '2026-01-01', priority: 'medium' },
-      { id: 2, domain: 'fine-motor', title: 'Στόχος λεπτής κινητικότητας', status: 'active', startDate: '2026-01-01', priority: 'medium' },
-      { id: 3, domain: 'reading', title: 'Στόχος ανάγνωσης', status: 'active', startDate: '2026-01-01', priority: 'medium' }
+      { id: 2, domain: 'mobility', title: 'Στόχος κινητικότητας', status: 'active', startDate: '2026-01-01', priority: 'medium' },
+      { id: 3, domain: 'communication', title: 'Στόχος επικοινωνίας', status: 'active', startDate: '2026-01-01', priority: 'medium' }
     ]
     const text = generateReportText(baseArgs({ goals }))
-    const fineMotorIndex = text.indexOf('## Λεπτή κινητικότητα')
-    const readingIndex = text.indexOf('## Ανάγνωση')
+    const mobilityIndex = text.indexOf('## Κινητική')
+    const communicationIndex = text.indexOf('## Επικοινωνία')
     const behaviorIndex = text.indexOf('## Συμπεριφορά')
-    expect(fineMotorIndex).toBeGreaterThan(-1)
-    expect(fineMotorIndex).toBeLessThan(readingIndex)
-    expect(readingIndex).toBeLessThan(behaviorIndex)
+    expect(mobilityIndex).toBeGreaterThan(-1)
+    expect(mobilityIndex).toBeLessThan(communicationIndex)
+    expect(communicationIndex).toBeLessThan(behaviorIndex)
   })
 
   it('εμφανίζει πρώτα τους στόχους υψηλής προτεραιότητας μέσα σε έναν τομέα', () => {
     const goals = [
-      { id: 1, domain: 'reading', title: 'Χαμηλής προτεραιότητας', status: 'active', startDate: '2026-01-01', priority: 'low' },
-      { id: 2, domain: 'reading', title: 'Υψηλής προτεραιότητας', status: 'active', startDate: '2026-01-01', priority: 'high' }
+      { id: 1, domain: 'communication', title: 'Χαμηλής προτεραιότητας', status: 'active', startDate: '2026-01-01', priority: 'low' },
+      { id: 2, domain: 'communication', title: 'Υψηλής προτεραιότητας', status: 'active', startDate: '2026-01-01', priority: 'high' }
     ]
     const text = generateReportText(baseArgs({ goals }))
     const highIndex = text.indexOf('Υψηλής προτεραιότητας')

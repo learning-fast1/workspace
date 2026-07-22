@@ -36,6 +36,10 @@ export default defineConfig({
   ],
   test: {
     environment: 'node',
+    // Τα *.test.jsx (component tests, Στάδιο 3+) χρειάζονται πραγματικό DOM (React Testing
+    // Library) — τα *.test.js (πλειοψηφία, pure-logic/Dexie) παραμένουν στο ελαφρύ 'node' όπως πριν,
+    // καμία επιβάρυνση/ρίσκο για την υπάρχουσα σουίτα.
+    environmentMatchGlobs: [['**/*.test.jsx', 'jsdom']],
     setupFiles: ['./src/test/setup.js']
   }
 })

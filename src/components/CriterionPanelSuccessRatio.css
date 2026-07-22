@@ -1,0 +1,22 @@
+.criterion-panel-success-ratio__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.criterion-panel-success-ratio__row .form-field {
+  flex: 1;
+  min-width: 140px;
+}
+
+.criterion-panel-success-ratio__error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}
+
+.criterion-panel-success-ratio__preview {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}

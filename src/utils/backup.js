@@ -1,4 +1,7 @@
-import db, { DATA_TABLE_NAMES, setLastBackupAt, ensureDomainTemplatesSeeded } from '../db.js'
+import db, {
+  DATA_TABLE_NAMES, setLastBackupAt, ensureDomainTemplatesSeeded,
+  migrateRevisedGoalStatusToActive, backfillGoalEvents
+} from '../db.js'
 import { todayLocalISO } from './date.js'
 
 // Πλήρες στιγμιότυπο όλων των πινάκων δεδομένων (όχι appMeta — αυτό είναι μεταδεδομένα συσκευής).
@@ -71,6 +74,15 @@ export async function restoreFromBackup(payload) {
         await db[table].bulkPut(rows)
       }
     }
+    // Ένα backup μπορεί να προέρχεται από πριν το Sprint 7 (goals με status:'revised', ή απλά
+    // χωρίς κανένα goalEvents) — το Dexie upgrade hook (db.js, db.version(9).upgrade) ΔΕΝ τρέχει
+    // ξανά εδώ, γιατί το restore κάνει bulkPut, όχι version transition. Κλήση ΜΕΣΑ σε αυτή την
+    // ίδια transaction (η Dexie αναγνωρίζει το ambient context, δεν φτιάχνει nested transaction)
+    // ώστε restore+migration να είναι ΕΝΑ ατομικό βήμα — αν κάτι πετάξει, ΟΛΟΚΛΗΡΟ το restore
+    // ακυρώνεται, ποτέ δεδομένα restored αλλά μη-migrated. Idempotent — ασφαλές και σε ήδη
+    // migrated (πρόσφατο) backup, μηδέν διπλότυπα.
+    await migrateRevisedGoalStatusToActive()
+    await backfillGoalEvents()
   })
   // Αν το backup δεν είχε (ή είχε άδειο) domainTemplates, ξαναγεμίζει με τα προεπιλεγμένα
   // seed δεδομένα — αλλιώς οι προτάσεις τομέων θα έμεναν μόνιμα άδειες μετά την επαναφορά.

@@ -2,12 +2,22 @@
 
 .activity-item {
   display: flex;
-  align-items: center;
+  /* flex-start (ΟΧΙ center) — το κείμενο (βλ. .activity-item__text παρακάτω) μπορεί πλέον να
+     τυλίγεται σε πολλές γραμμές (π.χ. narrative μέτρηση/κλινική σημείωση, utils/goalHistory.js) —
+     με center, το icon/date θα έμεναν κολλημένα στο μέσο ενός πολύ ψηλού, πολύγραμμου κειμένου. */
+  align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--shell-radius);
   color: inherit;
   text-decoration: none;
+  /* Resets ώστε το <button> variant (onClick, βλ. ActivityItem.jsx) να μοιάζει ΑΚΡΙΒΩΣ με το <div>/
+     <Link> variant — no-op για εκείνα, απαραίτητο μόνο εδώ (UA στυλ κουμπιού). */
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
 }
 
 .activity-item--link {
@@ -40,10 +50,22 @@
   color: var(--color-warning);
 }
 
+/* Goal history (GoalDetail.jsx) — καθαρά οπτική διαφοροποίηση οικογένειας γραμμής: lifecycle
+   (goalEvents, καμία κλάση, εξ ορισμού χρώμα) / measurement (αντικειμενική τιμή). */
+.activity-item--measurement .activity-item__icon {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
 .activity-item__text {
   flex: 1;
   min-width: 0;
   font-size: var(--font-sm);
+  /* Bug report: ένα πολύ μεγάλο/συνεχόμενο κείμενο (π.χ. narrative μέτρηση χωρίς κενά) ξέφευγε από
+     την κάρτα, σπρώχνοντας το date εκτός πλαισίου — ίδιο fix idiom με GoalRecorderCard.css/
+     GoalDetail.css. anywhere σπάει ΜΟΝΟ όταν χρειάζεται· κανονικές προτάσεις τυλίγονται φυσιολογικά. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .activity-item--milestone .activity-item__text {

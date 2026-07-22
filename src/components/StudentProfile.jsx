@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { UserX } from 'lucide-react'
-import { db, deleteStudent } from '../db.js'
+import { db, deleteStudent, setStudentActive } from '../db.js'
 import { sessionDateMap } from '../utils/sessions.js'
 import { measurementNumericValue, parseCriterionTarget } from '../utils/measurementValue.js'
 import { formatDateElShort } from '../utils/date.js'
@@ -116,8 +116,11 @@ export default function StudentProfile() {
     )
   }
 
+  // Κεντρική, ατομική συνάρτηση (Technical Plan Στάδιο 9, σημείο 2) — αλλάζει student.active ΚΑΙ
+  // ενημερώνει τη συμμετοχή σχολικού έτους στην ΙΔΙΑ συναλλαγή, αντί το component να κάνει δύο
+  // ανεξάρτητες ενέργειες (db.students.update απευθείας, όπως πριν).
   async function toggleActive() {
-    await db.students.update(studentId, { active: !student.active })
+    await setStudentActive(studentId, !student.active)
   }
 
   async function handleFunctionalProfileChange(functionalProfile) {

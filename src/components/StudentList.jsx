@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { SearchX, UserPlus, Users } from 'lucide-react'
-import { db, deleteStudent } from '../db.js'
+import { db, deleteStudent, setStudentActive } from '../db.js'
 import { formatDateEl } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
@@ -75,8 +75,11 @@ export default function StudentList() {
     return byArchived.filter((s) => matchesSearch(s, q))
   }, [students, showArchived, search])
 
+  // Bugfix (βρέθηκε κατά τη διερεύνηση για το Στάδιο 10): αυτό το σημείο έκανε ακόμα απευθείας
+  // db.students.update({active}), παρακάμπτοντας το atomic setStudentActive του Σταδίου 9 — η
+  // αρχειοθέτηση από τη λίστα μαθητών δεν ενημέρωνε ποτέ τη συμμετοχή σχολικού έτους.
   async function handleToggleActive(student) {
-    await db.students.update(student.id, { active: !student.active })
+    await setStudentActive(student.id, !student.active)
   }
 
   async function handleConfirmDelete() {
@@ -118,14 +121,13 @@ export default function StudentList() {
         </div>
       )}
 
+      {/* Mobile review (product polish): ΧΩΡΙΣ δικό του CTA — το PageHeader έχει ήδη primaryAction
+          «Νέος μαθητής» προς το ίδιο /students/new. Κανόνας: header action κερδίζει, όχι διπλό. */}
       {noStudentsAtAll && (
         <EmptyState
           icon={Users}
           title="Δεν υπάρχουν μαθητές ακόμα"
           description="Πρόσθεσε τον πρώτο μαθητή για να ξεκινήσεις."
-          actionLabel="Πρόσθεσε τον πρώτο μαθητή"
-          actionIcon={UserPlus}
-          actionTo="/students/new"
         />
       )}
 

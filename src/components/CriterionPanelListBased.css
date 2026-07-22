@@ -1,0 +1,17 @@
+.criterion-panel-list-based__hint {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-2);
+}
+
+.criterion-panel-list-based__error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}
+
+.criterion-panel-list-based__preview {
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}

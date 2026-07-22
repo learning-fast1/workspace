@@ -1,4 +1,4 @@
-import { formatMeasurementValue, measurementNumericValue, parseCriterionTarget } from './measurementValue.js'
+import { formatRecordedValue, computeProgressPercent, meetsCriterion } from './measurementTypes/index.js'
 import { sortByPriority, statusLabel } from '../config/goalOptions.js'
 import { DOMAIN_IDS, domainName } from '../config/domains.js'
 import { formatDateEl as formatDate } from './date.js'
@@ -65,30 +65,37 @@ export function generateReportText({ student, dateFrom, dateTo, goals, sessions,
       } else {
         const first = goalMeasurements[0]
         const last = goalMeasurements[goalMeasurements.length - 1]
-        lines.push(`Τρέχον επίπεδο: ${formatMeasurementValue(g.measurementType, last.value)}`)
+        // context ίδιο σχήμα παντού στο registry (βλ. GoalsList.jsx/GoalDetail.jsx/SessionModal.jsx) —
+        // criterionText = g.criterion, ΠΟΤΕ ολόκληρο το goal.
+        const context = { criterionConfig: g.criterionConfig, criterionText: g.criterion }
+        lines.push(`Τρέχον επίπεδο: ${formatRecordedValue(g.measurementType, last.value, g.criterionConfig)}`)
 
         if (goalMeasurements.length > 1) {
-          const firstNum = measurementNumericValue(g.measurementType, first.value)
-          const lastNum = measurementNumericValue(g.measurementType, last.value)
-          if (firstNum !== null && lastNum !== null) {
-            const firstText = formatMeasurementValue(g.measurementType, first.value)
-            const lastText = formatMeasurementValue(g.measurementType, last.value)
-            if (lastNum > firstNum) lines.push(`Πορεία: Βελτίωση από ${firstText} σε ${lastText}.`)
-            else if (lastNum < firstNum) lines.push(`Πορεία: Πτώση από ${firstText} σε ${lastText}.`)
+          const firstText = formatRecordedValue(g.measurementType, first.value, g.criterionConfig)
+          const lastText = formatRecordedValue(g.measurementType, last.value, g.criterionConfig)
+          const firstProgress = computeProgressPercent(g.measurementType, first.value, context)
+          const lastProgress = computeProgressPercent(g.measurementType, last.value, context)
+          // Αποκλειστικά βάσει registry (supportsProgress/computeProgressPercent) — ΚΑΜΙΑ hardcoded
+          // λίστα τύπων εδώ. Όταν ο τύπος δεν υποστηρίζει αριθμητική πρόοδο (π.χ. Διάρκεια/Επίπεδο
+          // υποστήριξης/Κλίμακα/Συχνότητα/Περιγραφική — Product Design §3, «κανένα έμφυτο 100%» ή
+          // καθαρά ποιοτικό), ΚΑΜΙΑ επινοημένη σύγκριση Βελτίωση/Πτώση· απλή, τίμια χρονολογική
+          // καταγραφή — ίδιο πνεύμα με το progressLabel fallback του GoalsList.jsx (Στάδιο 9α).
+          if (firstProgress.computable && lastProgress.computable) {
+            if (lastProgress.value > firstProgress.value) lines.push(`Πορεία: Βελτίωση από ${firstText} σε ${lastText}.`)
+            else if (lastProgress.value < firstProgress.value) lines.push(`Πορεία: Πτώση από ${firstText} σε ${lastText}.`)
             else lines.push(`Πορεία: Σταθερό επίπεδο στο ${lastText}.`)
+          } else {
+            lines.push(`Πορεία: ${goalMeasurements.length} καταγραφές στην περίοδο — από «${firstText}» έως «${lastText}».`)
           }
         } else {
           lines.push('Πορεία: Μία μέτρηση καταγράφηκε στην περίοδο.')
         }
 
         if (g.criterion) {
-          const target = parseCriterionTarget(g.criterion, g.measurementType)
-          const lastNum = measurementNumericValue(g.measurementType, last.value)
-          if (target !== null && lastNum !== null) {
-            lines.push(`Κριτήριο: ${g.criterion} — ${lastNum >= target ? 'Επιτεύχθηκε' : 'Δεν έχει επιτευχθεί ακόμα'}.`)
-          } else {
-            lines.push(`Κριτήριο: ${g.criterion}`)
-          }
+          const achievement = meetsCriterion(g.measurementType, last.value, context)
+          lines.push(achievement.computable
+            ? `Κριτήριο: ${g.criterion} — ${achievement.value ? 'Επιτεύχθηκε' : 'Δεν έχει επιτευχθεί ακόμα'}.`
+            : `Κριτήριο: ${g.criterion}`)
         }
       }
 

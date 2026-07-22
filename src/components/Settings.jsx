@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { getActiveSchoolYear, listSchoolYears } from '../db.js'
 import { exportBackupFile, validateBackupPayload, restoreFromBackup } from '../utils/backup.js'
+import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
+import { formatDateEl } from '../utils/date.js'
 import AccountSection from './AccountSection.jsx'
 
 const TABLE_LABELS = {
@@ -17,6 +21,16 @@ const TABLE_LABELS = {
   calendarEvents: 'Γεγονότα ημερολογίου'
 }
 
+// Χτίζει το URL προς το Session History με το κοινό date range ενός σχολικού έτους (Technical Plan
+// Στάδιο 11, σημείο 1) — ΚΑΜΙΑ δεύτερη μετατροπή, μόνο schoolYearToDateRange + query params. Το
+// yearLabel περνάει ΜΟΝΟ για την ορατή ένδειξη «Προβολή ιστορικού έτους: …» στο Session History
+// (σημείο 5) — δεν επηρεάζει το ίδιο το φιλτράρισμα.
+function sessionsHistoryLinkFor(schoolYear) {
+  const { dateFrom, dateTo } = schoolYearToDateRange(schoolYear)
+  const params = new URLSearchParams({ dateFrom, dateTo, yearLabel: schoolYear.label })
+  return `/sessions?${params.toString()}`
+}
+
 export default function Settings() {
   const fileInputRef = useRef(null)
   const fileRequestIdRef = useRef(0) // ακυρώνει πιο αργές, ξεπερασμένες αναγνώσεις αρχείου
@@ -30,6 +44,36 @@ export default function Settings() {
   const [restoring, setRestoring] = useState(false)
   const [restoreError, setRestoreError] = useState(null)
   const [restoreDone, setRestoreDone] = useState(false)
+
+  // Fresh-install prompt (σημείο 3) — απλό, ΜΗ επίμονο local state: κλείνει με «Αργότερα» και ΔΕΝ
+  // ξαναεμφανίζεται όσο η σελίδα Ρυθμίσεις παραμένει mounted (καμία ενόχληση σε κάθε render μέσα
+  // στην ίδια επίσκεψη) — αλλά ΕΠΑΝΕΜΦΑΝΙΖΕΤΑΙ φυσικά στην επόμενη επίσκεψη στις Ρυθμίσεις ή μετά
+  // από reload (το component ξαναμοντάρεται, το state ξαναρχίζει από false) — ΧΩΡΙΣ καμία
+  // persisted "dismissed" σημαία στη βάση/localStorage, ίδια αρχή με το «δεν χρειάζεται draft σε
+  // database» του Σταδίου 10.
+  const [promptDismissed, setPromptDismissed] = useState(false)
+
+  // 4 σαφείς καταστάσεις (σημείο 4): undefined = loading· { status:'error' }· { status:'ok', year:null }
+  // = κανένα ενεργό· { status:'ok', year } = ενεργό έτος. Ζωντανό μέσω useLiveQuery — ενημερώνεται
+  // αυτόματα (χωρίς reload) μόλις το applySchoolYearTransition (Στάδιο 10) κάνει commit.
+  const activeYearResult = useLiveQuery(async () => {
+    try {
+      const year = await getActiveSchoolYear()
+      return { status: 'ok', year }
+    } catch (err) {
+      return { status: 'error', message: err?.message || 'Σφάλμα ανάγνωσης του ενεργού σχολικού έτους.' }
+    }
+  }, [])
+
+  const allSchoolYears = useLiveQuery(listSchoolYears, [])
+  // Ιστορικά = ΜΟΝΟ πραγματικές εγγραφές schoolYears εκτός του ενεργού (σημείο 2) — καμία
+  // αναδρομική ανακατασκευή π.χ. από goals.startDate. Πιο πρόσφατο πρώτο, για ευκολότερη εύρεση.
+  const historicalYears = (allSchoolYears || [])
+    .filter((y) => !y.isActive)
+    .slice()
+    .reverse()
+
+  const isFreshInstall = allSchoolYears !== undefined && allSchoolYears.length === 0
 
   async function handleExport() {
     setExporting(true)
@@ -107,6 +151,72 @@ export default function Settings() {
       {/* Sprint 5A Phase 1 — πρώτη ενότητα, πάνω από το Σχολικό έτος (Technical Plan §Flows,
           ροή 1). Δεν αποδίδει τίποτα αν CLOUD_ENABLED=false (βλ. AccountSection.jsx). */}
       <AccountSection />
+
+      <div className="section">
+        <h2>Σχολικό έτος</h2>
+
+        {activeYearResult === undefined && <p className="hint">Φόρτωση…</p>}
+
+        {activeYearResult?.status === 'error' && (
+          <p className="hint">⚠️ {activeYearResult.message}</p>
+        )}
+
+        {activeYearResult?.status === 'ok' && activeYearResult.year && (
+          <p className="hint">
+            Ενεργό σχολικό έτος: <strong>{activeYearResult.year.label}</strong>{' '}
+            ({formatDateEl(activeYearResult.year.startDate)} – {formatDateEl(activeYearResult.year.endDate)})
+          </p>
+        )}
+
+        {activeYearResult?.status === 'ok' && !activeYearResult.year && !isFreshInstall && (
+          <p className="hint">Κανένα ενεργό σχολικό έτος αυτή τη στιγμή.</p>
+        )}
+
+        {/* Fresh-install prompt (σημείο 3) — ήπιο, όχι modal/blocking, με σαφές κουμπί ορισμού ΚΑΙ
+            σαφή δυνατότητα κλεισίματος· καμία αυτόματη δημιουργία έτους χωρίς ρητή ενέργεια εδώ. */}
+        {isFreshInstall && !promptDismissed && (
+          <div className="notice">
+            <p><strong>Ποιο είναι το τρέχον σχολικό έτος;</strong></p>
+            <p>Ο ορισμός του βοηθά στην οργάνωση μαθητών, στόχων και προγράμματος ανά έτος.</p>
+            <div className="actions-row">
+              <Link to="/settings/school-year-transition" className="btn btn-primary">Ορισμός τώρα</Link>
+              <button type="button" className="btn btn-secondary" onClick={() => setPromptDismissed(true)}>
+                Αργότερα
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p className="hint">
+          Στο τέλος της χρονιάς, μετάβαση στο νέο σχολικό έτος — ποιοι μαθητές συνεχίζουν, ποιοι
+          στόχοι ολοκληρώνονται ή συνεχίζονται, και προαιρετική ανανέωση του προγράμματος.
+        </p>
+        <div className="actions-row">
+          <Link to="/settings/school-year-transition" className="btn btn-secondary">
+            Μετάβαση σε νέο σχολικό έτος
+          </Link>
+        </div>
+
+        {historicalYears.length > 0 && (
+          <>
+            <h2>Ιστορικά σχολικά έτη</h2>
+            <p className="hint">
+              Παλαιότερα δεδομένα, πριν καταγραφεί το πρώτο σχολικό έτος, παραμένουν προσβάσιμα
+              κανονικά μέσω των φίλτρων ημερομηνίας ή της επιλογής «Όλα» στις αντίστοιχες οθόνες.
+            </p>
+            <ul className="school-year-history-list">
+              {historicalYears.map((y) => (
+                <li key={y.id} className="school-year-history-list__row">
+                  <span>{y.label} ({formatDateEl(y.startDate)} – {formatDateEl(y.endDate)})</span>
+                  <Link to={sessionsHistoryLinkFor(y)} className="btn btn-secondary">
+                    Δες συνεδρίες αυτού του έτους
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
 
       <div className="section">
         <h2>Αντίγραφο ασφαλείας</h2>

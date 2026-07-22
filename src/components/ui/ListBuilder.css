@@ -1,0 +1,58 @@
+.list-builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list-builder__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.list-builder__reorder {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 1px;
+}
+
+.list-builder__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-builder__icon-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.list-builder__icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.list-builder__icon-btn--remove {
+  color: var(--color-danger);
+  border-color: transparent;
+  background: transparent;
+}
+
+.list-builder__add-btn {
+  align-self: flex-start;
+}
+
+.list-builder__error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-1) 0 0;
+}

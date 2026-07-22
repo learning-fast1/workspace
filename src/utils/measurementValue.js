@@ -76,3 +76,19 @@ export function parseCriterionTarget(criterion, measurementType) {
 
   return null
 }
+
+// Βρίσκει τη ΠΙΟ ΠΡΟΣΦΑΤΗ μέτρηση, δεδομένων ΗΔΗ date-joined μετρήσεων (κάθε στοιχείο πρέπει να
+// έχει ήδη πεδίο `date` — π.χ. μέσω sessionDateMap join, βλ. GoalsList.jsx/utils/goalAttention.js).
+// Καθαρή: filter/reduce δημιουργούν νέα δεδομένα, ΔΕΝ μεταλλάσσουν το input array (κανένα in-place
+// sort). Επιστρέφει null αν καμία μέτρηση δεν έχει date.
+export function latestDatedMeasurement(datedMeasurements) {
+  const withDate = datedMeasurements.filter((m) => m.date)
+  if (withDate.length === 0) return null
+  return withDate.reduce((latest, m) => (!latest || m.date > latest.date ? m : latest), null)
+}
+
+// ΣΗΜΕΙΩΣΗ (Technical Plan Στάδιο 9α): το παλιό computeProgressPercent(measurementType,
+// latestValue, criterionTarget) που ζούσε εδώ αφαιρέθηκε — repo-wide έλεγχος (grep) επιβεβαίωσε
+// ότι ο ΜΟΝΑΔΙΚΟΣ caller του ήταν το GoalsList.jsx, το οποίο πλέον καλεί αποκλειστικά το
+// utils/measurementTypes/index.js (registry) — η ίδια η κλήση αντικαταστάθηκε σε αυτό το στάδιο.
+// Αν χρειαστεί ποτέ ξανά ένα «legacy» computeProgressPercent, βλ. git history αυτού του αρχείου.

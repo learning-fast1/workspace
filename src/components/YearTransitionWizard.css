@@ -1,0 +1,209 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css) — ίδιο idiom με GoalWizardForm.css. */
+
+.year-transition-wizard__alert {
+  max-width: 720px;
+  margin: 0 auto var(--space-4);
+}
+
+/* ---------- Step indicator (ίδιο μοτίβο με GoalWizardForm.css) ---------- */
+
+.year-transition-wizard__steps {
+  display: none;
+}
+
+.year-transition-wizard__step-mobile {
+  max-width: 720px;
+  margin: 0 auto var(--space-4);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 640px) {
+  .year-transition-wizard__steps {
+    display: flex;
+    max-width: 720px;
+    margin: 0 auto var(--space-5);
+    gap: var(--space-2);
+  }
+
+  .year-transition-wizard__step-mobile {
+    display: none;
+  }
+
+  .year-transition-wizard__step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: var(--font-sm);
+  }
+
+  .year-transition-wizard__step--current {
+    color: var(--color-text);
+    font-weight: 700;
+    border-bottom-color: var(--color-primary);
+  }
+
+  .year-transition-wizard__step--done {
+    color: var(--color-text-secondary);
+    border-bottom-color: var(--color-success);
+  }
+
+  .year-transition-wizard__step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--color-surface-soft);
+    font-size: var(--font-xs);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .year-transition-wizard__step--current .year-transition-wizard__step-number {
+    background: var(--color-primary);
+    color: #fff;
+  }
+
+  .year-transition-wizard__step--done .year-transition-wizard__step-number {
+    background: var(--color-success);
+    color: #fff;
+  }
+}
+
+/* ---------- Card / περιεχόμενο βήματος ---------- */
+
+.year-transition-wizard__card {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.year-transition-wizard__step-heading {
+  margin: 0 0 var(--space-4);
+}
+
+.year-transition-wizard__step-heading:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.hint-text {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  margin: var(--space-2) 0 0;
+}
+
+/* ---------- Μαθητές ---------- */
+
+/* Καμία σταθερή ύψος/overflow:auto εδώ — η λίστα κυλά με τη φυσιολογική ροή της σελίδας
+   (σημείο 11: «μεγάλες λίστες χωρίς παγίδευση scroll»). */
+.year-transition-wizard__student-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.year-transition-wizard__student-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  flex-wrap: wrap;
+}
+
+.year-transition-wizard__student-name {
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+/* ---------- Στόχοι ---------- */
+
+.year-transition-wizard__goal-group {
+  margin-bottom: var(--space-5);
+}
+
+.year-transition-wizard__goal-group-title {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.year-transition-wizard__goal-row {
+  margin-bottom: var(--space-4);
+}
+
+.year-transition-wizard__goal-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.year-transition-wizard__goal-domain {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.year-transition-wizard__error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: 0 0 var(--space-3);
+}
+
+.year-transition-wizard__error:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Ανασκόπηση ---------- */
+
+.year-transition-wizard__summary {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+}
+
+.year-transition-wizard__summary li {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-soft);
+  border-radius: var(--shell-radius);
+}
+
+.year-transition-wizard__done-card {
+  max-width: 560px;
+  margin: var(--space-8) auto;
+  padding: var(--space-6);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+/* ---------- Ενέργειες ---------- */
+
+.year-transition-wizard__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}

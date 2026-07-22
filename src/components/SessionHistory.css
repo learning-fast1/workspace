@@ -10,6 +10,29 @@
   gap: var(--space-4);
 }
 
+.session-history__year-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface-soft);
+  font-size: var(--font-sm);
+}
+
+.session-history__year-banner-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.session-history__year-banner-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .session-history__toolbar {
   display: flex;
   align-items: center;

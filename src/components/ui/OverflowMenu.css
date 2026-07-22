@@ -33,7 +33,12 @@
   top: calc(100% + 4px);
   right: 0;
   left: auto;
-  z-index: 10;
+  /* Πάνω από το .app-shell-bottom-nav (z-index:20, position:fixed) — αλλιώς σε mobile ένα menu με
+     αρκετά items (π.χ. Sprint 7: Επεξεργασία/Αλλαγή κατάστασης/Αποθήκευσε ως πρότυπο/Αντιγραφή σε
+     άλλον μαθητή) κρύβεται πίσω από το bottom nav και τα τελευταία items γίνονται μη-πατήσιμα
+     (επιβεβαιώθηκε live). Δεν αφορά μόνο το Sprint 7 — ήταν προϋπάρχον ρίσκο, απλά δεν είχε
+     ενεργοποιηθεί ποτέ πριν γιατί κανένα menu δεν είχε αρκετά items να φτάσει τόσο χαμηλά. */
+  z-index: 25;
   min-width: 190px;
   display: flex;
   flex-direction: column;
@@ -43,6 +48,11 @@
   border: 1px solid var(--color-border);
   border-radius: var(--shell-radius);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+}
+
+.overflow-menu__panel--flip-up {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 .overflow-menu__item {

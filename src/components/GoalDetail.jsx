@@ -4,19 +4,22 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine
 } from 'recharts'
-import { LineChart as LineChartIcon, UserX } from 'lucide-react'
+import { LineChart as LineChartIcon, MessageSquareText, UserX } from 'lucide-react'
 import { db } from '../db.js'
 import { domainName } from '../config/domains.js'
-import { MEASUREMENT_TYPES } from '../config/measurementTypes.js'
+import { getMeasurementType, formatRecordedValue } from '../utils/measurementTypes/index.js'
 import { priorityLabel, statusLabel, PRIORITY_BADGE_VARIANT, STATUS_BADGE_VARIANT } from '../config/goalOptions.js'
 import { PROMPT_LEVEL_RANK } from '../config/promptLevels.js'
 import { measurementNumericValue, measurementUnitLabel, parseCriterionTarget } from '../utils/measurementValue.js'
 import { sessionDateMap } from '../utils/sessions.js'
+import { buildGoalHistoryFeed } from '../utils/goalHistory.js'
+import { formatDateEl } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
 import Card from './ui/Card.jsx'
 import Badge from './ui/Badge.jsx'
 import EmptyState from './ui/EmptyState.jsx'
+import ActivityItem from './ui/ActivityItem.jsx'
 import SessionModal from './SessionModal.jsx'
 import './GoalDetail.css'
 
@@ -79,8 +82,14 @@ export default function GoalDetail() {
     [goalId]
   )
   const sessions = useLiveQuery(() => db.sessions.toArray(), [])
+  // Ένα μόνο, φθηνό query — ήδη scoped σε ΕΝΑΝ στόχο (goalId indexed), όχι σε όλους τους στόχους
+  // του μαθητή, άρα δεν υπάρχει θέμα N+1 εδώ (Technical Plan Στάδιο 5, σημείο 6).
+  const goalEvents = useLiveQuery(
+    () => db.goalEvents.where('goalId').equals(Number(goalId)).toArray(),
+    [goalId]
+  )
 
-  if (goal === null || !measurements || !sessions) {
+  if (goal === null || !measurements || !sessions || !goalEvents) {
     return (
       <AppShell>
         <p>Φόρτωση…</p>
@@ -113,10 +122,40 @@ export default function GoalDetail() {
     .filter((d) => d.date && d.value !== null)
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  const measurementTypeInfo = MEASUREMENT_TYPES.find((m) => m.value === goal.measurementType)
+  // Μοναδική πηγή αλήθειας για το label (registry) — πριν χρησιμοποιούσε ξεχωριστό, ξεχασμένο
+  // config/measurementTypes.js με ΔΙΑΦΟΡΕΤΙΚΗ ονομασία («Ανάλυση εργασίας (βήματα)» αντί για
+  // «Βήματα εργασίας» του Wizard) ΚΑΙ μόνο 4 από τους 8 τύπους (Minor UX Polish, bug report).
+  const measurementTypeInfo = getMeasurementType(goal.measurementType)
   const unit = measurementUnitLabel(goal.measurementType)
   const criterionTarget = parseCriterionTarget(goal.criterion, goal.measurementType)
   const isPromptLevel = goal.measurementType === 'promptLevel'
+  // Υπάρχουν μετρήσεις, αλλά ΚΑΜΙΑ δεν παρήγαγε αριθμητικό σημείο γραφήματος (measurementNumericValue
+  // δεν υποστηρίζει τον τύπο — π.χ. narrative/checklist/ratingScale/frequency σήμερα) → ο τύπος
+  // ΔΕΝ είναι χαρτογραφήσιμος, το γράφημα κρύβεται εντελώς (το ενοποιημένο Ιστορικό παρακάτω γίνεται
+  // η μοναδική πηγή) αντί για το παραπλανητικό «Δεν υπάρχουν ακόμα μετρήσεις». Παράγεται ΔΥΝΑΜΙΚΑ
+  // (όχι hardcoded λίστα τύπων) — αν αργότερα το measurementNumericValue επεκταθεί (π.χ. Stage 9β),
+  // αυτή η συνθήκη διορθώνεται αυτόματα, χωρίς νέο άγγιγμα εδώ.
+  const chartTypeUnsupported = measurements.length > 0 && chartData.length === 0
+
+  // Περιγραφική παρατήρηση (bug report) — ΔΕΝ είναι απλώς «μη χαρτογραφήσιμος τύπος» σαν τους
+  // υπόλοιπους (checklist/ratingScale/frequency): κατά το Product Design είναι ο ΜΟΝΑΔΙΚΟΣ τύπος
+  // χωρίς καμία έννοια ποσοτικής προόδου εξ ορισμού, ρητά προοριζόμενος για διαφορετική παρουσίαση
+  // (χρονολογική λίστα παρατηρήσεων, όχι γράφημα) — ΟΧΙ απλώς κρυφό γράφημα σαν τους άλλους. Γι'
+  // αυτό εδώ ΕΙΝΑΙ σωστό να ελέγχεται ρητά ο τύπος, σε αντίθεση με το chartTypeUnsupported παραπάνω
+  // (που παραμένει σκόπιμα δυναμικό/type-agnostic).
+  const isNarrative = goal.measurementType === 'narrative'
+  const narrativeEntries = isNarrative
+    ? measurements
+        .map((m) => ({ id: m.id, date: sessionDateById[m.sessionId], text: formatRecordedValue('narrative', m.value, goal.criterionConfig) }))
+        .filter((n) => n.date)
+        .sort((a, b) => b.date.localeCompare(a.date)) // πιο πρόσφατα πρώτα, ίδια σύμβαση με το Ιστορικό παρακάτω
+    : []
+
+  const historyEntries = buildGoalHistoryFeed(goal, {
+    goalEvents,
+    measurements,
+    sessionDateById
+  })
 
   // Το εύρος του άξονα Υ πρέπει να περιλαμβάνει πάντα τη γραμμή κριτηρίου, αλλιώς σχεδιάζεται εκτός οθόνης.
   let yDomain
@@ -141,12 +180,13 @@ export default function GoalDetail() {
           <Badge variant={PRIORITY_BADGE_VARIANT[goal.priority] || 'neutral'}>{priorityLabel(goal.priority)}</Badge>
           <Badge variant={STATUS_BADGE_VARIANT[goal.status] || 'neutral'}>{statusLabel(goal.status)}</Badge>
         </div>
-        {goal.baseline && <p><strong>Baseline:</strong> {goal.baseline}</p>}
-        {goal.criterion && <p><strong>Κριτήριο:</strong> {goal.criterion}</p>}
+        {goal.baseline && <p><strong>Σημείο εκκίνησης:</strong> {goal.baseline}</p>}
+        {goal.criterion && <p className="goal-detail__criterion"><strong>Κριτήριο:</strong> {goal.criterion}</p>}
         {goal.description && <p><strong>Περιγραφή:</strong> {goal.description}</p>}
       </Card>
 
-      <Card className="goal-detail__chart-card">
+      {!chartTypeUnsupported && !isNarrative && (
+        <Card className="goal-detail__chart-card">
         <h2 className="goal-detail__chart-title">Πρόοδος μετρήσεων</h2>
         {chartData.length === 0 ? (
           <EmptyState
@@ -198,6 +238,49 @@ export default function GoalDetail() {
             </ResponsiveContainer>
             <p className="goal-detail__chart-hint">Πάτησε σε ένα σημείο για να δεις τη συνεδρία στην οποία μετρήθηκε.</p>
           </>
+        )}
+      </Card>
+      )}
+
+      {isNarrative && (
+        <Card className="goal-detail__narrative-card">
+          <h2 className="goal-detail__chart-title">Παρατηρήσεις συνεδριών</h2>
+          {narrativeEntries.length === 0 ? (
+            <EmptyState
+              icon={MessageSquareText}
+              title="Δεν υπάρχουν ακόμη αφηγηματικές παρατηρήσεις."
+              description="Θα εμφανίζονται εδώ, σε χρονολογική σειρά, μόλις καταγραφούν σε συνεδρία."
+            />
+          ) : (
+            <div className="goal-detail__narrative-items">
+              {narrativeEntries.map((n) => (
+                <div key={n.id} className="goal-detail__narrative-item">
+                  <p className="goal-detail__narrative-date">{formatDateEl(n.date)}</p>
+                  <p className="goal-detail__narrative-text">{n.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      <Card className="goal-detail__history-card">
+        <h2 className="goal-detail__chart-title">Ιστορικό</h2>
+        {historyEntries.length === 0 ? (
+          <p className="goal-detail__history-empty">Δεν υπάρχει ακόμα καταγεγραμμένο ιστορικό για αυτόν τον στόχο.</p>
+        ) : (
+          <div className="goal-detail__history-items">
+            {historyEntries.map((entry) => (
+              <ActivityItem
+                key={entry.key}
+                icon={entry.icon}
+                text={entry.text}
+                dateLabel={formatDateEl(entry.date)}
+                kind={entry.kind}
+                onClick={entry.sessionId ? () => setViewingSessionId(entry.sessionId) : undefined}
+              />
+            ))}
+          </div>
         )}
       </Card>
 

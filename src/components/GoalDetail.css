@@ -1,14 +1,68 @@
 /* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
 
 .goal-detail__info,
-.goal-detail__chart-card {
+.goal-detail__chart-card,
+.goal-detail__narrative-card,
+.goal-detail__history-card {
   padding: var(--space-5);
   margin-bottom: var(--space-4);
+}
+
+/* Περιγραφική παρατήρηση — αντικαθιστά το γράφημα (bug report/Product Design): χρονολογική λίστα
+   αφηγηματικών παρατηρήσεων, όχι αριθμητικό γράφημα. */
+.goal-detail__narrative-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.goal-detail__narrative-item {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.goal-detail__narrative-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.goal-detail__narrative-date {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: 0 0 2px;
+}
+
+.goal-detail__narrative-text {
+  font-size: var(--font-sm);
+  margin: 0;
+  /* Ελεύθερο κείμενο του χρήστη — ίδιο overflow-wrap fix idiom με το υπόλοιπο GoalDetail.css. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.goal-detail__history-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.goal-detail__history-empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: 0;
 }
 
 .goal-detail__info p {
   margin: 0 0 var(--space-2);
   font-size: var(--font-sm);
+}
+
+/* Το κριτήριο είναι ελεύθερο κείμενο του χρήστη — χωρίς overflow-wrap, μια πολύ μεγάλη λέξη/
+   συνεχόμενοι χαρακτήρες χωρίς κενά θα ξέφευγαν από την κάρτα (το κανονικό word-wrap σπάει ΜΟΝΟ σε
+   κενά). anywhere σπάει ΜΟΝΟ όταν χρειάζεται — κανονικές προτάσεις τυλίγονται φυσιολογικά. */
+.goal-detail__criterion {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .goal-detail__badges {

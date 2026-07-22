@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { DOMAINS } from '../config/domains.js'
+// Ρητά ΑΝΕΞΑΡΤΗΤΟ από το config/domains.js (οι 8 τομείς στόχων) — το Λειτουργικό Προφίλ παραμένει
+// στους 14 αναλυτικούς τομείς, βλ. config/functionalProfileDomains.js.
+import { FUNCTIONAL_PROFILE_DOMAINS as DOMAINS } from '../config/functionalProfileDomains.js'
 import { PROFILE_OPTIONS } from '../config/profileOptions.js'
 import Badge from './ui/Badge.jsx'
 import FormField from './ui/FormField.jsx'

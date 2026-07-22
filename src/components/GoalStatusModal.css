@@ -1,0 +1,36 @@
+.goal-status-modal__current {
+  font-size: var(--font-sm);
+  margin: 0 0 var(--space-3);
+}
+
+.goal-status-modal__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.goal-status-modal__radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+}
+
+.goal-status-modal__achieved-info {
+  background: var(--color-surface-soft);
+  border-radius: var(--shell-radius);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-3);
+  /* Περιλαμβάνει το ελεύθερο κείμενο κριτηρίου του χρήστη — βλ. σχόλιο στο GoalDetail.css. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.goal-status-modal__error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  margin: var(--space-3) 0 0;
+}

@@ -1,0 +1,141 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.goal-wizard__alert {
+  max-width: 640px;
+  margin: 0 auto var(--space-4);
+}
+
+/* ---------- Step indicator ---------- */
+
+/* Mobile (<640px): μόνο συμπαγές κείμενο «Βήμα X από 3: …» — ένα βήμα με μεγάλη ετικέτα
+   («Κριτήριο & Μέτρηση») δεν χωράει άνετα σε 3-up σε στενή οθόνη χωρίς να γίνεται δυσανάγνωστο. */
+.goal-wizard__steps {
+  display: none;
+}
+
+.goal-wizard__step-mobile {
+  max-width: 640px;
+  margin: 0 auto var(--space-4);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 640px) {
+  .goal-wizard__steps {
+    display: flex;
+    max-width: 640px;
+    margin: 0 auto var(--space-5);
+    gap: var(--space-2);
+  }
+
+  .goal-wizard__step-mobile {
+    display: none;
+  }
+
+  .goal-wizard__step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: var(--font-sm);
+  }
+
+  .goal-wizard__step--current {
+    color: var(--color-text);
+    font-weight: 700;
+    border-bottom-color: var(--color-primary);
+  }
+
+  .goal-wizard__step--done {
+    color: var(--color-text-secondary);
+    border-bottom-color: var(--color-success);
+  }
+
+  .goal-wizard__step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--color-surface-soft);
+    font-size: var(--font-xs);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .goal-wizard__step--current .goal-wizard__step-number {
+    background: var(--color-primary);
+    color: #fff;
+  }
+
+  .goal-wizard__step--done .goal-wizard__step-number {
+    background: var(--color-success);
+    color: #fff;
+  }
+}
+
+/* ---------- Card / πεδία ---------- */
+
+.goal-wizard__card {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.goal-wizard__library-btn {
+  margin-bottom: var(--space-4);
+}
+
+/* ---------- «Άλλες λεπτομέρειες» (native details/summary) ---------- */
+
+.goal-wizard__details {
+  margin-top: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.goal-wizard__details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--font-sm);
+}
+
+.goal-wizard__details-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* ---------- Ενέργειες ---------- */
+
+/* Bug report (mobile review): σε μεγάλα βήματα (π.χ. πολλές προτάσεις/πεδία) τα κουμπιά Πίσω/
+   Επόμενο/Αποθήκευση έπεφταν στο τέλος μιας πολύ ψηλής κάρτας — έπρεπε να κυλήσει ολόκληρη η
+   σελίδα για να φανούν. Sticky footer (ίδιο πνεύμα με το Modal.css) — πάντα ορατό, «σπάει» έξω
+   από το padding της Card με αρνητικά margins ώστε το φόντο να καλύπτει όλο το πλάτος της. Στο
+   mobile, το bottom sticky σταματά ΠΑΝΩ από το bottom nav (βλ. AppShell.css), ποτέ από κάτω του. */
+.goal-wizard__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  position: sticky;
+  bottom: 0;
+  margin: var(--space-6) calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+  padding: var(--space-3) var(--space-6) var(--space-4);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--shell-radius-lg) var(--shell-radius-lg);
+}
+
+@media (max-width: 767px) {
+  .goal-wizard__actions {
+    bottom: var(--shell-bottom-nav-height);
+  }
+}

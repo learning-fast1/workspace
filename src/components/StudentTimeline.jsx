@@ -1,16 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Archive, CalendarDays, RefreshCw, Sparkles, FileText, Star, Target } from 'lucide-react'
+import { CalendarDays, Sparkles, FileText, Star } from 'lucide-react'
 import { db } from '../db.js'
 import { formatDateEl as formatDate } from '../utils/date.js'
+import { describeGoalEvent } from '../utils/goalEvents.js'
 import EmptyState from './ui/EmptyState.jsx'
 import ActivityItem from './ui/ActivityItem.jsx'
 import './StudentTimeline.css'
-
-const STATUS_EVENTS = {
-  achieved: { icon: Target, text: (title) => `Επίτευξη κριτηρίου: ${title}` },
-  revised: { icon: RefreshCw, text: (title) => `Αναθεώρηση στόχου: ${title}` },
-  archived: { icon: Archive, text: (title) => `Αρχειοθέτηση στόχου: ${title}` }
-}
 
 function formatMonth(monthStr) {
   return new Date(`${monthStr}-01`).toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })
@@ -26,27 +21,37 @@ export default function StudentTimeline({ studentId }) {
     () => db.observations.where('studentId').equals(studentId).toArray(),
     [studentId]
   )
+  // ΕΝΑ query για ΟΛΑ τα goalEvents όλων των στόχων του μαθητή μαζί (goalId indexed, .anyOf σε
+  // batch) — ΟΧΙ ένα query ανά στόχο (Technical Plan Στάδιο 5, σημείο 6: καμία N+1). Εξαρτάται
+  // από το `goals` query — γι' αυτό ξεχωριστό useLiveQuery με [goals] ως dependency, ώστε να
+  // ξανατρέξει μόνο όταν αλλάξει η λίστα στόχων, όχι σε κάθε render.
+  const goalEvents = useLiveQuery(
+    () => (goals ? db.goalEvents.where('goalId').anyOf(goals.map((g) => g.id)).toArray() : undefined),
+    [goals]
+  )
 
-  if (!goals || !allSessions || !observations) {
+  if (!goals || !allSessions || !observations || !goalEvents) {
     return <p>Φόρτωση…</p>
   }
 
   const events = []
 
-  for (const g of goals) {
-    if (g.startDate) {
-      events.push({ key: `goal-new-${g.id}`, date: g.startDate, icon: Target, text: `Νέος στόχος: ${g.title}`, to: `/students/${studentId}/goals/${g.id}` })
-    }
-    const statusEvent = STATUS_EVENTS[g.status]
-    if (statusEvent && g.statusChangedAt) {
-      events.push({
-        key: `goal-status-${g.id}`,
-        date: g.statusChangedAt.slice(0, 10),
-        icon: statusEvent.icon,
-        text: statusEvent.text(g.title),
-        to: `/students/${studentId}/goals/${g.id}`
-      })
-    }
+  // Ένα timeline entry ΑΝΑ goalEvent (όχι ανά goal) — αυτό ακριβώς αντικαθιστά το παλιό «μόνο η
+  // τελευταία κατάσταση φαίνεται»: όλο το ιστορικό ενός στόχου (δημιουργία, παύσεις, επαναφορές,
+  // ολοκλήρωση) εμφανίζεται τώρα ξεχωριστά, στη σωστή χρονολογική θέση του. Ταξινόμηση/περιγραφή
+  // ΑΠΟΚΛΕΙΣΤΙΚΑ μέσω του κοινού utils/goalEvents.js — καμία δική του ερμηνεία εδώ (σημείο 2).
+  const goalById = Object.fromEntries(goals.map((g) => [g.id, g]))
+  for (const event of goalEvents) {
+    const goal = goalById[event.goalId]
+    const { icon, text } = describeGoalEvent(event, goal)
+    events.push({
+      key: `goal-event-${event.id}`,
+      date: event.at.slice(0, 10),
+      at: event.at,
+      icon,
+      text,
+      to: goal ? `/students/${studentId}/goals/${goal.id}` : undefined
+    })
   }
 
   const sessionsByMonth = {}
@@ -75,8 +80,11 @@ export default function StudentTimeline({ studentId }) {
     })
   }
 
-  // Πιο πρόσφατα πρώτα (COMPONENT_GUIDE.md § ActivityItem) — αντίστροφα από τη σημερινή σειρά.
-  events.sort((a, b) => b.date.localeCompare(a.date))
+  // Πιο πρόσφατα πρώτα (COMPONENT_GUIDE.md § ActivityItem). Χρησιμοποιεί το πλήρες `at` (ώρα
+  // included) όπου υπάρχει — δηλαδή για goal events — ώστε δύο events την ΙΔΙΑ μέρα να μπαίνουν
+  // στη σωστή σειρά αναμεταξύ τους (Technical Plan Στάδιο 5, σημείο 3/7)· sessions/observations
+  // δεν έχουν ποτέ αποθηκευμένη ώρα, άρα πέφτουν πίσω στο απλό date.
+  events.sort((a, b) => (b.at || b.date).localeCompare(a.at || a.date))
 
   if (events.length === 0) {
     return (

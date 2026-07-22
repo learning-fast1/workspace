@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { CalendarClock, Pencil } from 'lucide-react'
-import { STATUSES, PRIORITY_BADGE_VARIANT, STATUS_BADGE_VARIANT } from '../config/goalOptions.js'
+import { Pencil, RefreshCcw, CalendarClock, BookmarkPlus, Copy } from 'lucide-react'
+import { PRIORITY_BADGE_VARIANT, STATUS_BADGE_VARIANT } from '../config/goalOptions.js'
 import Card from './ui/Card.jsx'
 import Badge from './ui/Badge.jsx'
 import ProgressBar from './ui/ProgressBar.jsx'
@@ -16,6 +16,7 @@ export default function GoalCard({
   title,
   domainLabel,
   description,
+  criterion,
   priority,
   priorityLabel,
   status,
@@ -25,15 +26,10 @@ export default function GoalCard({
   lastMeasuredLabel,
   isStale,
   onEdit,
-  onChangeStatus
+  onOpenStatusModal,
+  onSaveAsTemplate,
+  onCopyToStudent
 }) {
-  // Overflow: πάντα Επεξεργασία + οι ΥΠΟΛΟΙΠΕΣ 3 καταστάσεις (εκτός της τρέχουσας) — ίδια πλήρης
-  // ευελιξία με το παλιό <select> με τις 4 επιλογές, απλά σε overflow menu αντί για dropdown.
-  const statusItems = STATUSES.filter((s) => s.value !== status).map((s) => ({
-    label: `Σήμανση ως ${s.label}`,
-    onClick: () => onChangeStatus(s.value)
-  }))
-
   return (
     <Card variant="interactive" className="goal-card2">
       <Link to={`/students/${studentId}/goals/${id}`} className="stretched-link goal-card2__link" aria-label={`Πρόοδος στόχου ${title}`} />
@@ -45,7 +41,12 @@ export default function GoalCard({
         </div>
         <OverflowMenu
           ariaLabel={`Ενέργειες για ${title}`}
-          items={[{ label: 'Επεξεργασία', icon: Pencil, onClick: onEdit }, ...statusItems]}
+          items={[
+            { label: 'Επεξεργασία', icon: Pencil, onClick: onEdit },
+            { label: 'Αλλαγή κατάστασης', icon: RefreshCcw, onClick: onOpenStatusModal },
+            { label: 'Αποθήκευσε ως πρότυπο', icon: BookmarkPlus, onClick: onSaveAsTemplate },
+            { label: 'Αντιγραφή σε άλλον μαθητή', icon: Copy, onClick: onCopyToStudent }
+          ]}
         />
       </div>
 
@@ -61,6 +62,16 @@ export default function GoalCard({
           </span>
         )}
       </div>
+
+      {/* Πάντα ορατό όταν υπάρχει (Minor UX Polish, bug report) — ο δάσκαλος με πολλούς ενεργούς
+          στόχους πρέπει να βλέπει το κριτήριο επιτυχίας απευθείας εδώ, χωρίς να ανοίγει κάθε
+          Goal Detail ξεχωριστά. Πριν ήταν εντελώς αόρατο στην κάρτα. */}
+      {criterion && (
+        <div className="goal-card2__criterion">
+          <p className="goal-card2__criterion-label">Κριτήριο</p>
+          <p className="goal-card2__criterion-text">{criterion}</p>
+        </div>
+      )}
 
       <div className="goal-card2__progress">
         {progressPercent !== null ? (

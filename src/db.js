@@ -1,10 +1,14 @@
 import Dexie from 'dexie'
 import dexieCloud from 'dexie-cloud-addon'
 import { DOMAINS, DOMAIN_IDS } from './config/domains.js'
+import { FUNCTIONAL_PROFILE_DOMAIN_IDS } from './config/functionalProfileDomains.js'
 import { DOMAIN_TEMPLATES_SEED } from './config/domainTemplates.js'
 import { addDays, todayLocalISO } from './utils/date.js'
 import { resolveOccurrencesForDate } from './utils/scheduleResolution.js'
 import { sameStudentSet, matchedSession } from './utils/dailyQueue.js'
+import { GOAL_TEMPLATE_FIELDS } from './utils/goalTemplates.js'
+import { sortSchoolYearsByStartDate } from './utils/schoolYearFilter.js'
+import { validateCriterionConfig, generateCriterionText } from './utils/measurementTypes/index.js'
 
 // Sprint 5A Phase 1 — η ΠΑΡΟΥΣΙΑ του env var είναι το ίδιο το feature flag. Exported ώστε το
 // auth module (src/auth/) να διαβάζει ΤΟ ΙΔΙΟ flag αντί να ξαναδιαβάζει ανεξάρτητα το
@@ -127,6 +131,53 @@ db.version(8).stores({
   calendarEvents: '++id, date'
 })
 
+db.version(9).stores({
+  students: '++id, code, active',
+  goals: '++id, studentId, status, priority',
+  domainTemplates: 'domain',
+  sessions: '++id, date',
+  measurements: '++id, sessionId, studentId, goalId',
+  observations: '++id, studentId, date',
+  appMeta: 'key',
+  reports: '++id, studentId, generatedAt',
+  dailyQueue: '++id, date',
+  scheduleSlots: '++id, seriesId, dayOfWeek',
+  scheduleExceptions: '++id, seriesId, originalDate',
+  calendarEvents: '++id, date',
+  // Σχολικά έτη (Sprint 7, Technical Plan Στάδιο 1). isActive INDEXED (σε αντίθεση με το
+  // scheduleSlots.active που φιλτράρεται σε JS) — το «ποιο είναι το ενεργό έτος» είναι ερώτημα
+  // που τρέχει συχνά, ίδιο idiom με το ήδη-indexed students.active. Ακριβώς ένα row έχει
+  // isActive:true τη φορά — επιβάλλεται ατομικά από το setActiveSchoolYear (Στάδιο 9), όχι εδώ.
+  schoolYears: '++id, isActive',
+  // Καταγραφή συμμετοχής μαθητή ανά σχολικό έτος (Technical Plan Στάδιο 9) — γεμίζει ΑΥΤΟΜΑΤΑ ως
+  // παράπλευρο αποτέλεσμα υπαρχουσών ενεργειών (αρχειοθέτηση μαθητή, μετάβαση έτους), ΟΧΙ από
+  // ξεχωριστή οθόνη διαχείρισης. status: 'new' | 'continued' | 'departed' | 'returned'.
+  // &[studentId+schoolYearId]: compound UNIQUE index — η ίδια η IndexedDB αποτρέπει δεύτερη
+  // εγγραφή για τον ίδιο συνδυασμό μαθητή/έτους (defense-in-depth πάνω από τον έλεγχο εφαρμογής
+  // στο Στάδιο 9). studentId/schoolYearId παραμένουν και ξεχωριστά για queries ανά μαθητή/έτος.
+  schoolYearParticipation: '++id, studentId, schoolYearId, &[studentId+schoolYearId]',
+  // Ιστορικό μεταβάσεων κατάστασης στόχου (Technical Plan Στάδιο 2) — ΜΟΝΟ status transitions +
+  // δημιουργία + μεταφορά έτους, ΟΧΙ field-level diffs κάθε επεξεργασίας (σκόπιμη επιλογή, βλ.
+  // Product Design §3). type: 'created' | 'statusChanged' | 'revised' | 'schoolYearTransition'.
+  // at INDEXED επιπλέον του goalId, για μελλοντικό cross-goal χρονολογικό ερώτημα χωρίς πλήρες scan.
+  goalEvents: '++id, goalId, at',
+  // Προσωπική βιβλιοθήκη στόχων του εκπαιδευτικού (Technical Plan Στάδιο 6) — ξεχωριστό από το
+  // domainTemplates (ανά τομέα, seeded από το σύστημα). Χρήση = πάντα αντιγραφή τιμών σε νέο
+  // goal, ποτέ ζωντανή αναφορά (βλ. Product Design §5).
+  goalTemplates: '++id, domain'
+}).upgrade(async (tx) => {
+  // Ατομικό migration (Technical Plan Στάδιο 1) — τρέχει ΜΙΑ φορά, αυτόματα, μέσα στο ίδιο
+  // IndexedDB versionchange transaction με τη δημιουργία των παραπάνω πινάκων. Αν οτιδήποτε
+  // πετάξει εδώ, ΟΛΗ η μετάβαση ακυρώνεται και η βάση παραμένει στο v8 — αδύνατο να μείνει σε
+  // ενδιάμεση κατάσταση (π.χ. goal ήδη 'active' χωρίς το αντίστοιχο goalEvents). Χρησιμοποιεί
+  // tx.table(...) (όχι το module-level db.goals/db.goalEvents) όπως απαιτεί η Dexie μέσα σε
+  // upgrade callbacks. Οι ίδιες συναρτήσεις εκτίθενται και ως idempotent exports παρακάτω, για
+  // χρήση ΜΟΝΟ μετά από restoreFromBackup (βλ. utils/backup.js) — εκεί δεν συμβαίνει version
+  // transition, άρα αυτό το hook δεν θα ξανατρέξει μόνο του.
+  await migrateRevisedGoalStatusCore(tx.table('goals'), tx.table('goalEvents'))
+  await backfillGoalEventsCore(tx.table('goals'), tx.table('goalEvents'))
+})
+
 // Sprint 5A Phase 2, Commit 1 — ΘΕΜΕΛΙΟ ΜΟΝΟ: παράλληλες "_v2" δηλώσεις, ίδιοι indexed δείκτες με
 // τις αντίστοιχες παλιές, string `id` αντί για `++id` (Phase 2 Technical Plan §1 — plain id, όχι
 // @id, καμία εξάρτηση σε server-assigned prefix/αρχικό sync). Οι ΠΑΛΙΕΣ δηλώσεις παραπάνω ΔΕΝ
@@ -171,9 +222,35 @@ if (CLOUD_ENABLED) {
 // Το appMeta εξαιρείται — είναι μεταδεδομένα της συσκευής, όχι δεδομένα μαθητών.
 export const DATA_TABLE_NAMES = db.tables.map((t) => t.name).filter((name) => name !== 'appMeta')
 
-// Ιστορικές ελληνικές ονομασίες τομέων → σημερινό id (src/config/domains.js).
-// Χρησιμοποιείται ΜΟΝΟ για migration παλιών εγγραφών· πουθενά αλλού στην εφαρμογή.
-const LEGACY_DOMAIN_NAME_TO_ID = {
+// Ιστορικές ελληνικές ονομασίες τομέων → id. Χρησιμοποιείται ΜΟΝΟ για migration παλιών εγγραφών
+// (goals/domainTemplates ΚΑΙ ξεχωριστά functionalProfile)· πουθενά αλλού στην εφαρμογή.
+//
+// ΔΥΟ ξεχωριστοί χάρτες, ΟΧΙ ένας κοινός — από την απλοποίηση των τομέων στόχων (8, config/domains.js)
+// και την ρητή απόφαση να ΜΗΝ ακολουθήσει το functionalProfile (παραμένει στους 14, βλ.
+// config/functionalProfileDomains.js): οι δύο id-χώροι διαφέρουν πλέον, άρα ένα πανάρχαιο free-text
+// goal και μια πανάρχαια free-text καταχώρηση functionalProfile με το ΙΔΙΟ ελληνικό κείμενο (π.χ.
+// «Λεπτή κινητικότητα») πρέπει να καταλήξουν σε ΔΙΑΦΟΡΕΤΙΚΟ id η καθεμιά.
+const LEGACY_DOMAIN_NAME_TO_GOAL_ID = {
+  'Λεπτή κινητικότητα': 'mobility',
+  'Αδρή κινητικότητα': 'mobility',
+  'Προσοχή/Συγκέντρωση': 'cognitive',
+  'Εκτελεστικές λειτουργίες': 'cognitive',
+  'Αισθητηριακός τομέας': 'sensory',
+  'Αισθητηριακές ανάγκες': 'sensory',
+  'Φωνολογική ενημερότητα': 'communication',
+  'Ανάγνωση': 'communication',
+  'Γραπτός λόγος': 'communication',
+  'Γραφή': 'communication',
+  'Μαθηματικά': 'cognitive',
+  'Προφορικός λόγος': 'communication',
+  'Επικοινωνία': 'communication',
+  'Κοινωνικές δεξιότητες': 'social-skills',
+  'Συναισθηματική ανάπτυξη': 'emotional-development',
+  'Αυτοεξυπηρέτηση': 'self-care',
+  'Συμπεριφορά': 'behavior'
+}
+
+const LEGACY_DOMAIN_NAME_TO_PROFILE_ID = {
   'Λεπτή κινητικότητα': 'fine-motor',
   'Αδρή κινητικότητα': 'gross-motor',
   'Προσοχή/Συγκέντρωση': 'attention',
@@ -197,13 +274,18 @@ const LEGACY_DOMAIN_NAME_TO_ID = {
 // την ελληνική ονομασία του τομέα, ώστε να χρησιμοποιούν το σταθερό id. Ασφαλές να τρέξει
 // πολλές φορές — αγγίζει μόνο εγγραφές που δεν έχουν ήδη έγκυρο id.
 export async function migrateDomainNamesToIds() {
-  const validIds = new Set(DOMAIN_IDS)
+  const validGoalIds = new Set(DOMAIN_IDS)
+  // Το functionalProfile παραμένει σκόπιμα στους 14 αναλυτικούς τομείς (config/functionalProfileDomains.js,
+  // ανεξάρτητο από την απλοποίηση των τομέων στόχων) — validation ΕΔΩ πρέπει να ελέγχει ΤΗ ΔΙΚΗ ΤΟΥ
+  // λίστα ids, όχι το DOMAIN_IDS των στόχων, αλλιώς κάθε έγκυρη παλιά καταχώρηση θα φαινόταν
+  // λανθασμένα «άγνωστη» σε κάθε εκκίνηση.
+  const validProfileIds = new Set(FUNCTIONAL_PROFILE_DOMAIN_IDS)
 
   // null = «δεν χρειάζεται αλλαγή» (ήδη έγκυρο id) — ΔΕΝ σημαίνει «άγνωστο». Για το άγνωστο
   // περίπτωση κάνουμε console.warn ξεχωριστά, ώστε να μη μένει τελείως αθόρυβα «σπασμένο».
-  function toId(value, context) {
+  function toId(value, context, validIds, legacyNameMap) {
     if (validIds.has(value)) return null
-    const mapped = LEGACY_DOMAIN_NAME_TO_ID[value]
+    const mapped = legacyNameMap[value]
     if (mapped) return mapped
     if (value) {
       console.warn(`[migrateDomainNamesToIds] Άγνωστος τομέας «${value}» σε ${context} — παραμένει ως έχει, δεν αντιστοιχίζεται σε κανένα υπάρχον id.`)
@@ -218,7 +300,7 @@ export async function migrateDomainNamesToIds() {
   ])
 
   for (const g of goals) {
-    const newId = toId(g.domain, `goal id=${g.id}`)
+    const newId = toId(g.domain, `goal id=${g.id}`, validGoalIds, LEGACY_DOMAIN_NAME_TO_GOAL_ID)
     if (newId) await db.goals.update(g.id, { domain: newId })
   }
 
@@ -226,7 +308,7 @@ export async function migrateDomainNamesToIds() {
     if (!s.functionalProfile?.length) continue
     let changed = false
     const updated = s.functionalProfile.map((entry) => {
-      const newId = toId(entry.domain, `functionalProfile του μαθητή id=${s.id}`)
+      const newId = toId(entry.domain, `functionalProfile του μαθητή id=${s.id}`, validProfileIds, LEGACY_DOMAIN_NAME_TO_PROFILE_ID)
       if (!newId) return entry
       changed = true
       return { ...entry, domain: newId }
@@ -235,7 +317,7 @@ export async function migrateDomainNamesToIds() {
   }
 
   for (const t of templates) {
-    const newId = toId(t.domain, 'domainTemplates')
+    const newId = toId(t.domain, 'domainTemplates', validGoalIds, LEGACY_DOMAIN_NAME_TO_GOAL_ID)
     if (!newId) continue
     const existing = await db.domainTemplates.get(newId)
     if (!existing) {
@@ -243,6 +325,145 @@ export async function migrateDomainNamesToIds() {
     }
     await db.domainTemplates.delete(t.domain)
   }
+}
+
+// Απλοποίηση τομέων στόχων (8 βασικοί αναπτυξιακοί τομείς, από 14 αναλυτικούς πριν) — Product Design,
+// βλ. config/domains.js. ΜΟΝΟ τα 9 legacy ids που πραγματικά συγχωνεύτηκαν σε νέο, διαφορετικό id·
+// οι υπόλοιποι 5 (sensory, social-skills, emotional-development, self-care, behavior) κράτησαν το
+// ΙΔΙΟ id — άλλαξε μόνο η ονομασία εμφάνισης, καμία ανάγκη μετάβασης δεδομένων γι' αυτούς.
+//
+// Idempotent και ασφαλές να τρέξει πολλές φορές: αγγίζει ΜΟΝΟ εγγραφές των οποίων το domain υπάρχει
+// ρητά ως κλειδί εδώ — ήδη-νέα ids, τα 5 αμετάβλητα, ή οποιαδήποτε άγνωστη/μη αναγνωρισμένη τιμή
+// περνάνε ΑΝΕΓΓΙΧΤΑ (μηδενική αλλοίωση, καμία υπόθεση/μάντεμα).
+//
+// Αγγίζει ΑΠΟΚΛΕΙΣΤΙΚΑ goals.domain και goalTemplates.domain (ρητή απόφαση χρήστη) — ΠΟΤΕ
+// students.functionalProfile, το οποίο παραμένει σκόπιμα στους 14 αναλυτικούς τομείς
+// (config/functionalProfileDomains.js, πλήρως ανεξάρτητο).
+//
+// Ατομικό: goals ΚΑΙ goalTemplates μεταφέρονται μέσα στην ΙΔΙΑ db.transaction — αδύνατο να μείνουν
+// σε ενδιάμεση κατάσταση (τα goals μεταφερμένα αλλά τα templates όχι, ή αντίστροφα).
+const GOAL_DOMAIN_ID_REMAP = {
+  'fine-motor': 'mobility',
+  'gross-motor': 'mobility',
+  attention: 'cognitive',
+  'executive-functions': 'cognitive',
+  math: 'cognitive',
+  'phonological-awareness': 'communication',
+  reading: 'communication',
+  writing: 'communication',
+  'oral-language': 'communication'
+}
+
+// Επιστρέφει πόσες εγγραφές πραγματικά άλλαξαν (για το completion report) — ΟΧΙ undefined/void,
+// ώστε ο καλών να μπορεί να επιβεβαιώσει τι ακριβώς μεταφέρθηκε.
+export async function migrateGoalDomainsToBroaderDomains() {
+  let goalsMigrated = 0
+  let templatesMigrated = 0
+
+  await db.transaction('rw', db.goals, db.goalTemplates, async () => {
+    const goals = await db.goals.toArray()
+    for (const g of goals) {
+      const newDomain = GOAL_DOMAIN_ID_REMAP[g.domain]
+      if (!newDomain) continue
+      await db.goals.update(g.id, { domain: newDomain })
+      goalsMigrated++
+    }
+
+    const templates = await db.goalTemplates.toArray()
+    for (const t of templates) {
+      const newDomain = GOAL_DOMAIN_ID_REMAP[t.domain]
+      if (!newDomain) continue
+      await db.goalTemplates.update(t.id, { domain: newDomain })
+      templatesMigrated++
+    }
+  })
+
+  return { goalsMigrated, templatesMigrated }
+}
+
+// Πυρήνας migration για goals με την παλιά κατάσταση 'revised' (Sprint ≤6) → 'active', αφού το
+// "revised" έπαψε να είναι κατάσταση και έγινε τύπος goalEvent (Product Design §3). Δέχεται τα
+// tables ως παραμέτρους ώστε να δουλεύει είτε μέσα σε Dexie upgrade transaction (tx.table(...))
+// είτε εκτός (db.goals/db.goalEvents) — βλ. wrapper migrateRevisedGoalStatusToActive παρακάτω.
+// trigger:'migration' (όχι 'manual') ώστε να μην παρουσιάζεται ποτέ σαν κανονική ενέργεια χρήστη.
+async function migrateRevisedGoalStatusCore(goalsTable, goalEventsTable) {
+  const revisedGoals = await goalsTable.where('status').equals('revised').toArray()
+  for (const g of revisedGoals) {
+    const at = g.statusChangedAt || g.startDate || new Date().toISOString()
+    await goalsTable.update(g.id, { status: 'active' })
+    await goalEventsTable.add({
+      goalId: g.id,
+      at,
+      type: 'revised',
+      fromStatus: 'revised',
+      toStatus: 'active',
+      note: 'Μεταφέρθηκε αυτόματα από παλιά κατάσταση «Αναθεωρήθηκε» (migration Sprint 7)',
+      trigger: 'migration'
+    })
+  }
+}
+
+// Idempotent wrapper του migrateRevisedGoalStatusCore για χρήση ΕΚΤΟΣ του Dexie upgrade hook —
+// αποκλειστικά μετά από restoreFromBackup (utils/backup.js), όπου δεν συμβαίνει version
+// transition. Ασφαλές να τρέξει πολλές φορές: αγγίζει μόνο goals με status ήδη 'revised'.
+// Τυλιγμένο στη δική του db.transaction ώστε να είναι ατομικό και εκτός upgrade context — αν
+// κληθεί μέσα από ήδη ενεργή Dexie transaction (π.χ. restoreFromBackup), η Dexie αναγνωρίζει το
+// ambient context και ΣΥΜΜΕΤΕΧΕΙ στην ίδια transaction αντί να δημιουργήσει nested· αν κληθεί
+// standalone, δημιουργεί τη δική της. Και στις δύο περιπτώσεις: όλα-ή-τίποτα.
+export async function migrateRevisedGoalStatusToActive() {
+  await db.transaction('rw', db.goals, db.goalEvents, async () => {
+    await migrateRevisedGoalStatusCore(db.goals, db.goalEvents)
+  })
+}
+
+// Πυρήνας συμπλήρωσης goalEvents για goals που δημιουργήθηκαν πριν υπάρξει αυτός ο πίνακας
+// (Sprint ≤6). Δημιουργεί ΜΟΝΟ ό,τι προκύπτει με ασφάλεια από υπάρχοντα δεδομένα — καμία
+// ανακατασκευή ενδιάμεσων μεταβάσεων που δεν είναι πραγματικά γνωστές (Product Design §14):
+//   - 1 συνθετικό 'created' event από το startDate, αν δεν υπάρχει ήδη ένα.
+//   - αν status !== 'active' ΚΑΙ δεν υπάρχει ήδη κανένα statusChanged/revised event, 1 επιπλέον
+//     συνθετικό 'statusChanged' event από το statusChangedAt (πιο αξιόπιστο διαθέσιμο timestamp).
+// Οι δύο έλεγχοι είναι ανεξάρτητοι σκόπιμα: ένα goal που μόλις μεταφέρθηκε από 'revised' (βλ.
+// migrateRevisedGoalStatusCore παραπάνω) έχει ήδη ένα 'revised' event αλλά ΟΧΙ ακόμα 'created'.
+async function backfillGoalEventsCore(goalsTable, goalEventsTable) {
+  const goals = await goalsTable.toArray()
+  for (const g of goals) {
+    const events = await goalEventsTable.where('goalId').equals(g.id).toArray()
+
+    const hasCreated = events.some((e) => e.type === 'created')
+    if (!hasCreated) {
+      await goalEventsTable.add({
+        goalId: g.id,
+        at: g.startDate ? new Date(g.startDate).toISOString() : new Date().toISOString(),
+        type: 'created',
+        fromStatus: null,
+        toStatus: 'active',
+        note: 'Συμπληρώθηκε αυτόματα κατά τη μετάβαση σε Sprint 7 — δεν υπήρχε πριν αυτό τον πίνακα',
+        trigger: 'migration'
+      })
+    }
+
+    const hasStatusRecord = events.some((e) => e.type === 'statusChanged' || e.type === 'revised')
+    if (g.status !== 'active' && !hasStatusRecord) {
+      await goalEventsTable.add({
+        goalId: g.id,
+        at: g.statusChangedAt || (g.startDate ? new Date(g.startDate).toISOString() : new Date().toISOString()),
+        type: 'statusChanged',
+        fromStatus: null,
+        toStatus: g.status,
+        note: 'Συμπληρώθηκε αυτόματα κατά τη μετάβαση σε Sprint 7 — άγνωστη πραγματική ημερομηνία αλλαγής',
+        trigger: 'migration'
+      })
+    }
+  }
+}
+
+// Idempotent wrapper του backfillGoalEventsCore για χρήση ΕΚΤΟΣ του Dexie upgrade hook —
+// αποκλειστικά μετά από restoreFromBackup. Ασφαλές να τρέξει πολλές φορές. Ίδιο ambient-transaction
+// σκεπτικό με το migrateRevisedGoalStatusToActive παραπάνω.
+export async function backfillGoalEvents() {
+  await db.transaction('rw', db.goals, db.goalEvents, async () => {
+    await backfillGoalEventsCore(db.goals, db.goalEvents)
+  })
 }
 
 // Γεμίζει με seed data μόνο τους τομείς που δεν έχουν ακόμα template στη βάση
@@ -609,6 +830,550 @@ export async function getLastBackupAt() {
 
 export async function setLastBackupAt(isoDate) {
   await db.appMeta.put({ key: 'lastBackupAt', value: isoDate })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Sprint 7 — Goal lifecycle (Technical Plan Στάδιο 2)
+// ---------------------------------------------------------------------------------------------
+
+// Επιτρεπτές μεταβάσεις κατάστασης στόχου (Product Design §3 — state diagram). ΚΑΜΙΑ κατάσταση
+// δεν αναφέρει τον εαυτό της ως επιτρεπτό στόχο (καμία «active → active»), άρα ίδια-κατάσταση
+// «μεταβάσεις» απορρίπτονται αυτόματα από τον ίδιο έλεγχο με τις γνήσια μη επιτρεπτές μεταβάσεις,
+// χωρίς ξεχωριστό ειδικό κλάδο κώδικα — βλ. transitionGoalStatus παρακάτω.
+const GOAL_STATUS_TRANSITIONS = {
+  active: ['paused', 'achieved', 'archived'],
+  paused: ['active', 'achieved', 'archived'],
+  achieved: ['active'],
+  archived: ['active']
+}
+
+const VALID_GOAL_STATUSES = Object.keys(GOAL_STATUS_TRANSITIONS)
+
+// Μοναδική πηγή αλήθειας για «ποιες καταστάσεις μπορεί να επιλέξει ο χρήστης από εδώ» — το
+// GoalStatusModal (Στάδιο 3) καλεί ΑΠΟΚΛΕΙΣΤΙΚΑ αυτή τη συνάρτηση, ποτέ δικό του αντίγραφο του
+// GOAL_STATUS_TRANSITIONS. Επιστρέφει άδειο array (όχι undefined/throw) για άγνωστη κατάσταση,
+// ώστε το UI να μπορεί να το χρησιμοποιήσει άφοβα χωρίς προηγούμενο έλεγχο.
+export function getAllowedGoalStatusTransitions(fromStatus) {
+  return GOAL_STATUS_TRANSITIONS[fromStatus] || []
+}
+
+// Πυρήνας — tx-aware (δέχεται τα tables ως παραμέτρους, ίδιο idiom με τα core migration functions
+// του Σταδίου 1) ώστε το Στάδιο 9 (applySchoolYearTransition) να μπορεί να το καλέσει ΜΕΣΑ σε μια
+// μεγαλύτερη, ήδη ανοιχτή συναλλαγή αντί να ανοίξει η καθεμιά τη ΔΙΚΗ της (Dexie δεν κάνει true
+// nested transactions — θα σειριοποιούνταν, όχι θα συμμετείχαν στην ίδια ατομικότητα).
+async function transitionGoalStatusCore(goalsTable, goalEventsTable, goalId, toStatus, { note = '', trigger = 'manual', sessionId = null } = {}) {
+  const goal = await goalsTable.get(goalId)
+  if (!goal) {
+    throw new Error(`Δεν βρέθηκε στόχος με id=${goalId}`)
+  }
+
+  const fromStatus = goal.status
+  const allowedTargets = GOAL_STATUS_TRANSITIONS[fromStatus] || []
+  if (!allowedTargets.includes(toStatus)) {
+    throw new Error(`Η μετάβαση από «${fromStatus}» σε «${toStatus}» δεν επιτρέπεται (goal id=${goalId})`)
+  }
+
+  await goalsTable.update(goalId, { status: toStatus, statusChangedAt: new Date().toISOString() })
+  await goalEventsTable.add({
+    goalId,
+    at: new Date().toISOString(),
+    type: 'statusChanged',
+    fromStatus,
+    toStatus,
+    note,
+    trigger,
+    // Προαιρετικό, ΜΗ indexed πεδίο (καμία ανάγκη db.version bump — η Dexie/IndexedDB δεν απαιτεί
+    // δηλωμένο schema για μη-indexed πεδία). Γεμίζει ΜΟΝΟ όταν trigger==='teachingMode' (βλ.
+    // TeachingMode.jsx/handleSaveSession) — επιτρέπει στο utils/goalHistory.js να ταιριάξει αξιόπιστα
+    // μια «Κατακτήθηκε» κλινική εκτίμηση με το ΙΔΙΟ αυτό goalEvent (ίδια συνεδρία), αντί για εύθραυστο
+    // ταίριασμα βάσει ημερομηνίας (μια backdated συνεδρία θα είχε διαφορετικό sessions.date από το
+    // πραγματικό at παραπάνω). null σε κάθε άλλη μετάβαση (GoalStatusModal, migrations, σχολικό έτος).
+    sessionId
+  })
+}
+
+// transitionGoalStatus είναι το ΜΟΝΑΔΙΚΟ δημόσιο API για αλλαγή κατάστασης στόχου — κανένα άλλο
+// σημείο του κώδικα δεν πρέπει να κάνει goal.status=... / db.goals.update(...,{status}) απευθείας.
+//
+// Ατομικό: η ενημέρωση goals.status ΚΑΙ η δημιουργία του αντίστοιχου goalEvents γίνονται μέσα
+// στην ΙΔΙΑ db.transaction — αδύνατο να αλλάξει η κατάσταση χωρίς να καταγραφεί το γεγονός που
+// την εξηγεί (βλ. rollback test στο db.test.js).
+//
+// Καθορισμένη συμπεριφορά σε μη έγκυρη είσοδο (ρητά ζητηθέν, όχι σιωπηλό no-op):
+//   - toStatus άγνωστη τιμή            → throw, καμία επαφή με τη βάση καν.
+//   - goalId δεν αντιστοιχεί σε goal   → throw μέσα στη συναλλαγή, καμία εγγραφή.
+//   - ίδια κατάσταση (π.χ. active→active) → throw (πιάνεται φυσικά ως «μη επιτρεπτή μετάβαση»,
+//     αφού καμία κατάσταση δεν περιλαμβάνει τον εαυτό της στους επιτρεπτούς στόχους της).
+//   - μη επιτρεπτή μετάβαση (π.χ. achieved→archived) → throw.
+export async function transitionGoalStatus(goalId, toStatus, opts = {}) {
+  if (!VALID_GOAL_STATUSES.includes(toStatus)) {
+    throw new Error(`Άγνωστη κατάσταση στόχου: «${toStatus}»`)
+  }
+
+  await db.transaction('rw', db.goals, db.goalEvents, async () => {
+    await transitionGoalStatusCore(db.goals, db.goalEvents, goalId, toStatus, opts)
+  })
+}
+
+// Πυρήνας — tx-aware, ίδιο σκεπτικό με το transitionGoalStatusCore παραπάνω. trigger εκτίθεται ως
+// παράμετρος (προεπιλογή 'manual', ίδια συμπεριφορά με πριν) ώστε το applySchoolYearTransition
+// (Στάδιο 9) να μπορεί να σημαδέψει ρητά τα goals που δημιουργούνται μέσα στο wizard ως
+// trigger:'schoolYearWizard' — ίδια αρχή με το trigger:'migration' του Σταδίου 1.
+async function createGoalCore(goalsTable, goalEventsTable, fields, trigger = 'manual') {
+  const now = new Date().toISOString()
+  const preparedFields = { ...fields }
+  // Δομημένο κριτήριο (Goal Wizard Step 3 redesign, Technical Plan Στάδιο 1) — προαιρετικό ΠΡΟΣ ΤΟ
+  // ΠΑΡΟΝ, αφού ο Wizard δεν το στέλνει ακόμα (θα συνδεθεί στα Στάδια 3+). Όταν υπάρχει, είναι η
+  // ΜΟΝΑΔΙΚΗ πηγή αλήθειας: επικυρώνεται ΠΡΙΝ την εγγραφή και παράγει αυτόματα το εμφανιζόμενο
+  // goal.criterion — ό,τι κείμενο τυχόν στάλθηκε απευθείας αγνοείται σκόπιμα εδώ (ίδιο σκεπτικό με
+  // το status/statusChangedAt παρακάτω). Χωρίς criterionConfig, η συμπεριφορά είναι ΑΚΡΙΒΩΣ η
+  // σημερινή — ελεύθερο κείμενο criterion όπως στάλθηκε, μηδενική αλλαγή για υπάρχοντες callers.
+  if (preparedFields.criterionConfig) {
+    validateCriterionConfig(preparedFields.measurementType, preparedFields.criterionConfig)
+    preparedFields.criterion = generateCriterionText(preparedFields.measurementType, preparedFields.criterionConfig)
+  }
+  const goalId = await goalsTable.add({ ...preparedFields, status: 'active', statusChangedAt: now })
+  await goalEventsTable.add({
+    goalId,
+    at: now,
+    type: 'created',
+    fromStatus: null,
+    toStatus: 'active',
+    note: '',
+    trigger
+  })
+  return goalId
+}
+
+// Κεντρικοποιημένη δημιουργία στόχου (αντικαθιστά το απευθείας db.goals.add του GoalWizardForm
+// στο Στάδιο 4) — ίδιο σκεπτικό ατομικότητας με το transitionGoalStatus: το goal ΚΑΙ το αρχικό
+// 'created' event δημιουργούνται στην ΙΔΙΑ συναλλαγή. Κάθε νέος στόχος ξεκινά ΠΑΝΤΑ 'active' —
+// καμία «draft» κατάσταση (ρητά απορρίφθηκε στο Product Design ως λύση σε πρόβλημα που δεν
+// τέθηκε) — το status/statusChangedAt εδώ υπερισχύουν σκόπιμα οτιδήποτε τυχόν περάσει ο καλών.
+export async function createGoal(fields) {
+  return db.transaction('rw', db.goals, db.goalEvents, async () => {
+    return createGoalCore(db.goals, db.goalEvents, fields)
+  })
+}
+
+// Ενημερώνει ΑΠΟΚΛΕΙΣΤΙΚΑ το δομημένο κριτήριο ενός στόχου (criterionConfig/criterionNote) — ίδιο
+// σκεπτικό επικύρωσης/αυτόματης παραγωγής κειμένου με το createGoalCore παραπάνω. Ο Wizard (Στάδιο
+// 3+) θα το καλεί σε edit mode. ΔΕΝ αλλάζει measurementType — αυτό είναι ξεχωριστή, προστατευμένη
+// ενέργεια (Technical Plan Στάδιο 3: απαγορεύεται σιωπηλή αλλαγή τύπου όταν υπάρχουν ήδη μετρήσεις).
+// criterionNote είναι ΠΑΝΤΑ συμπληρωματικό κείμενο δίπλα στο αυτόματο criterion, ΠΟΤΕ δεν το
+// αντικαθιστά ούτε επηρεάζει οποιαδήποτε λογική (απόφαση χρήστη, Product Design §3).
+export async function updateGoalCriterion(goalId, { criterionConfig, criterionNote = '' }) {
+  return db.transaction('rw', db.goals, async () => {
+    const goal = await db.goals.get(goalId)
+    if (!goal) {
+      throw new Error(`Δεν βρέθηκε στόχος με id=${goalId}`)
+    }
+    validateCriterionConfig(goal.measurementType, criterionConfig)
+    const criterion = generateCriterionText(goal.measurementType, criterionConfig)
+    await db.goals.update(goalId, { criterionConfig, criterion, criterionNote })
+  })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Sprint 7 — Σχολικά έτη & συμμετοχή μαθητών (Technical Plan Στάδιο 9· καμία οθόνη ακόμα — μόνο
+// backend, θα καταναλωθεί από το Year Transition Wizard του Σταδίου 10 και τις Ρυθμίσεις του
+// Σταδίου 11· η μόνη σύνδεση UI αυτού του σταδίου είναι το StudentProfile.jsx που καλεί πλέον
+// setStudentActive αντί για db.students.update απευθείας).
+// ---------------------------------------------------------------------------------------------
+
+// ΣΗΜΑΝΤΙΚΟ (bugfix βρέθηκε κατά την υλοποίηση αυτού του σταδίου): boolean τιμές ΔΕΝ είναι έγκυρα
+// IndexedDB keys (spec) — ένα .where('isActive').equals(true/1/...) πάνω στο ήδη-δηλωμένο index
+// schoolYears.isActive (v9) πετάει DataError σε ΚΑΘΕ πραγματικό browser (επιβεβαιώθηκε εμπειρικά
+// και με fake-indexeddb). Το ίδιο index ΔΕΝ αγγίζεται πουθενά παρακάτω — «ποιο έτος είναι ενεργό»
+// φιλτράρεται πάντα στη μνήμη μετά από .toArray(), ίδιο idiom με το ήδη υπάρχον scheduleSlots.active
+// (βλ. σχόλιο στο db.version(8) παραπάνω). Ασκόπιμη διόρθωση σχήματος (schema bump) αποφεύχθηκε
+// επίτηδες — αφού το index απλά δεν χρησιμοποιείται ποτέ σε query, δεν προκαλεί ποτέ το πρόβλημα.
+const VALID_PARTICIPATION_STATUSES = ['new', 'continued', 'departed', 'returned']
+
+function assertValidSchoolYearFields({ label, startDate, endDate }) {
+  if (!label || !label.trim()) {
+    throw new Error('Ο τίτλος του σχολικού έτους είναι υποχρεωτικός.')
+  }
+  if (!startDate || !endDate) {
+    throw new Error('Το σχολικό έτος χρειάζεται ημερομηνία έναρξης και ημερομηνία λήξης.')
+  }
+  if (startDate > endDate) {
+    throw new Error('Η ημερομηνία έναρξης δεν μπορεί να είναι μετά την ημερομηνία λήξης.')
+  }
+}
+
+// Δημιουργεί νέο σχολικό έτος — ΔΕΝ το ενεργοποιεί αυτόματα (σημείο 5, ρητά ζητηθέν: «δημιουργήθηκε
+// νέο έτος αλλά δεν ενεργοποιήθηκε ακόμη» είναι μια έγκυρη, αναμενόμενη ενδιάμεση κατάσταση —
+// π.χ. προετοιμασία του επόμενου έτους πριν έρθει η ώρα του). Χρήση setActiveSchoolYear ξεχωριστά.
+export async function createSchoolYear({ label, startDate, endDate }) {
+  assertValidSchoolYearFields({ label, startDate, endDate })
+  return db.schoolYears.add({ label: label.trim(), startDate, endDate, isActive: false })
+}
+
+// Το ενεργό σχολικό έτος, ή null αν κανένα δεν είναι ενεργό (έγκυρη κατάσταση πριν την αρχική
+// ρύθμιση — σημείο 5). Φιλτράρισμα στη μνήμη — βλ. σχόλιο για το boolean-index bug παραπάνω.
+export async function getActiveSchoolYear() {
+  const all = await db.schoolYears.toArray()
+  return all.find((y) => y.isActive) || null
+}
+
+// Όλα τα σχολικά έτη, ταξινομημένα κατά startDate (αύξουσα) — η ΜΟΝΑΔΙΚΗ ασφαλής διαδρομή για να
+// λίστα κανείς αυτόν τον πίνακα ταξινομημένο. Bugfix (πραγματικό browser smoke test, κλείσιμο
+// Sprint 7): GoalsList.jsx και Settings.jsx έκαναν προηγουμένως το καθένα τη ΔΙΚΗ του
+// db.schoolYears.orderBy('startDate') απευθείας — το startDate ΔΕΝ είναι indexed πεδίο σε αυτόν
+// τον πίνακα (βλ. σχήμα: 'schoolYears: ++id, isActive'), οπότε το .orderBy() πετούσε Dexie
+// SchemaError αμέσως μόλις άνοιγε οποιοδήποτε Student Profile (το GoalsList είναι πάντα mounted
+// μέσα στα tabs, βλ. StudentProfile.jsx). ΚΑΝΕΝΑ component δεν πρέπει να καλεί .orderBy('startDate')
+// σε αυτόν τον πίνακα απευθείας — μόνο μέσω αυτής της συνάρτησης, ίδιο idiom με το
+// getActiveSchoolYear/isActive παραπάνω (πλήρες table scan + ταξινόμηση στη μνήμη — ο πίνακας θα
+// έχει πάντα λίγες δεκάδες γραμμές, μηδαμινό κόστος).
+export async function listSchoolYears() {
+  return sortSchoolYearsByStartDate(await db.schoolYears.toArray())
+}
+
+// Idempotent (σημείο 5): μετά από ΚΑΘΕ επιτυχημένη ολοκλήρωση υπάρχει ΑΚΡΙΒΩΣ ένα ενεργό έτος.
+//   - id ανύπαρκτο                → throw, καμία εγγραφή.
+//   - το έτος είναι ήδη το ενεργό → no-op επιτυχία (καμία περιττή εγγραφή/rewrite).
+//   - διαφορετικά                 → μέσα στην ΙΔΙΑ συναλλαγή: απενεργοποιεί ό,τι τυχόν ήταν ενεργό
+//     ΚΑΙ ενεργοποιεί το ζητούμενο — αδύνατο να μείνει ενδιάμεση κατάσταση με μηδέν ή δύο ενεργά έτη.
+export async function setActiveSchoolYear(schoolYearId) {
+  await db.transaction('rw', db.schoolYears, async () => {
+    const target = await db.schoolYears.get(schoolYearId)
+    if (!target) {
+      throw new Error(`Δεν βρέθηκε σχολικό έτος με id=${schoolYearId}`)
+    }
+    if (target.isActive) return
+
+    const all = await db.schoolYears.toArray()
+    for (const y of all) {
+      if (y.isActive && y.id !== schoolYearId) {
+        await db.schoolYears.update(y.id, { isActive: false })
+      }
+    }
+    await db.schoolYears.update(schoolYearId, { isActive: true })
+  })
+}
+
+// Πυρήνας — tx-aware (ίδιο idiom με transitionGoalStatusCore/createGoalCore). ΣΥΝΟΨΗ συμμετοχής
+// ανά μαθητή/έτος, ΟΧΙ πλήρες event log (σημείο 1 — ρητή απόφαση χρήστη, καταγράφεται εδώ): αν ο
+// ίδιος μαθητής αρχειοθετηθεί/επανέλθει πολλές φορές μέσα στο ΙΔΙΟ σχολικό έτος, η μία εγγραφή
+// (compound unique index [studentId+schoolYearId]) αντικατοπτρίζει ΜΟΝΟ την πιο πρόσφατη κατάσταση
+// — ΔΕΝ κρατάει ιστορικό ενδιάμεσων αποχωρήσεων/επιστροφών εντός του ίδιου έτους. Αν χρειαστεί ποτέ
+// πλήρες ιστορικό αυτού του είδους, θα χρειαστεί δικός του πίνακας event log (εκτός του παρόντος
+// σταδίου) — το σημερινό unique schema δεν το επιτρέπει με ασφάλεια.
+async function recordSchoolYearParticipationCore(participationTable, studentId, schoolYearId, status, reason) {
+  if (!VALID_PARTICIPATION_STATUSES.includes(status)) {
+    throw new Error(`Άγνωστη κατάσταση συμμετοχής: «${status}»`)
+  }
+  const recordedAt = new Date().toISOString()
+  const existing = await participationTable.where('[studentId+schoolYearId]').equals([studentId, schoolYearId]).first()
+  if (existing) {
+    await participationTable.update(existing.id, { status, reason, recordedAt })
+    return existing.id
+  }
+  return participationTable.add({ studentId, schoolYearId, status, reason, recordedAt })
+}
+
+// Δημόσιος wrapper — ελέγχει ρητά ότι μαθητής ΚΑΙ σχολικό έτος υπάρχουν (σημείο 4) πριν την
+// upsert εγγραφή, ΜΕΣΑ στην ίδια συναλλαγή (ίδιο idiom με transitionGoalStatus/createGoal — ποτέ
+// προ-συναλλαγής reads για validation).
+export async function recordSchoolYearParticipation(studentId, schoolYearId, status, { reason = '' } = {}) {
+  return db.transaction('rw', db.students, db.schoolYears, db.schoolYearParticipation, async () => {
+    const student = await db.students.get(studentId)
+    if (!student) {
+      throw new Error(`Δεν βρέθηκε μαθητής με id=${studentId}`)
+    }
+    const schoolYear = await db.schoolYears.get(schoolYearId)
+    if (!schoolYear) {
+      throw new Error(`Δεν βρέθηκε σχολικό έτος με id=${schoolYearId}`)
+    }
+    return recordSchoolYearParticipationCore(db.schoolYearParticipation, studentId, schoolYearId, status, reason)
+  })
+}
+
+// Κεντρική, ΑΤΟΜΙΚΗ συνάρτηση αρχειοθέτησης/επαναφοράς μαθητή (σημείο 2) — αντικαθιστά το
+// απευθείας db.students.update({active}) του StudentProfile.jsx. Η αλλαγή του student.active ΚΑΙ
+// η αντίστοιχη ενημέρωση/δημιουργία schoolYearParticipation γίνονται στην ΙΔΙΑ συναλλαγή —
+// αδύνατο να αλλάξει το ένα χωρίς το άλλο.
+//
+//   - idempotent: αν ο μαθητής είναι ήδη στη ζητούμενη κατάσταση, no-op (καμία εγγραφή πουθενά,
+//     ούτε participation) — καλύπτει και μια «δεύτερη ίδια κλήση» χωρίς διπλότυπη participation.
+//   - αν ΔΕΝ υπάρχει κανένα ενεργό σχολικό έτος (π.χ. πριν την αρχική ρύθμιση, σημείο 5): η αλλαγή
+//     student.active συμβαίνει κανονικά· η participation ΔΕΝ αγγίζεται καθόλου — η αρχειοθέτηση
+//     ενός μαθητή δεν πρέπει ΠΟΤΕ να μπλοκάρεται από την απουσία σχολικού έτους.
+//   - αρχειοθέτηση (active: false → true is false): upsert participation με status 'departed'.
+//   - επαναφορά (active: false → true): αν υπήρχε ήδη εγγραφή αυτό το έτος (π.χ. 'departed' από
+//     νωρίτερα φέτος), γίνεται 'returned'· αλλιώς (πρώτη φορά ενεργός μέσα σε αυτό το έτος) 'new'.
+export async function setStudentActive(studentId, active, { reason = '' } = {}) {
+  await db.transaction('rw', db.students, db.schoolYears, db.schoolYearParticipation, async () => {
+    const student = await db.students.get(studentId)
+    if (!student) {
+      throw new Error(`Δεν βρέθηκε μαθητής με id=${studentId}`)
+    }
+    if (student.active === active) return
+
+    await db.students.update(studentId, { active })
+
+    const allYears = await db.schoolYears.toArray()
+    const activeYear = allYears.find((y) => y.isActive)
+    if (!activeYear) return
+
+    if (!active) {
+      await recordSchoolYearParticipationCore(db.schoolYearParticipation, studentId, activeYear.id, 'departed', reason)
+    } else {
+      const existing = await db.schoolYearParticipation
+        .where('[studentId+schoolYearId]').equals([studentId, activeYear.id]).first()
+      const nextStatus = existing ? 'returned' : 'new'
+      await recordSchoolYearParticipationCore(db.schoolYearParticipation, studentId, activeYear.id, nextStatus, reason)
+    }
+  })
+}
+
+// Μόνο αυτές οι 3 τιμές γίνονται δεκτές ως απόφαση συμμετοχής ΜΕΣΑ σε μια μετάβαση έτους —
+// στενότερο σύνολο από το γενικό VALID_PARTICIPATION_STATUSES (που περιλαμβάνει και 'new', μια
+// έννοια που ανήκει στο setStudentActive/εγγραφή νέου μαθητή, όχι στη μετάβαση υπάρχοντος
+// μαθητολογίου). recordSchoolYearParticipationCore παραμένει η δεύτερη, γενική γραμμή άμυνας.
+const TRANSITION_PARTICIPATION_STATUSES = ['continued', 'departed', 'returned']
+
+// Πυρήνας «φρέσκιας έκδοσης στο όριο του έτους» (Technical Plan Στάδιο 10, σημείο 7 — διευκρίνιση
+// χρήστη: ΟΧΙ το copyScheduleDay, που είναι weekday→weekday· επαναχρησιμοποιεί το ΙΔΙΟ idiom
+// εκδόσεων με το saveScheduleSlotEdit). Για κάθε ΤΡΕΧΟΥΣΑ σήμερα ενεργή έκδοση μιας σειράς
+// scheduleSlots: κλείνει (effectiveUntil = παραμονή του newStartDate) και ανοίγει νέα έκδοση, ίδιο
+// seriesId, effectiveFrom = newStartDate, ΧΩΡΙΣ τους αποχωρούντες μαθητές στο studentIds. Αν μια
+// σειρά μένει χωρίς κανέναν απομένοντα μαθητή, απλά δεν ανοίγει νέα έκδοση (ισοδύναμο με τερματισμό
+// της σειράς) — ΠΟΤΕ κενό studentIds σε ενεργή έκδοση.
+//
+// Idempotent (σημείο 7 — «όχι duplicates αν το submit επαναληφθεί»): αν μια σειρά ΗΔΗ έχει έκδοση
+// με effectiveFrom === newStartDate (από προηγούμενη κλήση), παραλείπεται — δεν ανοίγει δεύτερη.
+async function refreshScheduleSlotsForNewYearCore(scheduleSlotsTable, newStartDate, departedStudentIds) {
+  const departedSet = new Set(departedStudentIds)
+  const today = todayLocalISO()
+  const allSlots = await scheduleSlotsTable.toArray()
+  const currentVersions = allSlots.filter(
+    (s) => s.active && s.effectiveFrom <= today && (!s.effectiveUntil || s.effectiveUntil >= today)
+  )
+
+  for (const version of currentVersions) {
+    const alreadyRefreshed = allSlots.some((s) => s.seriesId === version.seriesId && s.effectiveFrom === newStartDate)
+    if (alreadyRefreshed) continue
+
+    const studentIds = version.studentIds.filter((id) => !departedSet.has(id))
+    if (studentIds.length === 0) continue
+
+    await scheduleSlotsTable.update(version.id, { effectiveUntil: addDays(newStartDate, -1) })
+    await scheduleSlotsTable.add({
+      seriesId: version.seriesId,
+      dayOfWeek: version.dayOfWeek,
+      startTime: version.startTime,
+      durationMinutes: version.durationMinutes,
+      type: version.type,
+      studentIds,
+      label: version.label,
+      active: true,
+      effectiveFrom: newStartDate,
+      effectiveUntil: null
+    })
+  }
+}
+
+// Εφαρμόζει ΟΛΟΚΛΗΡΗ τη μετάβαση σε ΝΕΟ σχολικό έτος σε ΜΙΑ Dexie συναλλαγή, όλα-ή-τίποτα
+// (Technical Plan Στάδιο 10, σημεία 1/2): δημιουργία ΚΑΙ ενεργοποίηση του νέου έτους, απενεργοποίηση
+// του προηγούμενου, participation, student.active, goal transitions/cloning, goalEvents, ΚΑΙ
+// προαιρετικά η ανανέωση προγράμματος — όλα μέσα στην ίδια συναλλαγή. Το wizard (Στάδιο 10 UI) ΔΕΝ
+// καλεί ποτέ createSchoolYear()/setActiveSchoolYear() ξεχωριστά πριν από αυτό — η ΜΟΝΑΔΙΚΗ εγγραφή
+// στη βάση γίνεται εδώ, στο τελικό submit. Ξαναχρησιμοποιεί τα tx-aware core functions
+// (transitionGoalStatusCore/createGoalCore/recordSchoolYearParticipationCore) και το ήδη-transactional
+// setActiveSchoolYear (η Dexie αναγνωρίζει το ambient context και συμμετέχει στην ΙΔΙΑ συναλλαγή,
+// ίδιο idiom με το restoreFromBackup) — ΠΟΤΕ τα δημόσια transitionGoalStatus/createGoal, που θα
+// άνοιγαν η καθεμιά τη ΔΙΚΗ της ξεχωριστή συναλλαγή.
+//
+// newYearFields: { label, startDate, endDate } — το ΝΕΟ έτος δημιουργείται εδώ. Άκυρα πεδία
+// (assertValidSchoolYearFields) ΚΑΙ διπλότυπος τίτλος → throw πριν αγγιχτεί οτιδήποτε άλλο.
+//
+// goalDecisions: [{ goalId, studentId, decision: 'continue' | 'achieved' | 'newGoal', note, newGoalFields }]
+//   - studentId περνιέται ΡΗΤΑ (όχι εξαγωγή από goal.studentId) ώστε το σημείο 4 («ο στόχος ανήκει
+//     στον σωστό μαθητή») να ελέγχεται ενάντια στην πρόθεση του καλούντος.
+//   - 'continue': καμία αλλαγή status, ΚΑΝΕΝΑ goalEvent — ΙΣΧΥΕΙ ΚΑΙ ΓΙΑ paused goals (Στάδιο 10,
+//     σημείο 5: «Συνέχεια» σε paused goal ΔΕΝ σημαίνει επανενεργοποίηση, παραμένει paused χωρίς
+//     κανένα status event — η σημασιολογία δεν αλλάζει σιωπηλά μόνο επειδή άλλαξε το σχολικό έτος).
+//     Ρητή επανενεργοποίηση ενός paused goal γίνεται ΕΚΤΟΣ αυτού του wizard, μέσω του ήδη υπάρχοντος
+//     GoalStatusModal (Στάδιο 3) — δεν είναι μία από τις 3 εγκεκριμένες επιλογές εδώ.
+//   - 'achieved': transitionGoalStatusCore(...,'achieved', trigger:'schoolYearWizard').
+//   - 'newGoal': ο ΥΠΑΡΧΩΝ στόχος αρχειοθετείται αυτόματα (transitionGoalStatusCore ...,'archived',
+//     trigger:'schoolYearWizard') ΚΑΙ δημιουργείται νέος μέσω createGoalCore με baseline ΠΑΝΤΑ ''.
+//   - ΚΑΝΕΝΑ goalDecision δεν επιτρέπεται για μαθητή που η participationDecisions του σημειώνει
+//     'departed' (Στάδιο 10, σημείο 6) — throw, ΠΟΤΕ σιωπηλή αγνόηση.
+//
+// participationDecisions: [{ studentId, status, reason }], status ∈ TRANSITION_PARTICIPATION_STATUSES.
+// Bundled ΜΑΖΙ με το student.active (σημείο 2, «ως ένα atomic operation»): 'departed' → active:false,
+// 'continued'/'returned' → active:true· η κατάσταση ΓΡΑΦΕΤΑΙ ΡΗΤΑ όπως την αποφάσισε ο καλών (όχι
+// αυτόματη εξαγωγή όπως στο setStudentActive — το wizard ήδη ξέρει αν είναι 'continued' ή 'returned').
+//
+// copySchedule: αν true, τρέχει επιπλέον το refreshScheduleSlotsForNewYearCore ΜΕΣΑ στην ΙΔΙΑ
+// συναλλαγή (σημείο 7 — τίποτα δεν εμπόδιζε να είναι μέσα, αφού είναι απλές εγγραφές Dexie στον
+// ίδιο μηχανισμό· καμία ανάγκη για ξεχωριστό, μεταγενέστερο βήμα).
+//
+// Validation ΠΡΙΝ αγγιχτεί οποιαδήποτε εγγραφή (σημείο 4) — τρία περάσματα (πεδία έτους → αποφάσεις
+// συμμετοχής → αποφάσεις στόχων, με αυτή τη σειρά ώστε το goalDecisions-vs-departed έλεγχος να έχει
+// ήδη το σύνολο των αποχωρούντων). Ολόκληρη η συνάρτηση τρέχει ήδη μέσα σε μία db.transaction, άρα
+// ΚΑΘΕ throw ούτως ή άλλως κάνει πλήρες rollback — τα περάσματα υπάρχουν για ΣΑΦΗ, νωρίς errors.
+export async function applySchoolYearTransition({ label, startDate, endDate }, { goalDecisions = [], participationDecisions = [], copySchedule = false } = {}) {
+  return db.transaction('rw', db.schoolYears, db.students, db.goals, db.goalEvents, db.schoolYearParticipation, db.scheduleSlots, async () => {
+    assertValidSchoolYearFields({ label, startDate, endDate })
+    const trimmedLabel = label.trim()
+    const existingWithLabel = (await db.schoolYears.toArray()).find((y) => y.label === trimmedLabel)
+    if (existingWithLabel) {
+      throw new Error(`Υπάρχει ήδη σχολικό έτος με τίτλο «${trimmedLabel}»`)
+    }
+
+    const seenParticipationStudentIds = new Set()
+    const departedStudentIds = new Set()
+    for (const p of participationDecisions) {
+      if (!TRANSITION_PARTICIPATION_STATUSES.includes(p.status)) {
+        throw new Error(`Άγνωστη κατάσταση συμμετοχής για μετάβαση έτους: «${p.status}» (μαθητής id=${p.studentId})`)
+      }
+      if (seenParticipationStudentIds.has(p.studentId)) {
+        throw new Error(`Διπλή απόφαση συμμετοχής για τον ίδιο μαθητή (id=${p.studentId})`)
+      }
+      seenParticipationStudentIds.add(p.studentId)
+      const student = await db.students.get(p.studentId)
+      if (!student) {
+        throw new Error(`Δεν βρέθηκε μαθητής με id=${p.studentId}`)
+      }
+      if (p.status === 'departed') departedStudentIds.add(p.studentId)
+    }
+
+    const seenGoalIds = new Set()
+    for (const d of goalDecisions) {
+      if (!['continue', 'achieved', 'newGoal'].includes(d.decision)) {
+        throw new Error(`Άγνωστη απόφαση στόχου: «${d.decision}» (goal id=${d.goalId})`)
+      }
+      if (seenGoalIds.has(d.goalId)) {
+        throw new Error(`Διπλή απόφαση για τον ίδιο στόχο (goal id=${d.goalId})`)
+      }
+      seenGoalIds.add(d.goalId)
+
+      const goal = await db.goals.get(d.goalId)
+      if (!goal) {
+        throw new Error(`Δεν βρέθηκε στόχος με id=${d.goalId}`)
+      }
+      if (goal.studentId !== d.studentId) {
+        throw new Error(`Ο στόχος id=${d.goalId} δεν ανήκει στον μαθητή id=${d.studentId}`)
+      }
+      const student = await db.students.get(d.studentId)
+      if (!student) {
+        throw new Error(`Δεν βρέθηκε μαθητής με id=${d.studentId} (στόχος id=${d.goalId})`)
+      }
+      if (departedStudentIds.has(d.studentId)) {
+        throw new Error(`Ο μαθητής id=${d.studentId} αποχωρεί — δεν επιτρέπεται απόφαση για τον στόχο id=${d.goalId}`)
+      }
+      if (d.decision === 'newGoal' && !d.newGoalFields?.title?.trim()) {
+        throw new Error(`Ο νέος στόχος (αντικατάσταση του id=${d.goalId}) χρειάζεται τίτλο`)
+      }
+    }
+
+    const newSchoolYearId = await db.schoolYears.add({ label: trimmedLabel, startDate, endDate, isActive: false })
+    await setActiveSchoolYear(newSchoolYearId)
+
+    for (const d of goalDecisions) {
+      if (d.decision === 'continue') continue
+      if (d.decision === 'achieved') {
+        await transitionGoalStatusCore(db.goals, db.goalEvents, d.goalId, 'achieved', { note: d.note || '', trigger: 'schoolYearWizard' })
+      } else if (d.decision === 'newGoal') {
+        await transitionGoalStatusCore(db.goals, db.goalEvents, d.goalId, 'archived', { note: d.note || '', trigger: 'schoolYearWizard' })
+        await createGoalCore(db.goals, db.goalEvents, { ...d.newGoalFields, studentId: d.studentId, baseline: '' }, 'schoolYearWizard')
+      }
+    }
+
+    for (const p of participationDecisions) {
+      await db.students.update(p.studentId, { active: p.status !== 'departed' })
+      await recordSchoolYearParticipationCore(db.schoolYearParticipation, p.studentId, newSchoolYearId, p.status, p.reason || '')
+    }
+
+    if (copySchedule) {
+      await refreshScheduleSlotsForNewYearCore(db.scheduleSlots, startDate, [...departedStudentIds])
+    }
+
+    return newSchoolYearId
+  })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Sprint 7 — Templates & Βιβλιοθήκη (Technical Plan Στάδιο 6)
+// ---------------------------------------------------------------------------------------------
+// Ο πίνακας goalTemplates είναι η ΠΡΟΣΩΠΙΚΗ βιβλιοθήκη του εκπαιδευτικού — ξεχωριστός από το
+// domainTemplates (system, read-only, seeded ανά τομέα, αμετάβλητο σε αυτό το στάδιο). Καμία
+// ζωντανή σύνδεση προς goals: χρήση ενός template = αντιγραφή τιμών μέσω prefillFromSource
+// (utils/goalTemplates.js), ΠΟΤΕ foreign key που θα μπορούσε να προκαλέσει cascade.
+
+function assertValidTemplateContent({ domain, title }) {
+  if (!domain || !DOMAIN_IDS.includes(domain)) {
+    throw new Error(`Άγνωστος ή κενός τομέας: «${domain}»`)
+  }
+  if (!title || !title.trim()) {
+    throw new Error('Ο τίτλος είναι υποχρεωτικός για ένα πρότυπο.')
+  }
+}
+
+function pickTemplateFields(source) {
+  const picked = {}
+  for (const field of GOAL_TEMPLATE_FIELDS) {
+    picked[field] = source[field] || ''
+  }
+  return picked
+}
+
+// Αποθηκεύει έναν υπάρχοντα στόχο ως επαναχρησιμοποιήσιμο πρότυπο. Ρητό whitelist (όχι spread)
+// — ΠΟΤΕ studentId/status/statusChangedAt/baseline/goalEvents/timestamps (Technical Plan Στάδιο
+// 6, σημείο 2) — μόνο ό,τι αναφέρεται ρητά στο GOAL_TEMPLATE_FIELDS περνάει στο νέο row.
+export async function saveGoalAsTemplate(goalId) {
+  const goal = await db.goals.get(goalId)
+  if (!goal) {
+    throw new Error(`Δεν βρέθηκε στόχος με id=${goalId}`)
+  }
+  const fields = pickTemplateFields(goal)
+  assertValidTemplateContent(fields)
+  return db.goalTemplates.add(fields)
+}
+
+// Deterministic σειρά (κατά id, ΠΟΤΕ βασισμένη σε φυσική σειρά αποθήκευσης της IndexedDB — δεν
+// είναι εγγυημένα σταθερή σε όλα τα storage backends) — σημείο 7.
+export async function listGoalTemplates(domain) {
+  const all = domain
+    ? await db.goalTemplates.where('domain').equals(domain).toArray()
+    : await db.goalTemplates.toArray()
+  return all.sort((a, b) => a.id - b.id)
+}
+
+// Ενημερώνει ΑΠΟΚΛΕΙΣΤΙΚΑ τα επιτρεπτά πεδία περιεχομένου ενός προσωπικού template — οποιοδήποτε
+// άλλο κλειδί μέσα στο editableFields (π.χ. αν κάποιος περάσει κατά λάθος status/studentId)
+// αγνοείται σιωπηλά, ΠΟΤΕ δεν εφαρμόζεται (ίδιο σκεπτικό ασφαλείας με το GoalWizardForm.jsx edit
+// path — δομικά αδύνατο να διαρρεύσει lifecycle δεδομένο, όχι απλώς «συνήθως» ασφαλές). Η
+// εγκυρότητα ελέγχεται πάνω στο ΤΕΛΙΚΟ συγχωνευμένο αποτέλεσμα (όχι μόνο στο delta), ώστε ένα
+// update που θα άδειαζε το title να απορρίπτεται. Ένα μοναδικό atomic write — τίποτα να γίνει
+// rollback αν αποτύχει η επικύρωση, αφού αυτή τρέχει ΠΡΙΝ από οποιαδήποτε εγγραφή στη βάση.
+export async function updateGoalTemplate(id, editableFields) {
+  const existing = await db.goalTemplates.get(id)
+  if (!existing) {
+    throw new Error(`Δεν βρέθηκε πρότυπο με id=${id}`)
+  }
+  const updates = {}
+  for (const field of GOAL_TEMPLATE_FIELDS) {
+    if (field in editableFields) updates[field] = editableFields[field]
+  }
+  assertValidTemplateContent({ ...pickTemplateFields(existing), ...updates })
+  await db.goalTemplates.update(id, updates)
+}
+
+// Καμία cascade — ο πίνακας goalTemplates δεν έχει ποτέ foreign key προς goals (χρήση = πάντα
+// αντιγραφή τιμών, βλ. prefillFromSource). Goals που δημιουργήθηκαν παλιότερα από αυτό το
+// πρότυπο (Στάδιο 7, sourceTemplateId) παραμένουν πλήρως ανέπαφα μετά τη διαγραφή του.
+export async function deleteGoalTemplate(id) {
+  const existing = await db.goalTemplates.get(id)
+  if (!existing) {
+    throw new Error(`Δεν βρέθηκε πρότυπο με id=${id}`)
+  }
+  await db.goalTemplates.delete(id)
 }
 
 export default db

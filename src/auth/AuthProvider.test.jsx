@@ -159,10 +159,35 @@ describe('AuthProvider — CLOUD_ENABLED=true (mocked db.cloud, καμία πρ�
     vi.doUnmock('../db.js')
   })
 
-  it('logout: καλεί db.cloud.logout() και επιστρέφει σε loggedOut', async () => {
+  // Sprint 5A Phase 2, Commit 6 — actions.logout ΠΛΕΟΝ καλεί auth/signOut.js, ΟΧΙ απευθείας
+  // db.cloud.logout() (evidence-based εύρημα: το πραγματικό addon's logout() καθαρίζει ΚΑΘΕ πίνακα
+  // της βάσης, βλ. signOut.js). Το test ΤΩΡΑ χρησιμοποιεί το ΠΡΑΓΜΑΤΙΚΟ db.js module (μέσω
+  // importActual — ΟΧΙ πλήρες fake, αφού captureFullDeviceSnapshot/restoreFullDeviceSnapshot
+  // χρειάζονται ΠΡΑΓΜΑΤΙΚΟΥΣ Dexie πίνακες) με ΜΟΝΟ το db.cloud μερικώς fake (η ίδια η
+  // dexie-cloud-addon σύνδεση δεν υπάρχει σε CLOUD_ENABLED=false περιβάλλον test) — το fake logout()
+  // προσομοιώνει ΑΚΡΙΒΩΣ την πραγματική, τεκμηριωμένη καταστροφική συμπεριφορά (καθαρίζει ΚΑΘΕ
+  // πίνακα) ώστε το test να αποδεικνύει ότι το signOut() πράγματι την αναιρεί.
+  it('logout: αναιρεί την καταστροφική πλευρική ενέργεια του db.cloud.logout() — τα δεδομένα επιβιώνουν', async () => {
     vi.resetModules()
-    const fake = makeFakeDb({ initialUser: { isLoggedIn: true, email: 'x@example.com' } })
-    vi.doMock('../db.js', () => fake)
+    vi.doMock('../db.js', async () => {
+      const actual = await vi.importActual('../db.js')
+      const currentUser = new FakeSubject({ isLoggedIn: true, email: 'x@example.com' })
+      const userInteraction = new FakeSubject(undefined)
+      const login = vi.fn()
+      const logout = vi.fn(async () => {
+        await actual.db.transaction('rw', actual.db.tables, async () => {
+          for (const table of actual.db.tables) await table.clear()
+        })
+        currentUser.next({ isLoggedIn: false })
+      })
+      actual.db.cloud = { currentUser, userInteraction, login, logout }
+      return { ...actual, CLOUD_ENABLED: true }
+    })
+
+    const { db } = await import('../db.js')
+    await db.open()
+    await db.students.add({ id: 1, code: 'Μ1', active: true, functionalProfile: [], preferences: {} })
+
     const { default: AuthProvider } = await import('./AuthProvider.jsx')
     const { default: useAuth } = await import('./useAuth.js')
     const user = userEvent.setup()
@@ -181,9 +206,14 @@ describe('AuthProvider — CLOUD_ENABLED=true (mocked db.cloud, καμία πρ�
     expect(screen.getByText('status: loggedIn')).toBeInTheDocument()
 
     await user.click(screen.getByText('Αποσύνδεση'))
-    expect(fake.db.cloud.logout).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(screen.getByText('status: loggedOut')).toBeInTheDocument())
+    expect(db.cloud.logout).toHaveBeenCalledTimes(1)
 
+    await waitFor(async () => {
+      expect(await db.students.get(1)).toMatchObject({ code: 'Μ1' })
+    })
+
+    db.close()
     vi.doUnmock('../db.js')
   })
 })

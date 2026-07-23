@@ -4,6 +4,7 @@ import useAuth from '../auth/useAuth.js'
 import FormField from './ui/FormField.jsx'
 import Input from './ui/Input.jsx'
 import Button from './ui/Button.jsx'
+import AlertBanner from './ui/AlertBanner.jsx'
 import './AccountSection.css'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -19,6 +20,7 @@ export default function AccountSection() {
   const [emailDraft, setEmailDraft] = useState('')
   const [otpDraft, setOtpDraft] = useState('')
   const [localError, setLocalError] = useState(null)
+  const [logoutError, setLogoutError] = useState(null)
 
   // CLOUD_ENABLED=false (βλ. AuthProvider.jsx) — καμία εμφάνιση, καμία κλήση db.cloud.* έγινε ήδη.
   if (status === 'disabled') return null
@@ -50,6 +52,19 @@ export default function AccountSection() {
     setEmailDraft('')
     setOtpDraft('')
     actions.cancel()
+  }
+
+  // Sprint 5A Phase 2, Commit 6 — actions.logout (πλέον signOut(), βλ. AuthProvider.jsx) μπορεί
+  // πραγματικά να πετάξει (π.χ. localStorage μη διαθέσιμο, ή αποτυχία αναίρεσης της
+  // db.cloud.logout() πλευρικής ενέργειας) — σε αντίθεση με το παλιό db.cloud.logout() που δεν
+  // είχε ΚΑΝΕΝΑ error handling εδώ. Ο χρήστης πρέπει να το δει, όχι να χαθεί αθόρυβα.
+  async function handleLogout() {
+    setLogoutError(null)
+    try {
+      await actions.logout()
+    } catch (err) {
+      setLogoutError(err?.message || 'Η αποσύνδεση απέτυχε. Δοκίμασε ξανά.')
+    }
   }
 
   const displayError = localError || error?.message || null
@@ -114,8 +129,9 @@ export default function AccountSection() {
       {status === 'loggedIn' && (
         <>
           <p className="hint">Συνδέθηκες ως <strong>{loggedInEmail}</strong>.</p>
+          {logoutError && <AlertBanner variant="danger">{logoutError}</AlertBanner>}
           <div className="actions-row">
-            <Button variant="danger" icon={LogOut} onClick={actions.logout}>Αποσύνδεση</Button>
+            <Button variant="danger" icon={LogOut} onClick={handleLogout}>Αποσύνδεση</Button>
           </div>
         </>
       )}

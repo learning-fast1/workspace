@@ -11,6 +11,7 @@ import { sortSchoolYearsByStartDate } from './utils/schoolYearFilter.js'
 import { validateCriterionConfig, generateCriterionText } from './utils/measurementTypes/index.js'
 import { activeTable, withNewRowId, getCachedGeneration, currentUserIdOrNull } from './migration/activeGeneration.js'
 import { deterministicId } from './migration/deterministicId.js'
+import { readSyncAuthorizationHint, computeUnsyncedTables } from './migration/syncAuthorizationHint.js'
 
 // Sprint 5A Phase 1 — η ΠΑΡΟΥΣΙΑ του env var είναι το ίδιο το feature flag. Exported ώστε το
 // auth module (src/auth/) να διαβάζει ΤΟ ΙΔΙΟ flag αντί να ξαναδιαβάζει ανεξάρτητα το
@@ -240,17 +241,28 @@ db.version(11).stores({
 })
 
 // Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables
-// είναι πλήρες μόνο μετά από αυτές) και πριν από οποιοδήποτε query/open. unsyncedTables παίρνει
-// ΚΥΡΙΟΛΕΚΤΙΚΑ όλους τους πίνακες — καμία εξαίρεση — ώστε η σύνδεση λογαριασμού σε αυτή τη φάση να
-// είναι αποκλειστικά ταυτότητα, χωρίς κανένα δεδομένο μαθητή να μπορεί να συγχρονιστεί (μηχανισμός,
-// όχι μόνο πρόθεση). Το ΠΟΙΟΙ πίνακες θα συγχρονίζονται πραγματικά αποφασίζεται σε μελλοντικό sprint.
-// Σκόπιμα ΑΝΑΛΛΟΙΩΤΟ σε αυτό το commit: το blanket db.tables.map() sweep ήδη καλύπτει και τους
-// νέους _v2 πίνακες αυτόματα (παραμένουν unsynced, όπως πρέπει μέχρι να υπάρξει πραγματική sync
-// λογική) — η ρητή, generation-aware αναδιατύπωση είναι Commit 2 (Phase 2 Technical Plan Rev.3 §helpers).
+// είναι πλήρες μόνο μετά από αυτές) και πριν από οποιοδήποτε query/open.
+//
+// Sprint 5A Phase 2, Commit 6 (revision) — evidence-based εύρημα ενάντια στο πραγματικό installed
+// dexie-cloud-addon source (review): το updateSchemaFromOptions του addon γράφει markedForSync ΜΟΝΟ
+// true→false, ΠΟΤΕ false→true, μέσα σε ΜΙΑ σελίδα-φόρτωση — άρα η ΠΡΩΤΗ (πριν το db.open()) κλήση
+// configure() είναι η ΜΟΝΑΔΙΚΗ που μπορεί ΠΟΤΕ να επιτρέψει sync στους _v2 πίνακες αυτής της
+// φόρτωσης· διάβασμα appMeta (ownership/migration/generation) απαιτεί ήδη db.open(), άρα είναι ΑΡΓΑ
+// γι' αυτή τη συγκεκριμένη κλήση. Το readSyncAuthorizationHint() διαβάζει ΣΥΓΧΡΟΝΑ ένα ρητά «μη
+// έμπιστο» localStorage hint (migration/syncAuthorizationHint.js, ΧΩΡΙΣ εξάρτηση από db.js — καμία
+// κυκλική εξάρτηση εδώ) — hint απόν ⇒ η ΠΛΗΡΗΣ λίστα (ΑΚΡΙΒΩΣ η προηγούμενη, αναλλοίωτη
+// συμπεριφορά, μηδενικό sync). hint παρόν ⇒ όλα ΕΚΤΟΣ από τους 16 _v2 πίνακες. Το hint ΔΕΝ
+// εμπιστεύεται από μόνο του ΠΟΤΕ — αμέσως μετά το db.open(), το main.jsx καλεί
+// verifySyncAuthorizationOrShutdown() που ΞΑΝΑ-επιβεβαιώνει τις 4 προϋποθέσεις πάνω στα πραγματικά
+// appMeta/currentUser και αναιρεί αμέσως αν δεν ταιριάζουν (configure() ξανά με την πλήρη λίστα — η
+// φορά που ΠΑΝΤΑ δουλεύει).
 if (CLOUD_ENABLED) {
   db.cloud.configure({
     databaseUrl: import.meta.env.VITE_DEXIE_CLOUD_URL,
-    unsyncedTables: db.tables.map((t) => t.name)
+    unsyncedTables: computeUnsyncedTables({
+      hint: readSyncAuthorizationHint(),
+      allTableNames: db.tables.map((t) => t.name)
+    })
   })
 }
 

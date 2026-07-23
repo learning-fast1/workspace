@@ -2,6 +2,7 @@ import { createContext, useMemo } from 'react'
 import { useObservable } from 'dexie-react-hooks'
 import { db, CLOUD_ENABLED } from '../db.js'
 import { deriveAuthStatus } from './authStatus.js'
+import { signOut } from './signOut.js'
 
 // Το ΠΡΩΤΟ React Context της εφαρμογής — δικαιολογημένο γιατί «ποιος είναι συνδεδεμένος» είναι
 // πραγματικά cross-cutting (Technical Plan §Αρχιτεκτονική), σε αντίθεση με το per-page useState
@@ -46,7 +47,10 @@ function EnabledAuthProvider({ children }) {
         submitEmail: (email) => userInteraction?.type === 'email' && userInteraction.onSubmit({ email }),
         submitOtp: (otp) => userInteraction?.type === 'otp' && userInteraction.onSubmit({ otp }),
         cancel: () => userInteraction?.onCancel?.(),
-        logout: () => db.cloud.logout()
+        // Sprint 5A Phase 2, Commit 6 — ΟΧΙ πια απευθείας db.cloud.logout(): εκείνο καθαρίζει ΚΑΘΕ
+        // πίνακα της βάσης (evidence-based εύρημα, βλ. auth/signOut.js) — το signOut() χρησιμοποιεί
+        // το ΙΔΙΟ, μοναδικό API αλλά αναιρεί ΑΜΕΣΩΣ την καταστροφική πλευρική του ενέργεια.
+        logout: () => signOut()
       }
     }
   }, [currentUser, userInteraction])

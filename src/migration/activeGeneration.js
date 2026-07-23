@@ -122,8 +122,14 @@ export function activeTable(name) {
 
 // Test-only — ίδιο idiom με resetMigrationForTests/resetLegacyOwnershipForTests. ΔΕΝ αγγίζει
 // legacy/_v2 εκπαιδευτικά δεδομένα, μόνο το appMeta marker ΚΑΙ το cache.
-export async function resetActiveGenerationForTests() {
-  await db.appMeta.delete(ACTIVE_GENERATION_KEY)
+//
+// clearPersisted:false (Commit 4C) — προσομοιώνει ένα ΠΡΑΓΜΑΤΙΚΟ hard reload: το in-memory cache
+// επιστρέφει στην προεπιλογή του (όπως θα συνέβαινε αν ξαναφορτωνόταν ολόκληρο το JS heap), ΧΩΡΙΣ
+// να σβήσει το ήδη-persisted appMeta marker (αυτό ζει στο IndexedDB, επιβιώνει σε reload — ΑΚΡΙΒΩΣ
+// όπως στην πραγματική εφαρμογή). Το default (true) παραμένει το ίδιο πλήρες καθάρισμα με πριν,
+// για τα ΗΔΗ υπάρχοντα afterEach hooks σε άλλα test αρχεία — καμία αλλαγή συμπεριφοράς εκεί.
+export async function resetActiveGenerationForTests({ clearPersisted = true } = {}) {
+  if (clearPersisted) await db.appMeta.delete(ACTIVE_GENERATION_KEY)
   setCachedGeneration('legacy')
 }
 

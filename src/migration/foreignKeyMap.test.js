@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { FOREIGN_KEY_MAP } from './foreignKeyMap.js'
+import { MIGRATED_TABLE_NAMES } from './migratedTableNames.js'
 
-// Η πλήρης λίστα λογικών πινάκων δεδομένων (χωρίς appMeta) όπως στο src/db.js v10/v11 — καρφωμένη
-// εδώ σκόπιμα (η κεντρική, εξαγόμενη έκδοση migratedTableNames.js είναι Commit 2). Χρησιμεύει μόνο
-// για να επιβεβαιώσει ότι ο χάρτης δεν αναφέρεται ποτέ σε ανύπαρκτο πίνακα.
-const KNOWN_TABLES = new Set([
-  'students', 'goals', 'domainTemplates', 'sessions', 'measurements', 'observations',
-  'reports', 'dailyQueue', 'scheduleSlots', 'scheduleExceptions', 'calendarEvents',
-  'schoolYears', 'schoolYearParticipation', 'goalEvents', 'goalTemplates', 'sessionGoalAssessments'
-])
+// Sprint 5A Phase 2, Commit 2 — πλέον επικυρώνεται έναντι της ΚΕΝΤΡΙΚΗΣ, εξαγόμενης λίστας
+// (migratedTableNames.js), όχι ενός δεύτερου, καρφωμένου συνόλου εδώ (όπως ήταν προσωρινά στο
+// Commit 1 — βλ. σχόλιο που είχε αφεθεί εκεί ρητά για αυτή την αντικατάσταση).
+const KNOWN_TABLES = new Set(MIGRATED_TABLE_NAMES)
 
 describe('FOREIGN_KEY_MAP — εσωτερική συνέπεια', () => {
   it('κάθε κλειδί-πίνακας του χάρτη είναι γνωστός πίνακας', () => {

@@ -8,7 +8,8 @@ import db, {
   saveGoalAsTemplate, listGoalTemplates, updateGoalTemplate, deleteGoalTemplate,
   createSchoolYear, getActiveSchoolYear, setActiveSchoolYear, listSchoolYears,
   recordSchoolYearParticipation, setStudentActive, applySchoolYearTransition,
-  updateGoalCriterion, deleteStudent, deleteSession, migrateGoalDomainsToBroaderDomains
+  updateGoalCriterion, deleteStudent, deleteSession, migrateGoalDomainsToBroaderDomains,
+  DATA_TABLE_NAMES
 } from './db.js'
 import { restoreFromBackup } from './utils/backup.js'
 import { DOMAIN_IDS, domainName } from './config/domains.js'
@@ -1656,5 +1657,83 @@ describe('Sprint 5A Phase 1 — CLOUD_ENABLED feature flag (db.js)', () => {
     expect(await offLoad.db.students.get(id)).toMatchObject({ code: 'ΞΑΝΑ-ΤΟΠΙΚΟ' })
     await offLoad.db.students.clear()
     offLoad.db.close()
+  })
+})
+
+// Sprint 5A Phase 2, Commit 1 (reconciled) — μέχρι τώρα το v11 δεν είχε ΚΑΜΙΑ δική του δοκιμή (το
+// αρχικό, 11-πινάκων Commit 1 επαληθεύτηκε μόνο χειροκίνητα, βλ. commit a6cbb9a). Αυτό εδώ είναι η
+// πρώτη πραγματική, μόνιμη κάλυψη: επιβεβαιώνει ότι το reconciled schema (πλέον 16 _v2 πίνακες,
+// ίδιοι με το πλήρες legacy σχήμα μέχρι v10) ανοίγει σωστά ΚΑΙ ότι οι νέοι _v2 πίνακες είναι
+// πραγματικά χρησιμοποιήσιμοι — όχι μόνο δηλωμένοι.
+describe('Schema v11 (Phase 2 parallel-table foundation, reconciled μετά τα Sprint 7/8)', () => {
+  it('ανοίγει στο v11 και δηλώνει _v2 αντίστοιχο για ΚΑΘΕ πίνακα δεδομένων του legacy σχήματος', async () => {
+    expect(db.verno).toBe(11)
+
+    const tableNames = db.tables.map((t) => t.name)
+    const legacyDataTables = [
+      'students', 'goals', 'domainTemplates', 'sessions', 'measurements', 'observations',
+      'reports', 'dailyQueue', 'scheduleSlots', 'scheduleExceptions', 'calendarEvents',
+      'schoolYears', 'schoolYearParticipation', 'goalEvents', 'goalTemplates', 'sessionGoalAssessments'
+    ]
+    for (const name of legacyDataTables) {
+      expect(tableNames, `λείπει ο legacy πίνακας: ${name}`).toContain(name)
+      expect(tableNames, `λείπει το _v2 αντίστοιχο: ${name}_v2`).toContain(`${name}_v2`)
+    }
+    // appMeta: ΚΑΜΙΑ _v2 εκδοχή — μόνιμα τοπικό/ανά-συσκευή, ρητή εξαίρεση (βλ. σχόλιο στο db.js).
+    expect(tableNames).toContain('appMeta')
+    expect(tableNames).not.toContain('appMeta_v2')
+  })
+
+  it('οι 5 νέοι _v2 πίνακες (Sprint 7/8) είναι πραγματικά εγγράψιμοι/αναγνώσιμοι με string id', async () => {
+    await db.schoolYears_v2.put({ id: 'sy-1', label: 'Smoke', startDate: '2026-09-01', endDate: '2027-06-30', isActive: false })
+    expect(await db.schoolYears_v2.get('sy-1')).toBeTruthy()
+
+    await db.schoolYearParticipation_v2.put({ id: 'syp-1', studentId: 'st-1', schoolYearId: 'sy-1', status: 'new', reason: '', recordedAt: new Date().toISOString() })
+    expect(await db.schoolYearParticipation_v2.get('syp-1')).toBeTruthy()
+
+    await db.goalEvents_v2.put({ id: 'ge-1', goalId: 'g-1', at: new Date().toISOString(), type: 'created', fromStatus: null, toStatus: 'active', note: '', trigger: 'manual' })
+    expect(await db.goalEvents_v2.get('ge-1')).toBeTruthy()
+
+    await db.goalTemplates_v2.put({ id: 'gt-1', domain: 'communication', title: 'Πρότυπο' })
+    expect(await db.goalTemplates_v2.get('gt-1')).toBeTruthy()
+
+    await db.sessionGoalAssessments_v2.put({ id: 'sga-1', sessionId: 's-1', studentId: 'st-1', goalId: 'g-1', rating: 'improved', note: '' })
+    expect(await db.sessionGoalAssessments_v2.get('sga-1')).toBeTruthy()
+
+    await Promise.all([
+      db.schoolYears_v2.clear(), db.schoolYearParticipation_v2.clear(), db.goalEvents_v2.clear(),
+      db.goalTemplates_v2.clear(), db.sessionGoalAssessments_v2.clear()
+    ])
+  })
+
+  it('sessionGoalAssessments_v2.&[sessionId+goalId] είναι compound unique, ίδιο idiom με τον legacy πίνακα', async () => {
+    await db.sessionGoalAssessments_v2.add({ id: 'sga-a', sessionId: 's-1', studentId: 'st-1', goalId: 'g-1', rating: 'improved', note: '' })
+    await expect(
+      db.sessionGoalAssessments_v2.add({ id: 'sga-b', sessionId: 's-1', studentId: 'st-1', goalId: 'g-1', rating: 'stable', note: '' })
+    ).rejects.toThrow()
+    await db.sessionGoalAssessments_v2.clear()
+  })
+
+  it('schoolYearParticipation_v2.&[studentId+schoolYearId] είναι compound unique, ίδιο idiom με τον legacy πίνακα', async () => {
+    await db.schoolYearParticipation_v2.add({ id: 'syp-a', studentId: 'st-1', schoolYearId: 'sy-1', status: 'new', reason: '', recordedAt: new Date().toISOString() })
+    await expect(
+      db.schoolYearParticipation_v2.add({ id: 'syp-b', studentId: 'st-1', schoolYearId: 'sy-1', status: 'continued', reason: '', recordedAt: new Date().toISOString() })
+    ).rejects.toThrow()
+    await db.schoolYearParticipation_v2.clear()
+  })
+
+  it('DATA_TABLE_NAMES περιλαμβάνει ΟΛΟΥΣ τους νέους _v2 πίνακες, ΟΧΙ το appMeta', async () => {
+    for (const name of ['schoolYears_v2', 'schoolYearParticipation_v2', 'goalEvents_v2', 'goalTemplates_v2', 'sessionGoalAssessments_v2']) {
+      expect(DATA_TABLE_NAMES).toContain(name)
+    }
+    expect(DATA_TABLE_NAMES).not.toContain('appMeta')
+  })
+
+  it('οι legacy πίνακες παραμένουν πλήρως ανεπηρέαστοι από τη reconciliation (καμία στήλη/δείκτης άλλαξε)', async () => {
+    // Ίδιο idiom με το ήδη υπάρχον schema v9 test — sanity check ότι το v11 bump δεν άγγιξε τίποτα
+    // από το ενεργό, legacy σχήμα (τα _v2 είναι ΑΠΟΚΛΕΙΣΤΙΚΑ πρόσθετες δηλώσεις).
+    const studentId = await db.students.add({ code: 'ΝΤΤ2', active: true })
+    expect(await db.students.get(studentId)).toMatchObject({ code: 'ΝΤΤ2' })
+    await db.students.delete(studentId)
   })
 })

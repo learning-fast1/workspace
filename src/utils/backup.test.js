@@ -79,4 +79,22 @@ describe('buildBackupPayload / restoreFromBackup', () => {
     const templates = await db.domainTemplates.toArray()
     expect(templates.length).toBeGreaterThan(0)
   })
+
+  // Phase 2 Commit 1 (reconciled) — ένα backup ληφθέν ΠΡΙΝ τη reconciliation (π.χ. πριν το Sprint 7/8,
+  // ή ακόμα και πριν το ίδιο το v9/v10) δεν έχει καθόλου κλειδιά για τους 5 νέους πίνακες ΚΑΙ τους
+  // αντίστοιχους 5 νέους _v2 πίνακες. Το restoreFromBackup ήδη ελέγχει Array.isArray(rows) πριν
+  // κάνει bulkPut — ένα λείπον κλειδί απλά παραλείπεται, ΔΕΝ πετάει. Αυτό εδώ αποδεικνύει ρητά ότι
+  // η reconciliation δεν έσπασε τη συμβατότητα με παλιότερα backups.
+  it('restoreFromBackup δέχεται payload χωρίς τα κλειδιά των νέων v9/v10/_v2 πινάκων, χωρίς σφάλμα', async () => {
+    const payload = await buildBackupPayload()
+    for (const table of DATA_TABLE_NAMES) {
+      if (/^(schoolYears|schoolYearParticipation|goalEvents|goalTemplates|sessionGoalAssessments)(_v2)?$/.test(table)) {
+        delete payload.data[table]
+      }
+    }
+
+    await expect(restoreFromBackup(payload)).resolves.not.toThrow()
+    expect(await db.schoolYears.count()).toBe(0)
+    expect(await db.sessionGoalAssessments.count()).toBe(0)
+  })
 })

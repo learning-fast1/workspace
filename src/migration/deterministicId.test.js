@@ -36,4 +36,17 @@ describe('deterministicId — collision-freedom & idempotency (Phase 2 Technical
     const fromString = await deterministicId('alice@example.com', 'students', '42')
     expect(fromNumber).toBe(fromString)
   })
+
+  // Phase 2 Commit 1 (reconciled) — οι 5 νέοι πίνακες του Sprint 7/8 (σχήμα v9/v10) έχουν ΟΛΟΙ
+  // απλό αυξητικό ++id (όχι ιδιαίτερη ονομασία σαν το domainTemplates), άρα δεν χρειάζονται ξεχωριστή
+  // στρατηγική — απλά ΕΝΑ ακόμη table name string στην ήδη γενική συνάρτηση. Εδώ τεκμηριώνεται ρητά
+  // ότι λειτουργούν με το ίδιο εγγύηση collision-freedom μεταξύ χρηστών.
+  it('λειτουργεί το ίδιο για κάθε νέο πίνακα του Sprint 7/8 (σχήμα v9/v10) — καμία ειδική περίπτωση', async () => {
+    for (const table of ['schoolYears', 'schoolYearParticipation', 'goalEvents', 'goalTemplates', 'sessionGoalAssessments']) {
+      const alice = await deterministicId('alice@example.com', table, 1)
+      const bob = await deterministicId('bob@example.com', table, 1)
+      expect(alice, `${table}: αναμένονταν διαφορετικό id ανά χρήστη`).not.toBe(bob)
+      expect(alice).toMatch(/^[0-9a-f]{64}$/)
+    }
+  })
 })

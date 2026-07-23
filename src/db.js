@@ -206,11 +206,14 @@ db.version(10).stores({
   sessionGoalAssessments: '++id, sessionId, studentId, goalId, &[sessionId+goalId]'
 })
 
-// Sprint 5A Phase 2, Commit 1 — ΘΕΜΕΛΙΟ ΜΟΝΟ: παράλληλες "_v2" δηλώσεις, ίδιοι indexed δείκτες με
-// τις αντίστοιχες παλιές, string `id` αντί για `++id` (Phase 2 Technical Plan §1 — plain id, όχι
-// @id, καμία εξάρτηση σε server-assigned prefix/αρχικό sync). Οι ΠΑΛΙΕΣ δηλώσεις παραπάνω ΔΕΝ
-// αγγίζονται καθόλου. ΚΑΜΙΑ migration/activeTable/switchover λογική ακόμα — αυτό είναι απλώς το
-// σχήμα· τίποτα δεν γράφει ή διαβάζει από αυτούς τους πίνακες μέχρι το Commit 2.
+// Sprint 5A Phase 2, Commit 1 (reconciled μετά τα Sprint 7/8) — ΘΕΜΕΛΙΟ ΜΟΝΟ: παράλληλες "_v2"
+// δηλώσεις, ίδιοι indexed δείκτες με τις αντίστοιχες παλιές, string `id` αντί για `++id` (Phase 2
+// Technical Plan §1 — plain id, όχι @id, καμία εξάρτηση σε server-assigned prefix/αρχικό sync). Οι
+// ΠΑΛΙΕΣ δηλώσεις παραπάνω ΔΕΝ αγγίζονται καθόλου. ΚΑΜΙΑ migration/activeTable/switchover λογική
+// ακόμα — αυτό είναι απλώς το σχήμα· τίποτα δεν γράφει ή διαβάζει από αυτούς τους πίνακες μέχρι το
+// Commit 2. Καλύπτει πλέον ΟΛΟΚΛΗΡΟ το legacy σχήμα μέχρι και v10 (Sprint 7 school year/goal
+// lifecycle + Sprint 8 clinical assessment) — reconciled εδώ αντί για ξεχωριστό v12, αφού αυτό το
+// commit δεν είχε ποτέ πάει σε production/deployment (βλ. commit history).
 // domainTemplates_v2 ΕΠΙΤΗΔΕΣ 'id, domain' (ΟΧΙ 'domain' ως primary key όπως ο παλιός πίνακας) —
 // το domain name από μόνο του δεν είναι global μοναδικό μεταξύ χρηστών (Phase 2 Technical Plan
 // Rev.2 §1, ζωντανά επιβεβαιωμένο με δύο πραγματικούς χρήστες και το ίδιο 'communication').
@@ -226,7 +229,12 @@ db.version(11).stores({
   dailyQueue_v2: 'id, date',
   scheduleSlots_v2: 'id, seriesId, dayOfWeek',
   scheduleExceptions_v2: 'id, seriesId, originalDate',
-  calendarEvents_v2: 'id, date'
+  calendarEvents_v2: 'id, date',
+  schoolYears_v2: 'id, isActive',
+  schoolYearParticipation_v2: 'id, studentId, schoolYearId, &[studentId+schoolYearId]',
+  goalEvents_v2: 'id, goalId, at',
+  goalTemplates_v2: 'id, domain',
+  sessionGoalAssessments_v2: 'id, sessionId, studentId, goalId, &[sessionId+goalId]'
 })
 
 // Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables

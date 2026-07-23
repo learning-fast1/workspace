@@ -1,0 +1,9 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Ίδιο μοτίβο με
+   LegacyDataMigrationSection.css — μόνο ο χώρος γύρω από το κουμπί ενεργοποίησης χρειάζεται τη
+   δική του ρύθμιση, ώστε το μεγάλο, ρητό κείμενο του κουμπιού να μην πιέζεται. */
+
+.generation-switchover-section .actions-row .btn {
+  max-width: 420px;
+  white-space: normal;
+  text-align: left;
+}

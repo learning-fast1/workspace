@@ -7,6 +7,7 @@ import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
 import { formatDateEl } from '../utils/date.js'
 import AccountSection from './AccountSection.jsx'
 import LegacyDataMigrationSection from './LegacyDataMigrationSection.jsx'
+import GenerationSwitchoverSection from './GenerationSwitchoverSection.jsx'
 
 const TABLE_LABELS = {
   students: 'Μαθητές',
@@ -156,6 +157,9 @@ export default function Settings() {
           σύνδεση. Αυτο-gated (βλ. LegacyDataMigrationSection.jsx) — αποδίδει null αν δεν είναι
           συνδεδεμένος ή δεν υπάρχουν καθόλου τοπικά δεδομένα προς προετοιμασία. */}
       <LegacyDataMigrationSection />
+      {/* Sprint 5A Phase 2, Commit 4A — αμέσως μετά: έχει νόημα μόνο ΜΕΤΑ από ολοκληρωμένο
+          migration. Αυτο-gated (βλ. GenerationSwitchoverSection.jsx). */}
+      <GenerationSwitchoverSection />
 
       <div className="section">
         <h2>Σχολικό έτος</h2>

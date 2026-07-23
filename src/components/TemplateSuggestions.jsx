@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import ChipListEditor from './ChipListEditor.jsx'
 
 // Προτάσεις (goalStarters/baselineExamples/commonCriteria) του DomainTemplate ενός τομέα.
 // Κλικ σε πρόταση = συμπληρώνει το πεδίο. Οι προτάσεις είναι επεξεργάσιμες (προσθήκη/αφαίρεση), αποθηκευμένες στη βάση.
 export default function TemplateSuggestions({ domain, field, label, onApply }) {
   const template = useLiveQuery(
-    () => (domain ? db.domainTemplates.get(domain) : undefined),
+    () => (domain ? activeTable('domainTemplates').get(domain) : undefined),
     [domain]
   )
 
@@ -26,13 +26,13 @@ export default function TemplateSuggestions({ domain, field, label, onApply }) {
   async function handleAdd(value) {
     const next = [...latestRef.current, value]
     latestRef.current = next
-    await db.domainTemplates.update(domain, { [field]: next })
+    await activeTable('domainTemplates').update(domain, { [field]: next })
   }
 
   async function handleRemove(index) {
     const next = latestRef.current.filter((_, i) => i !== index)
     latestRef.current = next
-    await db.domainTemplates.update(domain, { [field]: next })
+    await activeTable('domainTemplates').update(domain, { [field]: next })
   }
 
   return (

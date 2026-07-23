@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine
 } from 'recharts'
 import { LineChart as LineChartIcon, MessageSquareText, UserX } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { domainName } from '../config/domains.js'
 import { getMeasurementType, formatRecordedValue } from '../utils/measurementTypes/index.js'
 import { priorityLabel, statusLabel, PRIORITY_BADGE_VARIANT, STATUS_BADGE_VARIANT } from '../config/goalOptions.js'
@@ -76,22 +76,22 @@ export default function GoalDetail() {
 
   // null = «δεν έχει τρέξει ακόμα» — βλ. αντίστοιχο σχόλιο στο StudentProfile.jsx. Χωρίς αυτό, ο
   // στόχος που πραγματικά δεν υπάρχει (π.χ. διαγράφηκε ο μαθητής του) δεν θα ξεχώριζε από «φορτώνει ακόμα».
-  const goal = useLiveQuery(() => db.goals.get(Number(goalId)), [goalId], null)
+  const goal = useLiveQuery(() => activeTable('goals').get(Number(goalId)), [goalId], null)
   const measurements = useLiveQuery(
-    () => db.measurements.where('goalId').equals(Number(goalId)).toArray(),
+    () => activeTable('measurements').where('goalId').equals(Number(goalId)).toArray(),
     [goalId]
   )
-  const sessions = useLiveQuery(() => db.sessions.toArray(), [])
+  const sessions = useLiveQuery(() => activeTable('sessions').toArray(), [])
   // Ένα μόνο, φθηνό query — ήδη scoped σε ΕΝΑΝ στόχο (goalId indexed), όχι σε όλους τους στόχους
   // του μαθητή, άρα δεν υπάρχει θέμα N+1 εδώ (Technical Plan Στάδιο 5, σημείο 6).
   const goalEvents = useLiveQuery(
-    () => db.goalEvents.where('goalId').equals(Number(goalId)).toArray(),
+    () => activeTable('goalEvents').where('goalId').equals(Number(goalId)).toArray(),
     [goalId]
   )
   // Κλινικές εκτιμήσεις (Teaching Mode) — συμπληρωματικές του measurement, μέχρι πρότινος αόρατες
   // εκτός βάσης· τώρα τροφοδοτούν το ενοποιημένο ιστορικό παρακάτω (utils/goalHistory.js).
   const assessments = useLiveQuery(
-    () => db.sessionGoalAssessments.where('goalId').equals(Number(goalId)).toArray(),
+    () => activeTable('sessionGoalAssessments').where('goalId').equals(Number(goalId)).toArray(),
     [goalId]
   )
 

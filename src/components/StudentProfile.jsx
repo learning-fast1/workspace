@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { UserX } from 'lucide-react'
-import { db, deleteStudent, setStudentActive } from '../db.js'
+import { deleteStudent, setStudentActive } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { sessionDateMap } from '../utils/sessions.js'
 import { measurementNumericValue, parseCriterionTarget } from '../utils/measurementValue.js'
 import { formatDateElShort } from '../utils/date.js'
@@ -91,7 +92,7 @@ export default function StudentProfile() {
 
   // null = «δεν έχει τρέξει ακόμα» (βλ. ίδιο μοτίβο ήδη στην παλιά υλοποίηση) — χωρίς αυτό, ένας
   // μαθητής που πραγματικά δεν υπάρχει δεν θα ξεχώριζε από «φορτώνει ακόμα».
-  const student = useLiveQuery(() => db.students.get(studentId), [studentId], null)
+  const student = useLiveQuery(() => activeTable('students').get(studentId), [studentId], null)
   const heroStats = useLiveQuery(() => loadHeroStats(studentId), [studentId])
 
   if (student === null) {
@@ -124,11 +125,11 @@ export default function StudentProfile() {
   }
 
   async function handleFunctionalProfileChange(functionalProfile) {
-    await db.students.update(studentId, { functionalProfile })
+    await activeTable('students').update(studentId, { functionalProfile })
   }
 
   async function handlePreferencesChange(preferences) {
-    await db.students.update(studentId, { preferences })
+    await activeTable('students').update(studentId, { preferences })
   }
 
   async function handleConfirmDelete() {

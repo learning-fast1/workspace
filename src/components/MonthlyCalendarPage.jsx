@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { toLocalISO, todayLocalISO } from '../utils/date.js'
 import { projectOccurrencesForDate } from '../utils/scheduleGeneration.js'
 import { WEEKDAYS } from '../config/scheduleOptions.js'
@@ -37,11 +37,11 @@ function monthGridDates(year, month) {
 async function loadMonthData(year, month) {
   const dates = monthGridDates(year, month)
   const [scheduleSlots, scheduleExceptions, calendarEvents, dailyQueueRows, sessions] = await Promise.all([
-    db.scheduleSlots.toArray(),
-    db.scheduleExceptions.toArray(),
-    db.calendarEvents.where('date').between(dates[0], dates[41], true, true).toArray(),
-    db.dailyQueue.where('date').between(dates[0], dates[41], true, true).toArray(),
-    db.sessions.where('date').between(dates[0], dates[41], true, true).toArray()
+    activeTable('scheduleSlots').toArray(),
+    activeTable('scheduleExceptions').toArray(),
+    activeTable('calendarEvents').where('date').between(dates[0], dates[41], true, true).toArray(),
+    activeTable('dailyQueue').where('date').between(dates[0], dates[41], true, true).toArray(),
+    activeTable('sessions').where('date').between(dates[0], dates[41], true, true).toArray()
   ])
 
   const today = todayLocalISO()

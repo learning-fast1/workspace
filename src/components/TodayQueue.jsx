@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Sparkles, UserRoundPlus, Users } from 'lucide-react'
-import { db, ensureDayGenerated, recordSessionNotHeld, restoreDailyQueueEntry, applyScheduleException } from '../db.js'
+import { ensureDayGenerated, recordSessionNotHeld, restoreDailyQueueEntry, applyScheduleException } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { todayLocalISO, weekdayOf, formatDateEl } from '../utils/date.js'
 import { matchedSession, unplannedSessionsToday } from '../utils/dailyQueue.js'
 import { attentionSignalForStudent } from '../utils/attentionSignal.js'
@@ -25,12 +26,12 @@ const WEEKDAY_GENITIVE = ['Κυριακής', 'Δευτέρας', 'Τρίτης'
 async function loadQueueData(date) {
   const today = todayLocalISO()
   const [entries, sessionsToday, students, goals, measurements, observations] = await Promise.all([
-    db.dailyQueue.where('date').equals(date).toArray(),
-    db.sessions.where('date').equals(date).toArray(),
-    db.students.toArray(),
-    db.goals.toArray(),
-    db.measurements.toArray(),
-    db.observations.toArray()
+    activeTable('dailyQueue').where('date').equals(date).toArray(),
+    activeTable('sessions').where('date').equals(date).toArray(),
+    activeTable('students').toArray(),
+    activeTable('goals').toArray(),
+    activeTable('measurements').toArray(),
+    activeTable('observations').toArray()
   ])
   entries.sort((a, b) => a.order - b.order)
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
@@ -41,7 +42,7 @@ async function loadQueueData(date) {
   let suggestionWeekday = null
   if (date === today && entries.length === 0) {
     const todayWeekday = weekdayOf(today)
-    const past = await db.dailyQueue.where('date').below(today).toArray()
+    const past = await activeTable('dailyQueue').where('date').below(today).toArray()
     const pastDatesDesc = [...new Set(past.map((e) => e.date))].sort().reverse()
     for (const d of pastDatesDesc) {
       if (weekdayOf(d) === todayWeekday) {
@@ -107,7 +108,7 @@ export default function TodayQueue({ date: dateProp }) {
   const showSuggestion = isToday && entries.length === 0 && suggestion.length > 0 && !suggestionDismissed
 
   async function handleSkip(id) {
-    await db.dailyQueue.update(id, { status: 'skipped' })
+    await activeTable('dailyQueue').update(id, { status: 'skipped' })
   }
 
   async function handleRestore(entry) {
@@ -144,15 +145,16 @@ export default function TodayQueue({ date: dateProp }) {
     const index = entries.findIndex((e) => e.id === entry.id)
     const swapWith = entries[index + direction]
     if (!swapWith) return
-    await db.dailyQueue.update(entry.id, { order: swapWith.order })
-    await db.dailyQueue.update(swapWith.id, { order: entry.order })
+    const dailyQueueTable = activeTable('dailyQueue')
+    await dailyQueueTable.update(entry.id, { order: swapWith.order })
+    await dailyQueueTable.update(swapWith.id, { order: entry.order })
   }
 
   async function acceptSuggestion() {
     setAcceptingSuggestion(true)
     try {
-      await db.dailyQueue.bulkAdd(
-        suggestion.map((e) => ({ date, studentIds: e.studentIds, order: e.order, status: 'pending' }))
+      await activeTable('dailyQueue').bulkAdd(
+        suggestion.map((e) => withNewRowId({ date, studentIds: e.studentIds, order: e.order, status: 'pending' }))
       )
     } finally {
       setAcceptingSuggestion(false)

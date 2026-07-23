@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { SearchX, UserPlus, Users } from 'lucide-react'
-import { db, deleteStudent, setStudentActive } from '../db.js'
+import { deleteStudent, setStudentActive } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { formatDateEl } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
@@ -19,9 +20,9 @@ import './StudentList.css'
 // (μηδενικές δικές του queries) χωρίς να δημιουργείται πρόβλημα N+1.
 async function loadStudentsWithStats() {
   const [students, goals, sessions] = await Promise.all([
-    db.students.orderBy('code').toArray(),
-    db.goals.where('status').equals('active').toArray(),
-    db.sessions.toArray()
+    activeTable('students').orderBy('code').toArray(),
+    activeTable('goals').where('status').equals('active').toArray(),
+    activeTable('sessions').toArray()
   ])
 
   const activeGoalsByStudent = {}

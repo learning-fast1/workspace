@@ -13,7 +13,8 @@ import {
   UserPlus,
   Users
 } from 'lucide-react'
-import { db, getLastBackupAt } from '../db.js'
+import { getLastBackupAt } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { sessionDateMap } from '../utils/sessions.js'
 import { formatDateEl, todayLocalISO } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
@@ -78,9 +79,9 @@ async function findStaleGoals() {
 // και το Πρόσφατη δραστηριότητα του dashboard. Δεν εισάγουν νέα δεδομένα/σχήμα στη βάση.
 async function loadDashboardStats() {
   const [students, goals, sessions] = await Promise.all([
-    db.students.toArray(),
-    db.goals.where('status').equals('active').toArray(),
-    db.sessions.toArray()
+    activeTable('students').toArray(),
+    activeTable('goals').where('status').equals('active').toArray(),
+    activeTable('sessions').toArray()
   ])
   const activeStudentIds = new Set(students.filter((s) => s.active).map((s) => s.id))
   const today = todayLocalISO()
@@ -101,8 +102,8 @@ async function loadRecentActivity() {
   // σκεπτικό με το loadHeroStats του StudentProfile.jsx. Παίρνουμε λίγο παραπάνω από 5 πριν το
   // φίλτρο, ώστε η λίστα να μην αδειάζει άδικα όταν οι πιο πρόσφατες εγγραφές ήταν notHeld.
   const [recentSessions, students] = await Promise.all([
-    db.sessions.orderBy('date').reverse().limit(20).toArray(),
-    db.students.toArray()
+    activeTable('sessions').orderBy('date').reverse().limit(20).toArray(),
+    activeTable('students').toArray()
   ])
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
   return recentSessions

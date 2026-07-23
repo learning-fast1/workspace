@@ -9,6 +9,8 @@ import { sameStudentSet, matchedSession } from './utils/dailyQueue.js'
 import { GOAL_TEMPLATE_FIELDS } from './utils/goalTemplates.js'
 import { sortSchoolYearsByStartDate } from './utils/schoolYearFilter.js'
 import { validateCriterionConfig, generateCriterionText } from './utils/measurementTypes/index.js'
+import { activeTable, withNewRowId, getCachedGeneration, currentUserIdOrNull } from './migration/activeGeneration.js'
+import { deterministicId } from './migration/deterministicId.js'
 
 // Sprint 5A Phase 1 — η ΠΑΡΟΥΣΙΑ του env var είναι το ίδιο το feature flag. Exported ώστε το
 // auth module (src/auth/) να διαβάζει ΤΟ ΙΔΙΟ flag αντί να ξαναδιαβάζει ανεξάρτητα το
@@ -504,61 +506,101 @@ export async function backfillGoalEvents() {
 
 // Γεμίζει με seed data μόνο τους τομείς που δεν έχουν ακόμα template στη βάση
 // (πρώτη εκκίνηση, ή νέος τομέας που προστέθηκε αργότερα στο domains.js).
-export async function ensureDomainTemplatesSeeded() {
-  const existing = await db.domainTemplates.toArray()
+//
+// Sprint 5A Phase 2, Commit 4C — routed στην ενεργή γενιά (βλ. Commit 4B review). ΣΤΗ legacy
+// γενιά ΜΗΔΕΝΙΚΗ αλλαγή: το domain παραμένει το ίδιο primary key, όπως πάντα. ΣΤΗ v2 γενιά,
+// domain ΔΕΝ είναι πλέον primary key (βλ. db.version(11) — 'id, domain', ρητή απόφαση Commit 1
+// ώστε το domain name να μην χρειάζεται να είναι global μοναδικό) — χρειάζεται λοιπόν δικό του
+// 'id'. ΕΠΙΤΗΔΕΣ ΟΧΙ withNewRowId() (τυχαίο) εδώ: ένα ξανατρέξιμο seeding (π.χ. μετά από νέο domain
+// στο config/domains.js) ΠΡΕΠΕΙ να παράγει το ΙΔΙΟ id για το ΙΔΙΟ domain κάθε φορά, αλλιώς το
+// bulkPut θα πρόσθετε ΔΕΥΤΕΡΗ, διπλότυπη λογική εγγραφή αντί να αντικαταστήσει την πρώτη.
+// Επαναχρησιμοποιεί το ΙΔΙΟ deterministicId(userId, tableName, key) με το migration engine
+// (Σταθερό ανά (χρήστη, domain) — ΟΧΙ νέο, ξεχωριστό σχήμα) ώστε να μην υπάρχει ποτέ σύγκρουση με
+// ένα ήδη-μεταφερμένο domainTemplates_v2 row για τον ΙΔΙΟ χρήστη/domain.
+export async function ensureDomainTemplatesSeeded({ getUserId = currentUserIdOrNull } = {}) {
+  const domainTemplatesTable = activeTable('domainTemplates')
+  const existing = await domainTemplatesTable.toArray()
   const existingIds = new Set(existing.map((t) => t.domain))
   const missing = DOMAINS.filter((d) => !existingIds.has(d.id))
   if (missing.length === 0) return
 
-  await db.domainTemplates.bulkPut(
-    missing.map(({ id }) => ({
+  const isV2 = getCachedGeneration() === 'v2'
+  let userId = null
+  if (isV2) {
+    // Fail-closed (review): ΚΑΜΙΑ εγγραφή αν δεν υπάρχει έγκυρο, μη-κενό userId — ένα
+    // deterministicId(null/'', ...) θα παρήγαγε ένα «id» χωρίς πραγματικό νόημα ιδιοκτησίας,
+    // δομικά αδύνατο να ταιριάξει μελλοντικά με τα ΣΩΣΤΑ deterministic ids αυτού του χρήστη.
+    // Ελέγχεται ΕΔΩ, πριν από ΚΑΘΕ deterministicId()/bulkPut κλήση — μηδενική εγγραφή στην αποτυχία.
+    userId = getUserId()
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error(
+        'ensureDomainTemplatesSeeded: απαιτείται έγκυρο, μη κενό userId στη γενιά v2 για τον ' +
+        'υπολογισμό των deterministic seed ids — καμία εγγραφή δεν πραγματοποιήθηκε.'
+      )
+    }
+  }
+
+  const rows = await Promise.all(missing.map(async ({ id }) => {
+    const fields = {
       domain: id,
       suggestedMeasurementTypes: DOMAIN_TEMPLATES_SEED[id]?.suggestedMeasurementTypes || [],
       commonCriteria: DOMAIN_TEMPLATES_SEED[id]?.commonCriteria || [],
       baselineExamples: DOMAIN_TEMPLATES_SEED[id]?.baselineExamples || [],
       goalStarters: DOMAIN_TEMPLATES_SEED[id]?.goalStarters || []
-    }))
-  )
+    }
+    if (!isV2) return fields
+    return { id: await deterministicId(userId, 'domainTemplates', id), ...fields }
+  }))
+
+  await domainTemplatesTable.bulkPut(rows)
 }
 
 // Οριστική διαγραφή μαθητή και ΟΛΩΝ των δεδομένων του (goals, measurements, observations).
 // Οι ομαδικές συνεδρίες δεν διαγράφονται — αφαιρείται μόνο ο μαθητής από τη συνεδρία, εκτός
 // αν έμενε μόνος του σε αυτήν, οπότε η συνεδρία διαγράφεται κι εκείνη (δεν έχει πια νόημα).
 export async function deleteStudent(studentId) {
-  await db.transaction('rw', [db.students, db.goals, db.measurements, db.observations, db.sessions, db.scheduleSlots, db.sessionGoalAssessments], async () => {
-    await db.goals.where('studentId').equals(studentId).delete()
-    await db.measurements.where('studentId').equals(studentId).delete()
-    await db.observations.where('studentId').equals(studentId).delete()
+  const studentsTable = activeTable('students')
+  const goalsTable = activeTable('goals')
+  const measurementsTable = activeTable('measurements')
+  const observationsTable = activeTable('observations')
+  const sessionsTable = activeTable('sessions')
+  const scheduleSlotsTable = activeTable('scheduleSlots')
+  const sessionGoalAssessmentsTable = activeTable('sessionGoalAssessments')
+
+  await db.transaction('rw', [studentsTable, goalsTable, measurementsTable, observationsTable, sessionsTable, scheduleSlotsTable, sessionGoalAssessmentsTable], async () => {
+    await goalsTable.where('studentId').equals(studentId).delete()
+    await measurementsTable.where('studentId').equals(studentId).delete()
+    await observationsTable.where('studentId').equals(studentId).delete()
     // Ίδιο σκεπτικό με τα measurements παραπάνω — μια κλινική εκτίμηση χωρίς τον μαθητή της δεν έχει νόημα.
-    await db.sessionGoalAssessments.where('studentId').equals(studentId).delete()
+    await sessionGoalAssessmentsTable.where('studentId').equals(studentId).delete()
 
     // studentIds δεν είναι indexed (πίνακας) — φιλτράρισμα στη μνήμη αντί για .where().
-    const allSessions = await db.sessions.toArray()
+    const allSessions = await sessionsTable.toArray()
     const sessions = allSessions.filter((s) => s.studentIds?.includes(studentId))
     for (const session of sessions) {
       const studentIds = session.studentIds.filter((id) => id !== studentId)
       if (studentIds.length === 0) {
-        await db.sessions.delete(session.id)
+        await sessionsTable.delete(session.id)
       } else {
         const absentStudentIds = (session.absentStudentIds || []).filter((id) => id !== studentId)
-        await db.sessions.update(session.id, { studentIds, absentStudentIds })
+        await sessionsTable.update(session.id, { studentIds, absentStudentIds })
       }
     }
 
     // Ίδιο σκεπτικό με τα sessions παραπάνω, εφαρμοσμένο στην ΤΡΕΧΟΥΣΑ έκδοση κάθε σειράς
     // προγράμματος (Sprint 6) — παλιότερες εκδόσεις (ιστορικό) δεν αγγίζονται.
-    const allSlots = await db.scheduleSlots.toArray()
+    const allSlots = await scheduleSlotsTable.toArray()
     const slots = allSlots.filter((s) => s.studentIds?.includes(studentId))
     for (const slot of slots) {
       const studentIds = slot.studentIds.filter((id) => id !== studentId)
       if (studentIds.length === 0) {
-        await db.scheduleSlots.update(slot.id, { active: false })
+        await scheduleSlotsTable.update(slot.id, { active: false })
       } else {
-        await db.scheduleSlots.update(slot.id, { studentIds })
+        await scheduleSlotsTable.update(slot.id, { studentIds })
       }
     }
 
-    await db.students.delete(studentId)
+    await studentsTable.delete(studentId)
   })
 }
 
@@ -567,18 +609,23 @@ export async function deleteStudent(studentId) {
 // αποσυνδέονται (sessionId: null) — παραμένουν έγκυρο ιστορικό γεγονός ακόμα κι αν η συνεδρία
 // διαγραφεί (π.χ. λανθασμένη καταχώρηση).
 export async function deleteSession(sessionId) {
-  await db.transaction('rw', [db.sessions, db.measurements, db.observations, db.sessionGoalAssessments], async () => {
-    await db.measurements.where('sessionId').equals(sessionId).delete()
+  const sessionsTable = activeTable('sessions')
+  const measurementsTable = activeTable('measurements')
+  const observationsTable = activeTable('observations')
+  const sessionGoalAssessmentsTable = activeTable('sessionGoalAssessments')
+
+  await db.transaction('rw', [sessionsTable, measurementsTable, observationsTable, sessionGoalAssessmentsTable], async () => {
+    await measurementsTable.where('sessionId').equals(sessionId).delete()
     // Ίδιο σκεπτικό με τα measurements παραπάνω — μια κλινική εκτίμηση χωρίς τη συνεδρία της δεν έχει νόημα.
-    await db.sessionGoalAssessments.where('sessionId').equals(sessionId).delete()
+    await sessionGoalAssessmentsTable.where('sessionId').equals(sessionId).delete()
     // sessionId δεν είναι indexed πεδίο στο observations (μόνο studentId/date) — φιλτράρισμα στη
     // μνήμη αντί για .where(), ίδιο μοτίβο με το deleteStudent() παραπάνω.
-    const allObservations = await db.observations.toArray()
+    const allObservations = await observationsTable.toArray()
     const linkedObservations = allObservations.filter((o) => o.sessionId === sessionId)
     for (const o of linkedObservations) {
-      await db.observations.update(o.id, { sessionId: null })
+      await observationsTable.update(o.id, { sessionId: null })
     }
-    await db.sessions.delete(sessionId)
+    await sessionsTable.delete(sessionId)
   })
 }
 
@@ -589,7 +636,8 @@ export async function deleteSession(sessionId) {
 // Δημιουργεί την ΠΡΩΤΗ έκδοση μιας νέας επαναλαμβανόμενης ανάθεσης. Two-step: το seriesId μιας
 // σειράς είναι το ίδιο το id της πρώτης της έκδοσης — χρειάζεται να ξέρουμε το id πριν το ορίσουμε.
 export async function createScheduleSlot({ dayOfWeek, startTime, durationMinutes, type, studentIds, label }) {
-  const id = await db.scheduleSlots.add({
+  const scheduleSlotsTable = activeTable('scheduleSlots')
+  const id = await scheduleSlotsTable.add(withNewRowId({
     seriesId: null,
     dayOfWeek,
     startTime,
@@ -600,8 +648,8 @@ export async function createScheduleSlot({ dayOfWeek, startTime, durationMinutes
     active: true,
     effectiveFrom: todayLocalISO(),
     effectiveUntil: null
-  })
-  await db.scheduleSlots.update(id, { seriesId: id })
+  }))
+  await scheduleSlotsTable.update(id, { seriesId: id })
   return id
 }
 
@@ -615,44 +663,46 @@ export async function createScheduleSlot({ dayOfWeek, startTime, durationMinutes
 // Σε κάθε άλλη περίπτωση: η τρέχουσα έκδοση κλείνει και δημιουργείται νέα, ίδιο seriesId, από την
 // επιλεγμένη ημερομηνία (Technical Plan §3 — καμία λίστα «εκκρεμών αλλαγών», καμία ένδειξη στο UI).
 export async function saveScheduleSlotEdit(currentSlotId, changes, effectiveMode, effectiveDate) {
-  const current = await db.scheduleSlots.get(currentSlotId)
+  const scheduleSlotsTable = activeTable('scheduleSlots')
+  const current = await scheduleSlotsTable.get(currentSlotId)
   if (!current) return
   const today = todayLocalISO()
   const newEffectiveFrom = effectiveMode === 'date' ? effectiveDate : today
 
   if (current.effectiveFrom === today && newEffectiveFrom === today) {
-    await db.scheduleSlots.update(currentSlotId, changes)
+    await scheduleSlotsTable.update(currentSlotId, changes)
     return
   }
 
   const { id: _oldId, ...currentWithoutId } = current
-  await db.transaction('rw', db.scheduleSlots, async () => {
-    await db.scheduleSlots.update(currentSlotId, { effectiveUntil: addDays(newEffectiveFrom, -1) })
-    await db.scheduleSlots.add({
+  await db.transaction('rw', scheduleSlotsTable, async () => {
+    await scheduleSlotsTable.update(currentSlotId, { effectiveUntil: addDays(newEffectiveFrom, -1) })
+    await scheduleSlotsTable.add(withNewRowId({
       ...currentWithoutId,
       ...changes,
       seriesId: current.seriesId,
       effectiveFrom: newEffectiveFrom,
       effectiveUntil: null
-    })
+    }))
   })
 }
 
 // Παύση/επανενεργοποίηση — άμεση, in-place, ΧΩΡΙΣ effective-dating (αναστρέψιμο tap, όχι
 // «αλλαγή προγράμματος» — Product Design: «προσωρινή απενεργοποίηση χωρίς οριστική διαγραφή»).
 export async function pauseScheduleSlot(currentSlotId, active) {
-  await db.scheduleSlots.update(currentSlotId, { active })
+  await activeTable('scheduleSlots').update(currentSlotId, { active })
 }
 
 // «Διαγραφή» ενός slot = τερματισμός της σειράς από μια ημερομηνία και μετά (effectiveUntil στην
 // τρέχουσα έκδοση) — ΠΟΤΕ πραγματική διαγραφή γραμμών, ώστε το ιστορικό (Session.slotId) να μην
 // χάνει ποτέ σημείο αναφοράς. Ίδιο «Από πότε ισχύει;» ερώτημα με την επεξεργασία.
 export async function endScheduleSlotSeries(currentSlotId, effectiveMode, effectiveDate) {
-  const current = await db.scheduleSlots.get(currentSlotId)
+  const scheduleSlotsTable = activeTable('scheduleSlots')
+  const current = await scheduleSlotsTable.get(currentSlotId)
   if (!current) return
   const today = todayLocalISO()
   const stopFrom = effectiveMode === 'date' ? effectiveDate : today
-  await db.scheduleSlots.update(currentSlotId, { effectiveUntil: addDays(stopFrom, -1) })
+  await scheduleSlotsTable.update(currentSlotId, { effectiveUntil: addDays(stopFrom, -1) })
 }
 
 // «Αντιγραφή ημέρας»: αντιγράφει τα ενεργά, τρέχοντα slots μιας ημέρας εβδομάδας σε μία ή
@@ -669,8 +719,9 @@ export async function endScheduleSlotSeries(currentSlotId, effectiveMode, effect
 // (σήμερα/μέλλον) — ΠΟΤΕ χειροκίνητες γραμμές, ΠΟΤΕ ήδη completed/notHeld ιστορικό — και ξανατρέχει
 // η (ήδη idempotent) παραγωγή γι' αυτές τις ημέρες ώστε να μπουν οι νέες εμφανίσεις.
 export async function copyScheduleDay(fromDayOfWeek, toDayOfWeek, mode = 'append') {
+  const scheduleSlotsTable = activeTable('scheduleSlots')
   const today = todayLocalISO()
-  const allSlots = await db.scheduleSlots.toArray()
+  const allSlots = await scheduleSlotsTable.toArray()
   const sourceActive = allSlots.filter((s) => {
     if (s.dayOfWeek !== fromDayOfWeek || !s.active) return false
     return s.effectiveFrom <= today && (!s.effectiveUntil || s.effectiveUntil >= today)
@@ -684,7 +735,7 @@ export async function copyScheduleDay(fromDayOfWeek, toDayOfWeek, mode = 'append
     })
     closedSeriesIds = targetActive.map((s) => s.seriesId)
     for (const slot of targetActive) {
-      await db.scheduleSlots.update(slot.id, { effectiveUntil: addDays(today, -1) })
+      await scheduleSlotsTable.update(slot.id, { effectiveUntil: addDays(today, -1) })
     }
   }
 
@@ -711,14 +762,16 @@ export async function copyScheduleDay(fromDayOfWeek, toDayOfWeek, mode = 'append
 // ensureDayGenerated είναι ήδη το ίδιο idempotent.
 async function cleanupReplacedScheduleEntries(closedSeriesIds, today) {
   const closedSet = new Set(closedSeriesIds)
-  const entries = await db.dailyQueue.where('date').aboveOrEqual(today).toArray()
+  const dailyQueueTable = activeTable('dailyQueue')
+  const sessionsTable = activeTable('sessions')
+  const entries = await dailyQueueTable.where('date').aboveOrEqual(today).toArray()
   const affectedDates = new Set()
 
   for (const entry of entries) {
     if (entry.scheduleSeriesId == null || !closedSet.has(entry.scheduleSeriesId)) continue // χειροκίνητη ή άσχετη σειρά — ΔΕΝ αγγίζεται
-    const sessionsOnDate = await db.sessions.where('date').equals(entry.date).toArray()
+    const sessionsOnDate = await sessionsTable.where('date').equals(entry.date).toArray()
     if (matchedSession(entry, sessionsOnDate)) continue // πραγματικό ιστορικό (completed/notHeld) — ΔΕΝ αγγίζεται
-    await db.dailyQueue.delete(entry.id)
+    await dailyQueueTable.delete(entry.id)
     affectedDates.add(entry.date)
   }
 
@@ -731,7 +784,7 @@ async function cleanupReplacedScheduleEntries(closedSeriesIds, today) {
 // μετρήσεις/διάρκεια (Technical Plan §6). Ίδια `Session` οντότητα, status='notHeld' (SPEC.md,
 // υπήρχε ήδη από το Sprint 4 — απλά τώρα γράφεται και απευθείας, όχι μόνο διορθωτικά).
 export async function recordSessionNotHeld({ date, studentIds, note }) {
-  return db.sessions.add({
+  return activeTable('sessions').add(withNewRowId({
     date,
     studentIds,
     status: 'notHeld',
@@ -740,7 +793,7 @@ export async function recordSessionNotHeld({ date, studentIds, note }) {
     activity: '',
     note: note || '',
     moods: {}
-  })
+  }))
 }
 
 // Ενιαία «Επαναφορά στη σειρά» (Product Design, τελευταίος γύρος) — καλύπτει ΚΑΙ το skip (Sprint 5)
@@ -750,13 +803,14 @@ export async function recordSessionNotHeld({ date, studentIds, note }) {
 // θα υπάρξει ΜΙΑ και μοναδική πραγματική Session (η notHeld έχει ήδη εξαφανιστεί).
 export async function restoreDailyQueueEntry(entry) {
   if (entry.status === 'skipped') {
-    await db.dailyQueue.update(entry.id, { status: 'pending' })
+    await activeTable('dailyQueue').update(entry.id, { status: 'pending' })
     return
   }
-  const sessionsOnDate = await db.sessions.where('date').equals(entry.date).toArray()
+  const sessionsTable = activeTable('sessions')
+  const sessionsOnDate = await sessionsTable.where('date').equals(entry.date).toArray()
   const notHeld = sessionsOnDate.find((s) => s.status === 'notHeld' && sameStudentSet(s.studentIds, entry.studentIds))
   if (notHeld) {
-    await db.sessions.delete(notHeld.id)
+    await sessionsTable.delete(notHeld.id)
   }
 }
 
@@ -769,7 +823,7 @@ export async function restoreDailyQueueEntry(entry) {
 export async function applyScheduleException({ type, seriesId, originalDate, newDate, reason }) {
   let snapshot = {}
   if (type === 'moved') {
-    const versions = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    const versions = await activeTable('scheduleSlots').where('seriesId').equals(seriesId).toArray()
     const active = versions.find(
       (v) => v.effectiveFrom <= originalDate && (!v.effectiveUntil || v.effectiveUntil >= originalDate)
     )
@@ -784,19 +838,19 @@ export async function applyScheduleException({ type, seriesId, originalDate, new
     }
   }
 
-  await db.scheduleExceptions.add({
+  await activeTable('scheduleExceptions').add(withNewRowId({
     seriesId,
     originalDate,
     type,
     newDate: newDate || null,
     reason: reason || '',
     ...snapshot
-  })
+  }))
 
-  const originEntries = await db.dailyQueue.where('date').equals(originalDate).toArray()
+  const originEntries = await activeTable('dailyQueue').where('date').equals(originalDate).toArray()
   const originEntry = originEntries.find((e) => e.scheduleSeriesId === seriesId)
   if (originEntry) {
-    const sessionsOnDate = await db.sessions.where('date').equals(originalDate).toArray()
+    const sessionsOnDate = await activeTable('sessions').where('date').equals(originalDate).toArray()
     const alreadyResolved = sessionsOnDate.some((s) => sameStudentSet(s.studentIds, originEntry.studentIds))
     if (!alreadyResolved) {
       const note = type === 'moved' ? `Μετακινήθηκε σε ${newDate}` : reason || ''
@@ -821,11 +875,15 @@ export async function applyScheduleException({ type, seriesId, originalDate, new
 // γραμμή ακόμα» πριν προλάβει η πρώτη να γράψει, παράγοντας διπλές εγγραφές — ακριβώς αυτό που η
 // ιδεμποτέντεια υπόσχεται να αποκλείει. Η συναλλαγή σειριοποιεί τις κλήσεις.
 export async function ensureDayGenerated(date) {
-  await db.transaction('rw', [db.scheduleSlots, db.scheduleExceptions, db.dailyQueue], async () => {
+  const scheduleSlotsTable = activeTable('scheduleSlots')
+  const scheduleExceptionsTable = activeTable('scheduleExceptions')
+  const dailyQueueTable = activeTable('dailyQueue')
+
+  await db.transaction('rw', [scheduleSlotsTable, scheduleExceptionsTable, dailyQueueTable], async () => {
     const [scheduleSlots, scheduleExceptions, existingEntries] = await Promise.all([
-      db.scheduleSlots.toArray(),
-      db.scheduleExceptions.toArray(),
-      db.dailyQueue.where('date').equals(date).toArray()
+      scheduleSlotsTable.toArray(),
+      scheduleExceptionsTable.toArray(),
+      dailyQueueTable.where('date').equals(date).toArray()
     ])
 
     const occurrences = resolveOccurrencesForDate(date, { scheduleSlots, scheduleExceptions })
@@ -834,8 +892,8 @@ export async function ensureDayGenerated(date) {
     if (toInsert.length === 0) return
 
     let nextOrder = existingEntries.reduce((max, e) => Math.max(max, e.order), -1) + 1
-    await db.dailyQueue.bulkAdd(
-      toInsert.map((o) => ({
+    await dailyQueueTable.bulkAdd(
+      toInsert.map((o) => withNewRowId({
         date,
         studentIds: o.studentIds,
         order: nextOrder++,
@@ -853,8 +911,8 @@ export async function ensureDayGenerated(date) {
 // applyScheduleException ανά σειρά — καμία ξεχωριστή «ημέρα κλειστή» έννοια.
 export async function bulkCancelDay(date, reason) {
   const [scheduleSlots, scheduleExceptions] = await Promise.all([
-    db.scheduleSlots.toArray(),
-    db.scheduleExceptions.toArray()
+    activeTable('scheduleSlots').toArray(),
+    activeTable('scheduleExceptions').toArray()
   ])
   const occurrences = resolveOccurrencesForDate(date, { scheduleSlots, scheduleExceptions })
   for (const o of occurrences) {
@@ -914,7 +972,7 @@ async function transitionGoalStatusCore(goalsTable, goalEventsTable, goalId, toS
   }
 
   await goalsTable.update(goalId, { status: toStatus, statusChangedAt: new Date().toISOString() })
-  await goalEventsTable.add({
+  await goalEventsTable.add(withNewRowId({
     goalId,
     at: new Date().toISOString(),
     type: 'statusChanged',
@@ -929,7 +987,7 @@ async function transitionGoalStatusCore(goalsTable, goalEventsTable, goalId, toS
     // ταίριασμα βάσει ημερομηνίας (μια backdated συνεδρία θα είχε διαφορετικό sessions.date από το
     // πραγματικό at παραπάνω). null σε κάθε άλλη μετάβαση (GoalStatusModal, migrations, σχολικό έτος).
     sessionId
-  })
+  }))
 }
 
 // transitionGoalStatus είναι το ΜΟΝΑΔΙΚΟ δημόσιο API για αλλαγή κατάστασης στόχου — κανένα άλλο
@@ -950,8 +1008,10 @@ export async function transitionGoalStatus(goalId, toStatus, opts = {}) {
     throw new Error(`Άγνωστη κατάσταση στόχου: «${toStatus}»`)
   }
 
-  await db.transaction('rw', db.goals, db.goalEvents, async () => {
-    await transitionGoalStatusCore(db.goals, db.goalEvents, goalId, toStatus, opts)
+  const goalsTable = activeTable('goals')
+  const goalEventsTable = activeTable('goalEvents')
+  await db.transaction('rw', goalsTable, goalEventsTable, async () => {
+    await transitionGoalStatusCore(goalsTable, goalEventsTable, goalId, toStatus, opts)
   })
 }
 
@@ -972,8 +1032,8 @@ async function createGoalCore(goalsTable, goalEventsTable, fields, trigger = 'ma
     validateCriterionConfig(preparedFields.measurementType, preparedFields.criterionConfig)
     preparedFields.criterion = generateCriterionText(preparedFields.measurementType, preparedFields.criterionConfig)
   }
-  const goalId = await goalsTable.add({ ...preparedFields, status: 'active', statusChangedAt: now })
-  await goalEventsTable.add({
+  const goalId = await goalsTable.add(withNewRowId({ ...preparedFields, status: 'active', statusChangedAt: now }))
+  await goalEventsTable.add(withNewRowId({
     goalId,
     at: now,
     type: 'created',
@@ -981,7 +1041,7 @@ async function createGoalCore(goalsTable, goalEventsTable, fields, trigger = 'ma
     toStatus: 'active',
     note: '',
     trigger
-  })
+  }))
   return goalId
 }
 
@@ -991,8 +1051,10 @@ async function createGoalCore(goalsTable, goalEventsTable, fields, trigger = 'ma
 // καμία «draft» κατάσταση (ρητά απορρίφθηκε στο Product Design ως λύση σε πρόβλημα που δεν
 // τέθηκε) — το status/statusChangedAt εδώ υπερισχύουν σκόπιμα οτιδήποτε τυχόν περάσει ο καλών.
 export async function createGoal(fields) {
-  return db.transaction('rw', db.goals, db.goalEvents, async () => {
-    return createGoalCore(db.goals, db.goalEvents, fields)
+  const goalsTable = activeTable('goals')
+  const goalEventsTable = activeTable('goalEvents')
+  return db.transaction('rw', goalsTable, goalEventsTable, async () => {
+    return createGoalCore(goalsTable, goalEventsTable, fields)
   })
 }
 
@@ -1003,14 +1065,15 @@ export async function createGoal(fields) {
 // criterionNote είναι ΠΑΝΤΑ συμπληρωματικό κείμενο δίπλα στο αυτόματο criterion, ΠΟΤΕ δεν το
 // αντικαθιστά ούτε επηρεάζει οποιαδήποτε λογική (απόφαση χρήστη, Product Design §3).
 export async function updateGoalCriterion(goalId, { criterionConfig, criterionNote = '' }) {
-  return db.transaction('rw', db.goals, async () => {
-    const goal = await db.goals.get(goalId)
+  const goalsTable = activeTable('goals')
+  return db.transaction('rw', goalsTable, async () => {
+    const goal = await goalsTable.get(goalId)
     if (!goal) {
       throw new Error(`Δεν βρέθηκε στόχος με id=${goalId}`)
     }
     validateCriterionConfig(goal.measurementType, criterionConfig)
     const criterion = generateCriterionText(goal.measurementType, criterionConfig)
-    await db.goals.update(goalId, { criterionConfig, criterion, criterionNote })
+    await goalsTable.update(goalId, { criterionConfig, criterion, criterionNote })
   })
 }
 
@@ -1047,13 +1110,13 @@ function assertValidSchoolYearFields({ label, startDate, endDate }) {
 // π.χ. προετοιμασία του επόμενου έτους πριν έρθει η ώρα του). Χρήση setActiveSchoolYear ξεχωριστά.
 export async function createSchoolYear({ label, startDate, endDate }) {
   assertValidSchoolYearFields({ label, startDate, endDate })
-  return db.schoolYears.add({ label: label.trim(), startDate, endDate, isActive: false })
+  return activeTable('schoolYears').add(withNewRowId({ label: label.trim(), startDate, endDate, isActive: false }))
 }
 
 // Το ενεργό σχολικό έτος, ή null αν κανένα δεν είναι ενεργό (έγκυρη κατάσταση πριν την αρχική
 // ρύθμιση — σημείο 5). Φιλτράρισμα στη μνήμη — βλ. σχόλιο για το boolean-index bug παραπάνω.
 export async function getActiveSchoolYear() {
-  const all = await db.schoolYears.toArray()
+  const all = await activeTable('schoolYears').toArray()
   return all.find((y) => y.isActive) || null
 }
 
@@ -1068,7 +1131,7 @@ export async function getActiveSchoolYear() {
 // getActiveSchoolYear/isActive παραπάνω (πλήρες table scan + ταξινόμηση στη μνήμη — ο πίνακας θα
 // έχει πάντα λίγες δεκάδες γραμμές, μηδαμινό κόστος).
 export async function listSchoolYears() {
-  return sortSchoolYearsByStartDate(await db.schoolYears.toArray())
+  return sortSchoolYearsByStartDate(await activeTable('schoolYears').toArray())
 }
 
 // Idempotent (σημείο 5): μετά από ΚΑΘΕ επιτυχημένη ολοκλήρωση υπάρχει ΑΚΡΙΒΩΣ ένα ενεργό έτος.
@@ -1077,20 +1140,21 @@ export async function listSchoolYears() {
 //   - διαφορετικά                 → μέσα στην ΙΔΙΑ συναλλαγή: απενεργοποιεί ό,τι τυχόν ήταν ενεργό
 //     ΚΑΙ ενεργοποιεί το ζητούμενο — αδύνατο να μείνει ενδιάμεση κατάσταση με μηδέν ή δύο ενεργά έτη.
 export async function setActiveSchoolYear(schoolYearId) {
-  await db.transaction('rw', db.schoolYears, async () => {
-    const target = await db.schoolYears.get(schoolYearId)
+  const schoolYearsTable = activeTable('schoolYears')
+  await db.transaction('rw', schoolYearsTable, async () => {
+    const target = await schoolYearsTable.get(schoolYearId)
     if (!target) {
       throw new Error(`Δεν βρέθηκε σχολικό έτος με id=${schoolYearId}`)
     }
     if (target.isActive) return
 
-    const all = await db.schoolYears.toArray()
+    const all = await schoolYearsTable.toArray()
     for (const y of all) {
       if (y.isActive && y.id !== schoolYearId) {
-        await db.schoolYears.update(y.id, { isActive: false })
+        await schoolYearsTable.update(y.id, { isActive: false })
       }
     }
-    await db.schoolYears.update(schoolYearId, { isActive: true })
+    await schoolYearsTable.update(schoolYearId, { isActive: true })
   })
 }
 
@@ -1111,23 +1175,26 @@ async function recordSchoolYearParticipationCore(participationTable, studentId, 
     await participationTable.update(existing.id, { status, reason, recordedAt })
     return existing.id
   }
-  return participationTable.add({ studentId, schoolYearId, status, reason, recordedAt })
+  return participationTable.add(withNewRowId({ studentId, schoolYearId, status, reason, recordedAt }))
 }
 
 // Δημόσιος wrapper — ελέγχει ρητά ότι μαθητής ΚΑΙ σχολικό έτος υπάρχουν (σημείο 4) πριν την
 // upsert εγγραφή, ΜΕΣΑ στην ίδια συναλλαγή (ίδιο idiom με transitionGoalStatus/createGoal — ποτέ
 // προ-συναλλαγής reads για validation).
 export async function recordSchoolYearParticipation(studentId, schoolYearId, status, { reason = '' } = {}) {
-  return db.transaction('rw', db.students, db.schoolYears, db.schoolYearParticipation, async () => {
-    const student = await db.students.get(studentId)
+  const studentsTable = activeTable('students')
+  const schoolYearsTable = activeTable('schoolYears')
+  const schoolYearParticipationTable = activeTable('schoolYearParticipation')
+  return db.transaction('rw', studentsTable, schoolYearsTable, schoolYearParticipationTable, async () => {
+    const student = await studentsTable.get(studentId)
     if (!student) {
       throw new Error(`Δεν βρέθηκε μαθητής με id=${studentId}`)
     }
-    const schoolYear = await db.schoolYears.get(schoolYearId)
+    const schoolYear = await schoolYearsTable.get(schoolYearId)
     if (!schoolYear) {
       throw new Error(`Δεν βρέθηκε σχολικό έτος με id=${schoolYearId}`)
     }
-    return recordSchoolYearParticipationCore(db.schoolYearParticipation, studentId, schoolYearId, status, reason)
+    return recordSchoolYearParticipationCore(schoolYearParticipationTable, studentId, schoolYearId, status, reason)
   })
 }
 
@@ -1145,26 +1212,29 @@ export async function recordSchoolYearParticipation(studentId, schoolYearId, sta
 //   - επαναφορά (active: false → true): αν υπήρχε ήδη εγγραφή αυτό το έτος (π.χ. 'departed' από
 //     νωρίτερα φέτος), γίνεται 'returned'· αλλιώς (πρώτη φορά ενεργός μέσα σε αυτό το έτος) 'new'.
 export async function setStudentActive(studentId, active, { reason = '' } = {}) {
-  await db.transaction('rw', db.students, db.schoolYears, db.schoolYearParticipation, async () => {
-    const student = await db.students.get(studentId)
+  const studentsTable = activeTable('students')
+  const schoolYearsTable = activeTable('schoolYears')
+  const schoolYearParticipationTable = activeTable('schoolYearParticipation')
+  await db.transaction('rw', studentsTable, schoolYearsTable, schoolYearParticipationTable, async () => {
+    const student = await studentsTable.get(studentId)
     if (!student) {
       throw new Error(`Δεν βρέθηκε μαθητής με id=${studentId}`)
     }
     if (student.active === active) return
 
-    await db.students.update(studentId, { active })
+    await studentsTable.update(studentId, { active })
 
-    const allYears = await db.schoolYears.toArray()
+    const allYears = await schoolYearsTable.toArray()
     const activeYear = allYears.find((y) => y.isActive)
     if (!activeYear) return
 
     if (!active) {
-      await recordSchoolYearParticipationCore(db.schoolYearParticipation, studentId, activeYear.id, 'departed', reason)
+      await recordSchoolYearParticipationCore(schoolYearParticipationTable, studentId, activeYear.id, 'departed', reason)
     } else {
-      const existing = await db.schoolYearParticipation
+      const existing = await schoolYearParticipationTable
         .where('[studentId+schoolYearId]').equals([studentId, activeYear.id]).first()
       const nextStatus = existing ? 'returned' : 'new'
-      await recordSchoolYearParticipationCore(db.schoolYearParticipation, studentId, activeYear.id, nextStatus, reason)
+      await recordSchoolYearParticipationCore(schoolYearParticipationTable, studentId, activeYear.id, nextStatus, reason)
     }
   })
 }
@@ -1201,7 +1271,7 @@ async function refreshScheduleSlotsForNewYearCore(scheduleSlotsTable, newStartDa
     if (studentIds.length === 0) continue
 
     await scheduleSlotsTable.update(version.id, { effectiveUntil: addDays(newStartDate, -1) })
-    await scheduleSlotsTable.add({
+    await scheduleSlotsTable.add(withNewRowId({
       seriesId: version.seriesId,
       dayOfWeek: version.dayOfWeek,
       startTime: version.startTime,
@@ -1212,7 +1282,7 @@ async function refreshScheduleSlotsForNewYearCore(scheduleSlotsTable, newStartDa
       active: true,
       effectiveFrom: newStartDate,
       effectiveUntil: null
-    })
+    }))
   }
 }
 
@@ -1258,10 +1328,17 @@ async function refreshScheduleSlotsForNewYearCore(scheduleSlotsTable, newStartDa
 // ήδη το σύνολο των αποχωρούντων). Ολόκληρη η συνάρτηση τρέχει ήδη μέσα σε μία db.transaction, άρα
 // ΚΑΘΕ throw ούτως ή άλλως κάνει πλήρες rollback — τα περάσματα υπάρχουν για ΣΑΦΗ, νωρίς errors.
 export async function applySchoolYearTransition({ label, startDate, endDate }, { goalDecisions = [], participationDecisions = [], copySchedule = false } = {}) {
-  return db.transaction('rw', db.schoolYears, db.students, db.goals, db.goalEvents, db.schoolYearParticipation, db.scheduleSlots, async () => {
+  const schoolYearsTable = activeTable('schoolYears')
+  const studentsTable = activeTable('students')
+  const goalsTable = activeTable('goals')
+  const goalEventsTable = activeTable('goalEvents')
+  const schoolYearParticipationTable = activeTable('schoolYearParticipation')
+  const scheduleSlotsTable = activeTable('scheduleSlots')
+
+  return db.transaction('rw', schoolYearsTable, studentsTable, goalsTable, goalEventsTable, schoolYearParticipationTable, scheduleSlotsTable, async () => {
     assertValidSchoolYearFields({ label, startDate, endDate })
     const trimmedLabel = label.trim()
-    const existingWithLabel = (await db.schoolYears.toArray()).find((y) => y.label === trimmedLabel)
+    const existingWithLabel = (await schoolYearsTable.toArray()).find((y) => y.label === trimmedLabel)
     if (existingWithLabel) {
       throw new Error(`Υπάρχει ήδη σχολικό έτος με τίτλο «${trimmedLabel}»`)
     }
@@ -1276,7 +1353,7 @@ export async function applySchoolYearTransition({ label, startDate, endDate }, {
         throw new Error(`Διπλή απόφαση συμμετοχής για τον ίδιο μαθητή (id=${p.studentId})`)
       }
       seenParticipationStudentIds.add(p.studentId)
-      const student = await db.students.get(p.studentId)
+      const student = await studentsTable.get(p.studentId)
       if (!student) {
         throw new Error(`Δεν βρέθηκε μαθητής με id=${p.studentId}`)
       }
@@ -1293,14 +1370,14 @@ export async function applySchoolYearTransition({ label, startDate, endDate }, {
       }
       seenGoalIds.add(d.goalId)
 
-      const goal = await db.goals.get(d.goalId)
+      const goal = await goalsTable.get(d.goalId)
       if (!goal) {
         throw new Error(`Δεν βρέθηκε στόχος με id=${d.goalId}`)
       }
       if (goal.studentId !== d.studentId) {
         throw new Error(`Ο στόχος id=${d.goalId} δεν ανήκει στον μαθητή id=${d.studentId}`)
       }
-      const student = await db.students.get(d.studentId)
+      const student = await studentsTable.get(d.studentId)
       if (!student) {
         throw new Error(`Δεν βρέθηκε μαθητής με id=${d.studentId} (στόχος id=${d.goalId})`)
       }
@@ -1312,26 +1389,26 @@ export async function applySchoolYearTransition({ label, startDate, endDate }, {
       }
     }
 
-    const newSchoolYearId = await db.schoolYears.add({ label: trimmedLabel, startDate, endDate, isActive: false })
+    const newSchoolYearId = await schoolYearsTable.add(withNewRowId({ label: trimmedLabel, startDate, endDate, isActive: false }))
     await setActiveSchoolYear(newSchoolYearId)
 
     for (const d of goalDecisions) {
       if (d.decision === 'continue') continue
       if (d.decision === 'achieved') {
-        await transitionGoalStatusCore(db.goals, db.goalEvents, d.goalId, 'achieved', { note: d.note || '', trigger: 'schoolYearWizard' })
+        await transitionGoalStatusCore(goalsTable, goalEventsTable, d.goalId, 'achieved', { note: d.note || '', trigger: 'schoolYearWizard' })
       } else if (d.decision === 'newGoal') {
-        await transitionGoalStatusCore(db.goals, db.goalEvents, d.goalId, 'archived', { note: d.note || '', trigger: 'schoolYearWizard' })
-        await createGoalCore(db.goals, db.goalEvents, { ...d.newGoalFields, studentId: d.studentId, baseline: '' }, 'schoolYearWizard')
+        await transitionGoalStatusCore(goalsTable, goalEventsTable, d.goalId, 'archived', { note: d.note || '', trigger: 'schoolYearWizard' })
+        await createGoalCore(goalsTable, goalEventsTable, { ...d.newGoalFields, studentId: d.studentId, baseline: '' }, 'schoolYearWizard')
       }
     }
 
     for (const p of participationDecisions) {
-      await db.students.update(p.studentId, { active: p.status !== 'departed' })
-      await recordSchoolYearParticipationCore(db.schoolYearParticipation, p.studentId, newSchoolYearId, p.status, p.reason || '')
+      await studentsTable.update(p.studentId, { active: p.status !== 'departed' })
+      await recordSchoolYearParticipationCore(schoolYearParticipationTable, p.studentId, newSchoolYearId, p.status, p.reason || '')
     }
 
     if (copySchedule) {
-      await refreshScheduleSlotsForNewYearCore(db.scheduleSlots, startDate, [...departedStudentIds])
+      await refreshScheduleSlotsForNewYearCore(scheduleSlotsTable, startDate, [...departedStudentIds])
     }
 
     return newSchoolYearId
@@ -1367,21 +1444,22 @@ function pickTemplateFields(source) {
 // — ΠΟΤΕ studentId/status/statusChangedAt/baseline/goalEvents/timestamps (Technical Plan Στάδιο
 // 6, σημείο 2) — μόνο ό,τι αναφέρεται ρητά στο GOAL_TEMPLATE_FIELDS περνάει στο νέο row.
 export async function saveGoalAsTemplate(goalId) {
-  const goal = await db.goals.get(goalId)
+  const goal = await activeTable('goals').get(goalId)
   if (!goal) {
     throw new Error(`Δεν βρέθηκε στόχος με id=${goalId}`)
   }
   const fields = pickTemplateFields(goal)
   assertValidTemplateContent(fields)
-  return db.goalTemplates.add(fields)
+  return activeTable('goalTemplates').add(withNewRowId(fields))
 }
 
 // Deterministic σειρά (κατά id, ΠΟΤΕ βασισμένη σε φυσική σειρά αποθήκευσης της IndexedDB — δεν
 // είναι εγγυημένα σταθερή σε όλα τα storage backends) — σημείο 7.
 export async function listGoalTemplates(domain) {
+  const goalTemplatesTable = activeTable('goalTemplates')
   const all = domain
-    ? await db.goalTemplates.where('domain').equals(domain).toArray()
-    : await db.goalTemplates.toArray()
+    ? await goalTemplatesTable.where('domain').equals(domain).toArray()
+    : await goalTemplatesTable.toArray()
   return all.sort((a, b) => a.id - b.id)
 }
 
@@ -1393,7 +1471,8 @@ export async function listGoalTemplates(domain) {
 // update που θα άδειαζε το title να απορρίπτεται. Ένα μοναδικό atomic write — τίποτα να γίνει
 // rollback αν αποτύχει η επικύρωση, αφού αυτή τρέχει ΠΡΙΝ από οποιαδήποτε εγγραφή στη βάση.
 export async function updateGoalTemplate(id, editableFields) {
-  const existing = await db.goalTemplates.get(id)
+  const goalTemplatesTable = activeTable('goalTemplates')
+  const existing = await goalTemplatesTable.get(id)
   if (!existing) {
     throw new Error(`Δεν βρέθηκε πρότυπο με id=${id}`)
   }
@@ -1402,18 +1481,19 @@ export async function updateGoalTemplate(id, editableFields) {
     if (field in editableFields) updates[field] = editableFields[field]
   }
   assertValidTemplateContent({ ...pickTemplateFields(existing), ...updates })
-  await db.goalTemplates.update(id, updates)
+  await goalTemplatesTable.update(id, updates)
 }
 
 // Καμία cascade — ο πίνακας goalTemplates δεν έχει ποτέ foreign key προς goals (χρήση = πάντα
 // αντιγραφή τιμών, βλ. prefillFromSource). Goals που δημιουργήθηκαν παλιότερα από αυτό το
 // πρότυπο (Στάδιο 7, sourceTemplateId) παραμένουν πλήρως ανέπαφα μετά τη διαγραφή του.
 export async function deleteGoalTemplate(id) {
-  const existing = await db.goalTemplates.get(id)
+  const goalTemplatesTable = activeTable('goalTemplates')
+  const existing = await goalTemplatesTable.get(id)
   if (!existing) {
     throw new Error(`Δεν βρέθηκε πρότυπο με id=${id}`)
   }
-  await db.goalTemplates.delete(id)
+  await goalTemplatesTable.delete(id)
 }
 
 export default db

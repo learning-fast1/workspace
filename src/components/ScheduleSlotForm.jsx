@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createScheduleSlot, saveScheduleSlotEdit } from '../db.js'
+import { createScheduleSlot, saveScheduleSlotEdit } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { DURATION_OPTIONS } from '../config/sessionOptions.js'
 import { WEEKDAYS_MON_FRI, WEEKDAYS } from '../config/scheduleOptions.js'
 import Modal from './ui/Modal.jsx'
@@ -20,7 +21,7 @@ import './ScheduleSlotForm.css'
 // είναι σταθερή (ανήκει ήδη σε ΜΙΑ σειρά) και εμφανίζεται η ερώτηση «Από πότε ισχύει;».
 export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, defaultStartTime, onClose, onSaved }) {
   const isEdit = mode === 'edit'
-  const activeStudents = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
+  const activeStudents = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
   const allStudents = activeStudents?.filter((s) => s.active)
 
   const [selectedStudentIds, setSelectedStudentIds] = useState(() => (isEdit ? slot.studentIds : []))

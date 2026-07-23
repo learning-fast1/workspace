@@ -5,6 +5,7 @@ import {
   ChevronLeft, ChevronRight, CircleCheck, MessageSquarePlus, UserCheck, UserX, X
 } from 'lucide-react'
 import { db, transitionGoalStatus } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { isEmptyRecordedValue } from '../utils/measurementTypes/index.js'
 import { sortByPriority } from '../config/goalOptions.js'
 import { DURATION_OPTIONS } from '../config/sessionOptions.js'
@@ -69,9 +70,9 @@ export default function TeachingMode() {
 
   // bulkGet επιστρέφει undefined στη θέση κάθε μαθητή που διαγράφηκε (π.χ. από άλλη καρτέλα/συσκευή)
   // ενόσω η συνεδρία ήταν ανοιχτή — φιλτράρεται εδώ ώστε να μη σκάει το rendering παρακάτω.
-  const rawStudents = useLiveQuery(() => db.students.bulkGet(studentIds), [studentIdsParam])
+  const rawStudents = useLiveQuery(() => activeTable('students').bulkGet(studentIds), [studentIdsParam])
   const allGoals = useLiveQuery(
-    () => db.goals.where('studentId').anyOf(studentIds).and((g) => g.status === 'active').toArray(),
+    () => activeTable('goals').where('studentId').anyOf(studentIds).and((g) => g.status === 'active').toArray(),
     [studentIdsParam]
   )
 
@@ -233,10 +234,17 @@ export default function TeachingMode() {
       // ΟΛΟΚΛΗΡΗ η αποθήκευση της συνεδρίας (session + measurements + κλινικές εκτιμήσεις + τυχόν
       // μεταβάσεις κατάστασης στόχου σε "Κατακτήθηκε") μέσα σε ΜΙΑ συναλλαγή — αν οτιδήποτε πετάξει
       // (π.χ. μη έγκυρη μετάβαση κατάστασης), ΤΙΠΟΤΑ δεν γράφεται μερικώς. Η transitionGoalStatus
-      // ανοίγει τη ΔΙΚΗ της db.transaction(db.goals, db.goalEvents) — η Dexie αναγνωρίζει το ambient
-      // context εδώ (και οι δύο πίνακες ήδη μέσα στη λίστα παρακάτω) και ΣΥΜΜΕΤΕΧΕΙ, δεν φωλιάζει.
-      await db.transaction('rw', [db.sessions, db.measurements, db.sessionGoalAssessments, db.goals, db.goalEvents], async () => {
-        const sessionId = await db.sessions.add({
+      // ανοίγει τη ΔΙΚΗ της db.transaction(...) πάνω στα ΙΔΙΑ resolved activeTable('goals')/
+      // activeTable('goalEvents') αντικείμενα (η Dexie κρατά ΤΟ ΙΔΙΟ Table instance ανά όνομα όσο
+      // δεν αλλάζει η γενιά μέσα στην ίδια σελίδα) — η Dexie αναγνωρίζει το ambient context εδώ
+      // (και οι δύο πίνακες ήδη μέσα στη λίστα παρακάτω) και ΣΥΜΜΕΤΕΧΕΙ, δεν φωλιάζει.
+      const sessionsTable = activeTable('sessions')
+      const measurementsTable = activeTable('measurements')
+      const sessionGoalAssessmentsTable = activeTable('sessionGoalAssessments')
+      const goalsTable = activeTable('goals')
+      const goalEventsTable = activeTable('goalEvents')
+      await db.transaction('rw', [sessionsTable, measurementsTable, sessionGoalAssessmentsTable, goalsTable, goalEventsTable], async () => {
+        const sessionId = await sessionsTable.add(withNewRowId({
           date: sessionDate,
           studentIds,
           status: 'completed',
@@ -245,7 +253,7 @@ export default function TeachingMode() {
           activity: '',
           note: '',
           moods
-        })
+        }))
 
         // Στάδιο 8 — κενό textarea (Περιγραφική παρατήρηση) σημαίνει «καμία μέτρηση καταγράφηκε»,
         // ΟΧΙ «καταγράφηκε κενή τιμή» (σε αντίθεση με π.χ. έναν μετρητή στο 0, που ΕΙΝΑΙ πραγματική
@@ -256,8 +264,8 @@ export default function TeachingMode() {
           ([goalId, value]) => !isEmptyRecordedValue(goalTypeMap[goalId], value)
         )
         if (entries.length > 0) {
-          await db.measurements.bulkAdd(
-            entries.map(([goalId, value]) => ({
+          await measurementsTable.bulkAdd(
+            entries.map(([goalId, value]) => withNewRowId({
               sessionId,
               studentId: goalStudentMap[goalId],
               goalId: Number(goalId),
@@ -273,8 +281,8 @@ export default function TeachingMode() {
         // καμία εγγραφή = αυτόματα "δεν δουλεύτηκε", καμία ρητή σήμανση).
         const assessmentEntries = Object.entries(clinicalAssessments)
         if (assessmentEntries.length > 0) {
-          await db.sessionGoalAssessments.bulkAdd(
-            assessmentEntries.map(([goalId, { rating, note }]) => ({
+          await sessionGoalAssessmentsTable.bulkAdd(
+            assessmentEntries.map(([goalId, { rating, note }]) => withNewRowId({
               sessionId,
               studentId: goalStudentMap[goalId],
               goalId: Number(goalId),
@@ -500,12 +508,12 @@ function ObservationPanel({ students, defaultStudentId, onClose }) {
     savingRef.current = true
     setSaving(true)
     try {
-      await db.observations.add({
+      await activeTable('observations').add(withNewRowId({
         studentId,
         date: todayLocalISO(),
         text: trimmed,
         milestone
-      })
+      }))
       onClose()
     } finally {
       savingRef.current = false

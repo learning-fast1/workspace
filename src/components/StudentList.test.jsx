@@ -3,6 +3,9 @@ import { render, screen, waitFor, cleanup, within } from '@testing-library/react
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import db from '../db.js'
+import { claimLegacyDataOwnership } from '../migration/legacyOwnership.js'
+import { runMigration, resetMigrationForTests } from '../migration/migrationEngine.js'
+import { activateV2Generation, initializeActiveGeneration, resetActiveGenerationForTests } from '../migration/activeGeneration.js'
 import StudentList from './StudentList.jsx'
 
 beforeEach(async () => {
@@ -11,6 +14,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   cleanup()
+  await resetActiveGenerationForTests()
+  await resetMigrationForTests()
   await Promise.all(db.tables.map((t) => t.clear()))
   db.close()
 })
@@ -48,5 +53,31 @@ describe('StudentList — EmptyState χωρίς διπλό CTA (κανένας �
     // εκτός του "διπλό CTA" κανόνα, γι' αυτό ελέγχουμε μόνο ΜΕΣΑ στο ίδιο το EmptyState.
     const emptyState = screen.getByText('Δεν βρέθηκαν μαθητές').closest('.empty-state')
     expect(within(emptyState).getByRole('button', { name: 'Καθαρισμός αναζήτησης' })).toBeInTheDocument()
+  })
+})
+
+const ALICE = 'alice@example.com'
+const asAlice = { getAuthenticatedUserId: () => ALICE }
+
+// Sprint 5A Phase 2, Commit 4B — αντιπροσωπευτικό test ΟΤΙ ένα πραγματικό, useLiveQuery-backed
+// component ακολουθεί την ενεργή γενιά, όχι μόνο οι απομονωμένες db.js συναρτήσεις (βλ.
+// db.activeTableRouting.test.js). Ο μαθητής προστίθεται απευθείας στον students_v2 (ρητό id,
+// παρακάμπτοντας το StudentForm.jsx/StudentsTable.add — βλ. γνωστό κενό δημιουργίας _v2 γραμμών
+// στο db.activeTableRouting.test.js) ώστε το test να μένει καθαρά εστιασμένο στην ανάγνωση.
+describe('StudentList — activeTable() routing (Commit 4B)', () => {
+  it('μετά την ενεργοποίηση v2, δείχνει μαθητές από students_v2, ΟΧΙ από τη legacy students', async () => {
+    await claimLegacyDataOwnership(ALICE, asAlice)
+    const state = await runMigration(asAlice)
+    expect(state.status).toBe('complete')
+    await activateV2Generation(ALICE, asAlice)
+    await initializeActiveGeneration({ getUserId: () => ALICE })
+
+    await db.students.add({ code: 'ΜΟΝΟ-LEGACY', active: true })
+    await db.table('students_v2').add({ id: 'stu-v2-1', code: 'ΜΟΝΟ-V2', active: true })
+
+    renderStudentList()
+
+    await waitFor(() => expect(screen.getByText('ΜΟΝΟ-V2')).toBeInTheDocument())
+    expect(screen.queryByText('ΜΟΝΟ-LEGACY')).not.toBeInTheDocument()
   })
 })

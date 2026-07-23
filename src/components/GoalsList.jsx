@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Target } from 'lucide-react'
-import { db, listSchoolYears } from '../db.js'
+import { listSchoolYears } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { priorityLabel, statusLabel, sortByPriority } from '../config/goalOptions.js'
 import { domainName } from '../config/domains.js'
 import { latestDatedMeasurement } from '../utils/measurementValue.js'
@@ -34,12 +35,12 @@ const STALE_AFTER_DAYS = 14
 // του queries). Τα goalEvents χρειάζονται ΜΟΝΟ για το ιστορικό φίλτρο σχολικού έτους (Technical
 // Plan Στάδιο 11, σημείο 6) — ένα query για όλους τους στόχους μαζί, ίδιο idiom με το Στάδιο 5/8.
 async function loadGoalsWithProgress(studentId) {
-  const goals = await db.goals.where('studentId').equals(studentId).toArray()
+  const goals = await activeTable('goals').where('studentId').equals(studentId).toArray()
   const goalIds = goals.map((g) => g.id)
   const [measurements, sessions, goalEvents] = await Promise.all([
-    db.measurements.where('studentId').equals(studentId).toArray(),
-    db.sessions.toArray(),
-    goalIds.length > 0 ? db.goalEvents.where('goalId').anyOf(goalIds).toArray() : Promise.resolve([])
+    activeTable('measurements').where('studentId').equals(studentId).toArray(),
+    activeTable('sessions').toArray(),
+    goalIds.length > 0 ? activeTable('goalEvents').where('goalId').anyOf(goalIds).toArray() : Promise.resolve([])
   ])
   const sessionDateById = sessionDateMap(sessions)
   const today = new Date()

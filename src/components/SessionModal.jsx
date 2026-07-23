@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Pencil, Star, ClipboardList, Stethoscope } from 'lucide-react'
 import { db, transitionGoalStatus, getAllowedGoalStatusTransitions } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { formatDateEl } from '../utils/date.js'
 import { domainName } from '../config/domains.js'
 import { sortByPriority, statusLabel } from '../config/goalOptions.js'
@@ -24,15 +25,15 @@ import './SessionModal.css'
 // Αυτόνομο query με βάση μόνο το sessionId — επαναχρησιμοποιήσιμο από οπουδήποτε (Session History,
 // GoalDetail όταν ένα σημείο του γραφήματος ανοίγει τη συνεδρία στην οποία μετρήθηκε).
 async function loadSessionDetail(sessionId) {
-  const session = await db.sessions.get(sessionId)
+  const session = await activeTable('sessions').get(sessionId)
   if (!session) return null
 
   const [students, measurements, assessments, allObservations, activeGoals] = await Promise.all([
-    db.students.bulkGet(session.studentIds),
-    db.measurements.where('sessionId').equals(sessionId).toArray(),
-    db.sessionGoalAssessments.where('sessionId').equals(sessionId).toArray(),
-    db.observations.toArray(),
-    db.goals.where('studentId').anyOf(session.studentIds).and((g) => g.status === 'active').toArray()
+    activeTable('students').bulkGet(session.studentIds),
+    activeTable('measurements').where('sessionId').equals(sessionId).toArray(),
+    activeTable('sessionGoalAssessments').where('sessionId').equals(sessionId).toArray(),
+    activeTable('observations').toArray(),
+    activeTable('goals').where('studentId').anyOf(session.studentIds).and((g) => g.status === 'active').toArray()
   ])
   // sessionId δεν είναι indexed πεδίο στο observations (μόνο studentId/date) — φιλτράρισμα στη μνήμη.
   const observations = allObservations.filter((o) => o.sessionId === sessionId)
@@ -42,7 +43,7 @@ async function loadSessionDetail(sessionId) {
   // καταγραφή σε ΑΥΤΗ τη συνεδρία, ακόμα κι αν έκτοτε άλλαξαν κατάσταση (π.χ. archived/achieved).
   const historicalGoalIds = [...new Set([...measurements.map((m) => m.goalId), ...assessments.map((a) => a.goalId)])]
   const editableGoalIds = [...new Set([...historicalGoalIds, ...activeGoals.map((g) => g.id)])]
-  const goals = await db.goals.bulkGet(editableGoalIds)
+  const goals = await activeTable('goals').bulkGet(editableGoalIds)
   const goalById = Object.fromEntries(goals.filter(Boolean).map((g) => [g.id, g]))
   const studentById = Object.fromEntries(students.filter(Boolean).map((s) => [s.id, s]))
 
@@ -205,13 +206,18 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
     try {
       // ΟΛΟΚΛΗΡΗ η αποθήκευση (metadata + measurements + κλινικές εκτιμήσεις + τυχόν μεταβάσεις
       // κατάστασης σε "Κατακτήθηκε") μέσα σε ΜΙΑ transaction — ίδιο idiom με το handleSaveSession
-      // του TeachingMode.jsx. Η transitionGoalStatus ανοίγει τη ΔΙΚΗ της db.transaction(db.goals,
-      // db.goalEvents) — και οι δύο πίνακες είναι ήδη μέσα στη λίστα παρακάτω, οπότε η Dexie
-      // αναγνωρίζει το ambient context και ΣΥΜΜΕΤΕΧΕΙ, δεν φωλιάζει (ίδιο, ήδη δοκιμασμένο precedent).
-      // Αν οτιδήποτε πετάξει (π.χ. μη επιτρεπτή μετάβαση), ΤΙΠΟΤΑ δεν μένει αποθηκευμένο — ούτε καν
-      // τα metadata της συνεδρίας.
-      await db.transaction('rw', [db.sessions, db.measurements, db.sessionGoalAssessments, db.goals, db.goalEvents], async () => {
-        await db.sessions.update(sessionId, { date, status, durationMinutes: duration, activity, note, moods })
+      // του TeachingMode.jsx. Η transitionGoalStatus ανοίγει τη ΔΙΚΗ της db.transaction(...) πάνω
+      // στα ΙΔΙΑ resolved activeTable('goals')/activeTable('goalEvents') αντικείμενα — και οι δύο
+      // πίνακες είναι ήδη μέσα στη λίστα παρακάτω, οπότε η Dexie αναγνωρίζει το ambient context και
+      // ΣΥΜΜΕΤΕΧΕΙ, δεν φωλιάζει (ίδιο, ήδη δοκιμασμένο precedent). Αν οτιδήποτε πετάξει (π.χ. μη
+      // επιτρεπτή μετάβαση), ΤΙΠΟΤΑ δεν μένει αποθηκευμένο — ούτε καν τα metadata της συνεδρίας.
+      const sessionsTable = activeTable('sessions')
+      const measurementsTable = activeTable('measurements')
+      const sessionGoalAssessmentsTable = activeTable('sessionGoalAssessments')
+      const goalsTable = activeTable('goals')
+      const goalEventsTable = activeTable('goalEvents')
+      await db.transaction('rw', [sessionsTable, measurementsTable, sessionGoalAssessmentsTable, goalsTable, goalEventsTable], async () => {
+        await sessionsTable.update(sessionId, { date, status, durationMinutes: duration, activity, note, moods })
 
         const existingMeasurementByGoalId = {}
         for (const rows of Object.values(detail.measurementsByStudent)) {
@@ -228,14 +234,14 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
           const value = measurements[goalId]
           const hasValue = value !== undefined && !isEmptyRecordedValue(goal.measurementType, value)
           if (hasValue && existing) {
-            await db.measurements.update(existing.id, { value })
+            await measurementsTable.update(existing.id, { value })
           } else if (hasValue && !existing) {
-            await db.measurements.add({
+            await measurementsTable.add(withNewRowId({
               sessionId, studentId: goal.studentId, goalId, value,
               context: session.studentIds.length > 1 ? 'group' : 'individual', note: ''
-            })
+            }))
           } else if (!hasValue && existing) {
-            await db.measurements.delete(existing.id)
+            await measurementsTable.delete(existing.id)
           }
         }
 
@@ -253,13 +259,13 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
           const existing = existingAssessmentByGoalId[goalId]
           const assessment = clinicalAssessments[goalId]
           if (assessment && existing) {
-            await db.sessionGoalAssessments.update(existing.id, { rating: assessment.rating, note: assessment.note || '' })
+            await sessionGoalAssessmentsTable.update(existing.id, { rating: assessment.rating, note: assessment.note || '' })
           } else if (assessment && !existing) {
-            await db.sessionGoalAssessments.add({
+            await sessionGoalAssessmentsTable.add(withNewRowId({
               sessionId, studentId: goal.studentId, goalId, rating: assessment.rating, note: assessment.note || ''
-            })
+            }))
           } else if (!assessment && existing) {
-            await db.sessionGoalAssessments.delete(existing.id)
+            await sessionGoalAssessmentsTable.delete(existing.id)
           }
 
           // «Κατακτήθηκε» ΝΕΟ σε αυτή την επεξεργασία (δεν ήταν ήδη mastered πριν) → ο ΜΟΝΑΔΙΚΟΣ

@@ -388,7 +388,9 @@ describe('SessionModal — Edit Session: επεξεργασία measurements/κ�
       durationMinutes: 30, activity: 'Αρχική δραστηριότητα', note: '', moods: {}
     })
 
-    const spy = vi.spyOn(db.goalEvents, 'add').mockImplementationOnce(() => {
+    // Sprint 5A Phase 2, Commit 4B — SessionModal πλέον χρησιμοποιεί activeTable('goalEvents')
+    // (=db.table('goalEvents')) — ίδιο σκεπτικό με τα αντίστοιχα spy fixes στο db.test.js.
+    const spy = vi.spyOn(db.table('goalEvents'), 'add').mockImplementationOnce(() => {
       throw new Error('Εσκεμμένο σφάλμα δοκιμής — προσομοιώνει διακοπή στη μέση')
     })
 

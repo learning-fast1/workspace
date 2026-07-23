@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, Copy, Download, Eye, FileText, Pencil, Star } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { generateReportText } from '../utils/reportText.js'
 import { exportReportToDocx } from '../utils/reportDocx.js'
 import { todayLocalISO, formatDateEl } from '../utils/date.js'
@@ -40,18 +40,18 @@ export default function ReportTab({ student, studentId }) {
 
   const dateRangeInvalid = dateFrom > dateTo
 
-  const goals = useLiveQuery(() => db.goals.where('studentId').equals(studentId).toArray(), [studentId])
-  const allSessions = useLiveQuery(() => db.sessions.toArray(), [])
+  const goals = useLiveQuery(() => activeTable('goals').where('studentId').equals(studentId).toArray(), [studentId])
+  const allSessions = useLiveQuery(() => activeTable('sessions').toArray(), [])
   const allMeasurements = useLiveQuery(
-    () => db.measurements.where('studentId').equals(studentId).toArray(),
+    () => activeTable('measurements').where('studentId').equals(studentId).toArray(),
     [studentId]
   )
   const observations = useLiveQuery(
-    () => db.observations.where('studentId').equals(studentId).toArray(),
+    () => activeTable('observations').where('studentId').equals(studentId).toArray(),
     [studentId]
   )
   const pastReports = useLiveQuery(
-    () => db.reports.where('studentId').equals(studentId).reverse().sortBy('generatedAt'),
+    () => activeTable('reports').where('studentId').equals(studentId).reverse().sortBy('generatedAt'),
     [studentId]
   )
 
@@ -69,9 +69,9 @@ export default function ReportTab({ student, studentId }) {
     const text = generateReportText({ student, dateFrom, dateTo, goals, sessions, measurements, observations })
     const now = new Date().toISOString()
     if (activeReportId) {
-      await db.reports.update(activeReportId, { editedText: text, dateFrom, dateTo, generatedAt: now })
+      await activeTable('reports').update(activeReportId, { editedText: text, dateFrom, dateTo, generatedAt: now })
     } else {
-      const id = await db.reports.add({
+      const id = await activeTable('reports').add(withNewRowId({
         studentId,
         type: 'progress',
         dateFrom,
@@ -80,7 +80,7 @@ export default function ReportTab({ student, studentId }) {
         editedText: text,
         status: 'draft',
         exportedAt: null
-      })
+      }))
       setActiveReportId(id)
       setActiveStatus('draft')
     }
@@ -110,13 +110,13 @@ export default function ReportTab({ student, studentId }) {
     if (!activeReportId) return
     clearTimeout(saveTimeoutRef.current)
     saveTimeoutRef.current = setTimeout(() => {
-      db.reports.update(activeReportId, { editedText: value })
+      activeTable('reports').update(activeReportId, { editedText: value })
     }, AUTOSAVE_DELAY_MS)
   }
 
   function flushPendingSave() {
     clearTimeout(saveTimeoutRef.current)
-    if (activeReportId) db.reports.update(activeReportId, { editedText: draft })
+    if (activeReportId) activeTable('reports').update(activeReportId, { editedText: draft })
   }
 
   async function handleCopy() {
@@ -128,13 +128,13 @@ export default function ReportTab({ student, studentId }) {
   async function handleDownloadDocx() {
     const filename = `Έκθεση-${student.code}-${dateFrom}-${dateTo}.docx`.replace(/[\s/\\:*?"<>|]+/g, '_')
     exportReportToDocx(draft, filename)
-    if (activeReportId) await db.reports.update(activeReportId, { exportedAt: new Date().toISOString() })
+    if (activeReportId) await activeTable('reports').update(activeReportId, { exportedAt: new Date().toISOString() })
   }
 
   async function handleToggleFinal() {
     if (!activeReportId) return
     const nextStatus = activeStatus === 'final' ? 'draft' : 'final'
-    await db.reports.update(activeReportId, { status: nextStatus })
+    await activeTable('reports').update(activeReportId, { status: nextStatus })
     setActiveStatus(nextStatus)
   }
 

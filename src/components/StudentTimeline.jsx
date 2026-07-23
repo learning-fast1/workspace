@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarDays, Sparkles, FileText, Star } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { formatDateEl as formatDate } from '../utils/date.js'
 import { describeGoalEvent } from '../utils/goalEvents.js'
 import EmptyState from './ui/EmptyState.jsx'
@@ -15,10 +15,10 @@ function formatMonth(monthStr) {
 // χωρίς δική του καταχώρηση (SPEC.md Βήμα 5β). Αυτό το tab («Συνεδρίες») δείχνει το ίδιο το
 // Timeline αντί για μια στεγνή λίστα συνεδριών — βλ. UX proposal §3.
 export default function StudentTimeline({ studentId }) {
-  const goals = useLiveQuery(() => db.goals.where('studentId').equals(studentId).toArray(), [studentId])
-  const allSessions = useLiveQuery(() => db.sessions.toArray(), [])
+  const goals = useLiveQuery(() => activeTable('goals').where('studentId').equals(studentId).toArray(), [studentId])
+  const allSessions = useLiveQuery(() => activeTable('sessions').toArray(), [])
   const observations = useLiveQuery(
-    () => db.observations.where('studentId').equals(studentId).toArray(),
+    () => activeTable('observations').where('studentId').equals(studentId).toArray(),
     [studentId]
   )
   // ΕΝΑ query για ΟΛΑ τα goalEvents όλων των στόχων του μαθητή μαζί (goalId indexed, .anyOf σε
@@ -26,7 +26,7 @@ export default function StudentTimeline({ studentId }) {
   // από το `goals` query — γι' αυτό ξεχωριστό useLiveQuery με [goals] ως dependency, ώστε να
   // ξανατρέξει μόνο όταν αλλάξει η λίστα στόχων, όχι σε κάθε render.
   const goalEvents = useLiveQuery(
-    () => (goals ? db.goalEvents.where('goalId').anyOf(goals.map((g) => g.id)).toArray() : undefined),
+    () => (goals ? activeTable('goalEvents').where('goalId').anyOf(goals.map((g) => g.id)).toArray() : undefined),
     [goals]
   )
 

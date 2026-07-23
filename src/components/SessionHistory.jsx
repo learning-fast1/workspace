@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarX2, Filter, History, SearchX } from 'lucide-react'
-import { db, deleteSession, getActiveSchoolYear } from '../db.js'
+import { deleteSession, getActiveSchoolYear } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
 import { todayLocalISO, formatDateEl } from '../utils/date.js'
 import { SESSION_STATUSES } from '../config/sessionOptions.js'
@@ -27,8 +28,8 @@ function formatMonth(monthStr) {
 // συνεδρίες να είναι πάντα στην κορυφή χωρίς έξτρα δουλειά.
 async function loadSessions(studentId) {
   const [sessions, students] = await Promise.all([
-    db.sessions.orderBy('date').reverse().toArray(),
-    db.students.toArray()
+    activeTable('sessions').orderBy('date').reverse().toArray(),
+    activeTable('students').toArray()
   ])
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
   const scoped = studentId ? sessions.filter((s) => s.studentIds?.includes(studentId)) : sessions

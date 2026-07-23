@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { addDays, formatDateEl, todayLocalISO } from '../utils/date.js'
 import { eventCategoryLabel } from '../config/scheduleOptions.js'
 import AppShell from './shell/AppShell.jsx'
@@ -23,7 +23,7 @@ export default function DayDetailPage() {
   const navigate = useNavigate()
   const [eventFormState, setEventFormState] = useState(null) // { event? }
 
-  const events = useLiveQuery(() => db.calendarEvents.where('date').equals(date).toArray(), [date])
+  const events = useLiveQuery(() => activeTable('calendarEvents').where('date').equals(date).toArray(), [date])
   const isToday = date === todayLocalISO()
 
   return (

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertTriangle } from 'lucide-react'
-import { db, applySchoolYearTransition } from '../db.js'
+import { applySchoolYearTransition } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { domainName } from '../config/domains.js'
 import { statusLabel } from '../config/goalOptions.js'
 import { suggestSchoolYearDates, suggestSchoolYearLabel } from '../utils/schoolYear.js'
@@ -83,9 +84,9 @@ export default function YearTransitionWizard() {
   const goalsErrorRef = useRef(null)
   const newGoalTitleRefs = useRef({})
 
-  const students = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
-  const allGoals = useLiveQuery(() => db.goals.toArray(), [])
-  const existingSchoolYears = useLiveQuery(() => db.schoolYears.toArray(), [])
+  const students = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
+  const allGoals = useLiveQuery(() => activeTable('goals').toArray(), [])
+  const existingSchoolYears = useLiveQuery(() => activeTable('schoolYears').toArray(), [])
 
   const activeStudents = (students || []).filter((s) => s.active)
   const activeStudentIds = new Set(activeStudents.map((s) => s.id))

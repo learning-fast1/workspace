@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { db, bulkCancelDay } from '../db.js'
+import { bulkCancelDay } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { resolveOccurrencesForDate } from '../utils/scheduleResolution.js'
 import { sameStudentSet } from '../utils/dailyQueue.js'
 import { CALENDAR_EVENT_CATEGORIES, BULK_CANCEL_CATEGORIES } from '../config/scheduleOptions.js'
@@ -37,9 +38,9 @@ export default function CalendarEventForm({ date, event, onClose, onSaved }) {
   // άλλως. Το prompt εμφανίζεται ΜΟΝΟ αν αυτός ο αριθμός είναι πάνω από μηδέν.
   async function countCancellableOccurrences() {
     const [scheduleSlots, scheduleExceptions, sessionsOnDate] = await Promise.all([
-      db.scheduleSlots.toArray(),
-      db.scheduleExceptions.toArray(),
-      db.sessions.where('date').equals(date).toArray()
+      activeTable('scheduleSlots').toArray(),
+      activeTable('scheduleExceptions').toArray(),
+      activeTable('sessions').where('date').equals(date).toArray()
     ])
     const occurrences = resolveOccurrencesForDate(date, { scheduleSlots, scheduleExceptions })
     return occurrences.filter(
@@ -54,11 +55,11 @@ export default function CalendarEventForm({ date, event, onClose, onSaved }) {
     try {
       const fields = { date, title: trimmed, category: category || null, startTime: startTime || null, note }
       if (isEdit) {
-        await db.calendarEvents.update(event.id, fields)
+        await activeTable('calendarEvents').update(event.id, fields)
         onSaved?.()
         onClose()
       } else {
-        const id = await db.calendarEvents.add(fields)
+        const id = await activeTable('calendarEvents').add(withNewRowId(fields))
         onSaved?.()
         if (BULK_CANCEL_CATEGORIES.includes(category)) {
           const count = await countCancellableOccurrences()
@@ -87,7 +88,7 @@ export default function CalendarEventForm({ date, event, onClose, onSaved }) {
 
   async function handleDelete() {
     if (!event) return
-    await db.calendarEvents.delete(event.id)
+    await activeTable('calendarEvents').delete(event.id)
     onSaved?.()
     onClose()
   }

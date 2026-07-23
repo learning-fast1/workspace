@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { prefillFromSource } from '../utils/goalTemplates.js'
 import Modal from './ui/Modal.jsx'
 import SearchBar from './ui/SearchBar.jsx'
@@ -16,7 +16,7 @@ export default function CopyGoalToStudentModal({ goal, currentStudentId, onClose
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
 
-  const students = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
+  const students = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
 
   // Ίδιο idiom φιλτραρίσματος ενεργών μαθητών με ScheduleSlotForm.jsx/SelectIndividualStudent.jsx
   // κ.λπ. (κανένα shared helper δεν υπάρχει ήδη στο repo γι' αυτό — δεν εισάγω νέο εδώ).

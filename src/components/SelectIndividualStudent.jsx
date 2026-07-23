@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { PlayCircle, Users } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
 import EmptyState from './ui/EmptyState.jsx'
@@ -16,7 +16,7 @@ export default function SelectIndividualStudent() {
   const navigate = useNavigate()
   const [selectedId, setSelectedId] = useState(null)
 
-  const allStudents = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
+  const allStudents = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
 
   if (!allStudents) {
     return (

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, UserX } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
 import Card from './ui/Card.jsx'
@@ -58,7 +58,7 @@ export default function StudentForm({ mode }) {
     if (mode === 'edit') {
       setNotFound(false)
       setLoading(true)
-      db.students.get(Number(id)).then((student) => {
+      activeTable('students').get(Number(id)).then((student) => {
         if (student) {
           setForm(student)
           initialFormRef.current = student
@@ -115,17 +115,18 @@ export default function StudentForm({ mode }) {
     setCodeError(null)
     setSaveError(false)
     try {
-      const existing = await db.students.where('code').equals(code).first()
+      const studentsTable = activeTable('students')
+      const existing = await studentsTable.where('code').equals(code).first()
       if (existing && existing.id !== Number(id)) {
         setCodeError(`Υπάρχει ήδη μαθητής με κωδικό «${code}».`)
         codeInputRef.current?.focus()
         return
       }
       if (mode === 'create') {
-        const newId = await db.students.add({ ...emptyStudent, ...form, code })
+        const newId = await studentsTable.add(withNewRowId({ ...emptyStudent, ...form, code }))
         navigate(`/students/${newId}`)
       } else {
-        await db.students.update(Number(id), { ...form, code })
+        await studentsTable.update(Number(id), { ...form, code })
         navigate(`/students/${id}`)
       }
     } catch (err) {

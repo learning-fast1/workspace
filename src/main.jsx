@@ -19,12 +19,14 @@ migrateDomainNamesToIds().then(migrateGoalDomainsToBroaderDomains).then(({ goals
   if (goalsMigrated > 0 || templatesMigrated > 0) {
     console.info(`[Απλοποίηση τομέων στόχων] Μεταφέρθηκαν ${goalsMigrated} στόχοι και ${templatesMigrated} πρότυπα στη νέα ταξινόμηση.`)
   }
-}).then(ensureDomainTemplatesSeeded)
-  // Sprint 5A Phase 2, Commit 4A — ΠΡΕΠΕΙ να ολοκληρωθεί εδώ, ΠΡΙΝ το πρώτο render, ώστε το
-  // activeTable() (migration/activeGeneration.js) να είναι ήδη σωστό στο ΠΡΩΤΟ component mount —
-  // καμία «αναλαμπή» legacy→v2. Χωρίς όρισμα: το ίδιο διαβάζει τον authenticated χρήστη (αν
-  // υπάρχει) εσωτερικά, ΠΟΤΕ δεν πετάει (ασφαλές να τρέξει και σε αμιγώς τοπική χρήση).
-  .then(initializeActiveGeneration).finally(() => {
+})
+  // Sprint 5A Phase 2, Commit 4A/4C — ΠΡΕΠΕΙ να ολοκληρωθεί ΕΔΩ, ΠΡΙΝ το ensureDomainTemplatesSeeded
+  // παρακάτω ΚΑΙ πριν το πρώτο render, ώστε το activeTable() (migration/activeGeneration.js) να
+  // είναι ήδη σωστό ΚΑΙ για τα δύο — καμία «αναλαμπή» legacy→v2, ΚΑΙ το seeding να γράφει στη
+  // ΣΩΣΤΗ γενιά αντί να διαβάζει πάντα το προεπιλεγμένο cache='legacy' (bug βρέθηκε στο Commit 4C
+  // review: με την παλιά σειρά, το ensureDomainTemplatesSeeded έτρεχε ΠΡΙΝ αρχικοποιηθεί το cache).
+  // Χωρίς όρισμα: το ίδιο διαβάζει τον authenticated χρήστη (αν υπάρχει) εσωτερικά, ΠΟΤΕ δεν πετάει.
+  .then(initializeActiveGeneration).then(ensureDomainTemplatesSeeded).finally(() => {
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <ErrorBoundary>

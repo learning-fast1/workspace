@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarDays, Copy, Plus } from 'lucide-react'
-import { db, pauseScheduleSlot, endScheduleSlotSeries, copyScheduleDay } from '../db.js'
+import { pauseScheduleSlot, endScheduleSlotSeries, copyScheduleDay } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { todayLocalISO } from '../utils/date.js'
 import { WEEKDAYS_MON_FRI, weekdayLabel } from '../config/scheduleOptions.js'
 import AppShell from './shell/AppShell.jsx'
@@ -19,7 +20,7 @@ import './SchedulePage.css'
 // μόνιμη οθόνη — η καθημερινή ροή παραμένει εξ ολοκλήρου στην Αρχική/«Η μέρα μου» (Technical
 // Plan guardrail: καμία πρόσθετη πολυπλοκότητα στην καθημερινή χρήση).
 async function loadScheduleData() {
-  const [allSlots, students] = await Promise.all([db.scheduleSlots.toArray(), db.students.toArray()])
+  const [allSlots, students] = await Promise.all([activeTable('scheduleSlots').toArray(), activeTable('students').toArray()])
   const today = todayLocalISO()
 
   const bySeries = new Map()

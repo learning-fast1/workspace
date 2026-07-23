@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, Users } from 'lucide-react'
-import { db } from '../db.js'
+import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { todayLocalISO } from '../utils/date.js'
 import { findExistingEntryStatus, existingEntryStatusLabel } from '../utils/dailyQueue.js'
 import AppShell from './shell/AppShell.jsx'
@@ -32,10 +32,10 @@ export default function AddIndividualToToday() {
   const [selectedId, setSelectedId] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const allStudents = useLiveQuery(() => db.students.orderBy('code').toArray(), [])
+  const allStudents = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
   const dayData = useLiveQuery(() => Promise.all([
-    db.dailyQueue.where('date').equals(date).toArray(),
-    db.sessions.where('date').equals(date).toArray()
+    activeTable('dailyQueue').where('date').equals(date).toArray(),
+    activeTable('sessions').where('date').equals(date).toArray()
   ]), [date])
 
   if (!allStudents || !dayData) {
@@ -56,9 +56,10 @@ export default function AddIndividualToToday() {
   async function handleAdd() {
     setSaving(true)
     try {
-      const existing = await db.dailyQueue.where('date').equals(date).toArray()
+      const dailyQueueTable = activeTable('dailyQueue')
+      const existing = await dailyQueueTable.where('date').equals(date).toArray()
       const nextOrder = existing.reduce((max, e) => Math.max(max, e.order), -1) + 1
-      await db.dailyQueue.add({ date, studentIds: [selectedId], order: nextOrder, status: 'pending' })
+      await dailyQueueTable.add(withNewRowId({ date, studentIds: [selectedId], order: nextOrder, status: 'pending' }))
       navigate(dateParam ? `/schedule/day/${dateParam}` : '/')
     } finally {
       setSaving(false)

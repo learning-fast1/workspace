@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Library } from 'lucide-react'
-import { db, createGoal } from '../db.js'
+import { createGoal } from '../db.js'
+import { activeTable } from '../migration/activeGeneration.js'
 import { DOMAINS } from '../config/domains.js'
 import { PRIORITIES } from '../config/goalOptions.js'
 import { isRecommendedMeasurementType } from '../config/measurementRecommendations.js'
@@ -125,8 +126,8 @@ export default function GoalWizardForm({ mode }) {
     // codebase, καμία μεταλλαγμένη λογική πάνω στο goal.criterion για να «μαντέψει» criterionConfig
     // (Στάδιο 3, σημείο 3: legacy goal χωρίς criterionConfig ανοίγει ΑΚΡΙΒΩΣ όπως είναι στη βάση).
     Promise.all([
-      db.goals.get(Number(goalId)),
-      db.measurements.where('goalId').equals(Number(goalId)).count()
+      activeTable('goals').get(Number(goalId)),
+      activeTable('measurements').where('goalId').equals(Number(goalId)).count()
     ]).then(([existing, measurementCount]) => {
       if (existing) {
         setGoal(existing)
@@ -275,7 +276,7 @@ export default function GoalWizardForm({ mode }) {
         // αυτό το save να αγγίξει ποτέ την κατάσταση ή να δημιουργήσει goalEvent (Technical Plan
         // Στάδιο 3/4 — μοναδικό API για αλλαγή κατάστασης είναι το transitionGoalStatus).
         const { status: _status, statusChangedAt: _statusChangedAt, ...editableFields } = fieldsToSave
-        await db.goals.update(Number(goalId), editableFields)
+        await activeTable('goals').update(Number(goalId), editableFields)
       } else {
         // createGoal (Στάδιο 2) — ατομικό goal+'created' goalEvent, επιβάλλει πάντα status:'active'.
         await createGoal({ ...fieldsToSave, studentId })

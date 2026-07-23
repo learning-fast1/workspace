@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowRight, Users } from 'lucide-react'
-import { db } from '../../db.js'
+import { activeTable } from '../../migration/activeGeneration.js'
 import { todayLocalISO } from '../../utils/date.js'
 import { matchedSession } from '../../utils/dailyQueue.js'
 import './SidebarQuickSchedule.css'
@@ -15,9 +15,9 @@ const MAX_ROWS = 3
 async function loadUpcoming() {
   const today = todayLocalISO()
   const [entries, sessionsToday, students] = await Promise.all([
-    db.dailyQueue.where('date').equals(today).toArray(),
-    db.sessions.where('date').equals(today).toArray(),
-    db.students.toArray()
+    activeTable('dailyQueue').where('date').equals(today).toArray(),
+    activeTable('sessions').where('date').equals(today).toArray(),
+    activeTable('students').toArray()
   ])
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
 

@@ -29,6 +29,19 @@ function defaultGetUserIdOrNull() {
   return (currentUser?.isLoggedIn && currentUser.userId) || null
 }
 
+// Δημόσια εκδοχή του παραπάνω — επαναχρησιμοποιείται από το ensureDomainTemplatesSeeded (db.js)
+// για τα deterministic seed ids του Commit 4C, αντί για ένα 4ο ιδιωτικό αντίγραφο του ίδιου idiom.
+export function currentUserIdOrNull() {
+  return defaultGetUserIdOrNull()
+}
+
+// Συγχρονική ανάγνωση του cache — χρησιμοποιείται όπου ένας καλών χρειάζεται να ΚΛΑΔΕΨΕΙ τη δική
+// του λογική ανά γενιά (π.χ. ensureDomainTemplatesSeeded: deterministic id ΜΟΝΟ όταν v2), αντί να
+// περάσει από το activeTable() που απαιτεί ήδη γνωστό όνομα πίνακα.
+export function getCachedGeneration() {
+  return cachedGeneration
+}
+
 // appMeta.value shape: { generation:'v2', userId:string, setAt:ISOString }. Η ΑΠΟΥΣΙΑ εγγραφής
 // σημαίνει legacy — ΔΕΝ γράφεται ποτέ ρητά τιμή 'legacy' (καμία λειτουργία «επαναφοράς» σε αυτό
 // το commit, βλ. review — η ρύθμιση εξ ορισμού ΕΙΝΑΙ η απουσία εγγραφής).
@@ -112,4 +125,31 @@ export function activeTable(name) {
 export async function resetActiveGenerationForTests() {
   await db.appMeta.delete(ACTIVE_GENERATION_KEY)
   setCachedGeneration('legacy')
+}
+
+// Sprint 5A Phase 2, Commit 4C — id για ΝΕΕΣ γραμμές που δημιουργούνται ΜΕΤΑ τη μετάβαση σε v2.
+// ΞΕΧΩΡΙΣΤΟ από το deterministicId του migration engine (εκείνο είναι ΜΟΝΟ για ιστορικές,
+// ήδη-υπάρχουσες legacy γραμμές — παραμένει αναλλοίωτο, δεν το αντικαθιστά αυτό).
+//
+// legacy: no-op (επιστρέφει τα fields αμετάβλητα) — ΚΑΝΕΝΑ πεδίο id προστίθεται, το ήδη υπάρχον
+// '++id' auto-increment της Dexie συνεχίζει να δουλεύει ΑΚΡΙΒΩΣ όπως σήμερα, μηδενική αλλαγή
+// συμπεριφοράς. v2: crypto.randomUUID() — ΣΥΓΧΡΟΝΟ (σε αντίθεση με το crypto.subtle.digest του
+// deterministicId), άρα ασφαλές να κληθεί οπουδήποτε, ΚΑΙ μέσα σε ανοιχτή/ένθετη db.transaction(),
+// χωρίς τον ήδη τεκμηριωμένο κίνδυνο "Transaction committed too early" (βλ. migrationEngine.js).
+//
+// Επιβεβαιωμένο ενάντια στο πραγματικό dexie-cloud-addon source (review, πριν την υλοποίηση):
+// τα _v2 tables δηλώνονται με απλό 'id' (ΟΧΙ '@id') — το addon's idGenerationMiddleware ΔΕΝ
+// αναλαμβάνει καθόλου την παραγωγή id για τέτοιους πίνακες· απαιτεί μόνο το key να είναι string
+// (isValidSyncableID) όποτε/αν ο πίνακας μπει ποτέ σε πραγματικό sync — ένα crypto.randomUUID()
+// παραμένει έγκυρο τότε χωρίς καμία αλλαγή.
+// Review (μετά την πρώτη υλοποίηση): { id: crypto.randomUUID(), ...fields } θα επέτρεπε σε ένα
+// τυχόν fields.id (π.χ. copy/spread από υπάρχουσα γραμμή) να ΥΠΕΡΓΡΑΨΕΙ το παραγόμενο uuid μετά
+// το spread — μια «νέα» γραμμή θα μπορούσε αθόρυβα να ξαναχρησιμοποιήσει ΠΑΛΙΟ id (αριθμητικό
+// legacy id, ή ήδη υπαρκτό v2 uuid), προκαλώντας bulkPut overwrite πάνω σε άσχετη υπάρχουσα
+// γραμμή. Τώρα το caller-supplied id αφαιρείται ΠΑΝΤΑ πρώτα, και το παραγόμενο id μπαίνει
+// ΤΕΛΕΥΤΑΙΟ — δομικά αδύνατο οποιοδήποτε fields.id να επιβιώσει σε v2 δημιουργία.
+export function withNewRowId(fields) {
+  if (cachedGeneration !== 'v2') return fields
+  const { id: _callerSuppliedId, ...rest } = fields
+  return { ...rest, id: crypto.randomUUID() }
 }

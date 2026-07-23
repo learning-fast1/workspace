@@ -758,7 +758,11 @@ describe('transitionGoalStatus — atomicity (rollback αν αποτύχει τ�
   it('αν το goalEvents.add πετάξει, το goal διατηρεί το ΑΡΧΙΚΟ status — καμία μερική ενημέρωση', async () => {
     const goalId = await db.goals.add({ studentId: 1, domain: 'reading', title: 'Στόχος', status: 'active', priority: 'medium', startDate: '2025-01-01' })
 
-    const spy = vi.spyOn(db.goalEvents, 'add').mockImplementationOnce(() => {
+    // Sprint 5A Phase 2, Commit 4B — transitionGoalStatus πλέον διαβάζει/γράφει μέσω activeTable()
+    // (=db.table(name)), το οποίο η Dexie κρατά ως ΞΕΧΩΡΙΣΤΟ αντικείμενο Table από το db.goalEvents
+    // (property accessor) — ίδιο underlying .core, διαφορετικό instance. Το spy πρέπει να στοχεύει
+    // ΤΟ ΙΔΙΟ αντικείμενο που θα χρησιμοποιήσει ο πραγματικός κώδικας.
+    const spy = vi.spyOn(db.table('goalEvents'), 'add').mockImplementationOnce(() => {
       throw new Error('Εσκεμμένο σφάλμα δοκιμής — προσομοιώνει διακοπή στη μέση')
     })
 
@@ -831,7 +835,10 @@ describe('createGoal (Technical Plan Στάδιο 2)', () => {
   })
 
   it('atomicity: αν το goalEvents.add πετάξει, ΔΕΝ παραμένει ορφανό goal row', async () => {
-    const spy = vi.spyOn(db.goalEvents, 'add').mockImplementationOnce(() => {
+    // Commit 4B: createGoal πλέον χρησιμοποιεί activeTable('goalEvents') (=db.table('goalEvents')) —
+    // βλ. σχόλιο στο αντίστοιχο transitionGoalStatus test παραπάνω για το γιατί το spy πρέπει να
+    // στοχεύει db.table(...) και όχι το ξεχωριστό db.goalEvents property.
+    const spy = vi.spyOn(db.table('goalEvents'), 'add').mockImplementationOnce(() => {
       throw new Error('Εσκεμμένο σφάλμα δοκιμής')
     })
 
@@ -1141,7 +1148,9 @@ describe('setStudentActive (Technical Plan Στάδιο 9, σημείο 2) — a
     const yearId = await createSchoolYear({ label: 'Α', startDate: '2026-09-01', endDate: '2027-06-30' })
     await setActiveSchoolYear(yearId)
 
-    const spy = vi.spyOn(db.schoolYearParticipation, 'add').mockImplementationOnce(() => {
+    // Commit 4B: setStudentActive πλέον χρησιμοποιεί activeTable('schoolYearParticipation') —
+    // ίδιο σκεπτικό με τα προηγούμενα spy fixes σε αυτό το αρχείο.
+    const spy = vi.spyOn(db.table('schoolYearParticipation'), 'add').mockImplementationOnce(() => {
       throw new Error('Εσκεμμένο σφάλμα δοκιμής')
     })
 
@@ -1393,8 +1402,10 @@ describe('applySchoolYearTransition (Technical Plan Στάδιο 10) — μαζ�
     // Το 1ο goalEvents.add (goal του a, decision 'achieved') πετυχαίνει κανονικά· το 2ο (goal του b)
     // πετάει — προσομοιώνει διακοπή ΑΦΟΥ αρκετές ενέργειες (μαζί με τη δημιουργία/ενεργοποίηση του
     // ίδιου του νέου έτους, που έχει ήδη προηγηθεί) έχουν «πετύχει» μέσα στην ίδια, ανοιχτή συναλλαγή.
-    const originalAdd = db.goalEvents.add.bind(db.goalEvents)
-    const spy = vi.spyOn(db.goalEvents, 'add')
+    // Commit 4B: applySchoolYearTransition πλέον χρησιμοποιεί activeTable('goalEvents') —
+    // ίδιο σκεπτικό με τα προηγούμενα spy fixes σε αυτό το αρχείο.
+    const originalAdd = db.table('goalEvents').add.bind(db.table('goalEvents'))
+    const spy = vi.spyOn(db.table('goalEvents'), 'add')
       .mockImplementationOnce((...args) => originalAdd(...args))
       .mockImplementationOnce(() => { throw new Error('Εσκεμμένο σφάλμα δοκιμής — προσομοιώνει διακοπή στη μέση') })
 

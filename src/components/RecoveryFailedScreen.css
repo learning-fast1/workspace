@@ -1,0 +1,58 @@
+/* Σκόπιμα ΧΩΡΙΣ εξάρτηση από .app-shell context (βλ. RecoveryFailedScreen.jsx) — μόνο τα
+   root-level tokens του index.css. */
+
+.recovery-failed-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+.recovery-failed-screen__card {
+  max-width: 32rem;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 2rem;
+  text-align: center;
+}
+
+.recovery-failed-screen__icon {
+  color: var(--color-danger-ink);
+  margin-bottom: 0.75rem;
+}
+
+.recovery-failed-screen__card h1 {
+  font-size: 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.recovery-failed-screen__card p {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.recovery-failed-screen__detail {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  word-break: break-word;
+}
+
+.recovery-failed-screen__retry {
+  font: inherit;
+  background: var(--color-primary);
+  color: var(--color-primary-ink);
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+}
+
+.recovery-failed-screen__retry:hover {
+  filter: brightness(0.95);
+}

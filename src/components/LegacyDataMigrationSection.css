@@ -1,0 +1,9 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Ζει μέσα στο ίδιο legacy
+   .section με το AccountSection (βλ. index.css) — μόνο ο χώρος γύρω από το κουμπί επιβεβαίωσης
+   χρειάζεται τη δική του ρύθμιση, ώστε το μεγάλο, ρητό κείμενο του κουμπιού να μην πιέζεται. */
+
+.legacy-data-migration-section .actions-row .btn {
+  max-width: 420px;
+  white-space: normal;
+  text-align: left;
+}

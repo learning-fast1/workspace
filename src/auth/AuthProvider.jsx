@@ -13,6 +13,7 @@ export const AuthContext = createContext(null)
 const DISABLED_VALUE = {
   status: 'disabled',
   email: null,
+  userId: null,
   error: null,
   actions: { login: noop, submitEmail: noop, submitOtp: noop, cancel: noop, logout: noop }
 }

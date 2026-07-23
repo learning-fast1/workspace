@@ -6,6 +6,7 @@ import { exportBackupFile, validateBackupPayload, restoreFromBackup } from '../u
 import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
 import { formatDateEl } from '../utils/date.js'
 import AccountSection from './AccountSection.jsx'
+import LegacyDataMigrationSection from './LegacyDataMigrationSection.jsx'
 
 const TABLE_LABELS = {
   students: 'Μαθητές',
@@ -151,6 +152,10 @@ export default function Settings() {
       {/* Sprint 5A Phase 1 — πρώτη ενότητα, πάνω από το Σχολικό έτος (Technical Plan §Flows,
           ροή 1). Δεν αποδίδει τίποτα αν CLOUD_ENABLED=false (βλ. AccountSection.jsx). */}
       <AccountSection />
+      {/* Sprint 5A Phase 2, Commit 3 — αμέσως μετά το AccountSection: έχει νόημα μόνο ΜΕΤΑ τη
+          σύνδεση. Αυτο-gated (βλ. LegacyDataMigrationSection.jsx) — αποδίδει null αν δεν είναι
+          συνδεδεμένος ή δεν υπάρχουν καθόλου τοπικά δεδομένα προς προετοιμασία. */}
+      <LegacyDataMigrationSection />
 
       <div className="section">
         <h2>Σχολικό έτος</h2>

@@ -4,35 +4,42 @@ import { deriveAuthStatus } from './authStatus.js'
 describe('deriveAuthStatus — καθαρή συνάρτηση, χωρίς Dexie/React/δίκτυο', () => {
   it('χωρίς currentUser και χωρίς userInteraction → loggedOut', () => {
     expect(deriveAuthStatus({ currentUser: undefined, userInteraction: undefined }))
-      .toEqual({ status: 'loggedOut', email: null, error: null })
+      .toEqual({ status: 'loggedOut', email: null, userId: null, error: null })
   })
 
-  it('currentUser.isLoggedIn=true → loggedIn, με το email', () => {
+  it('currentUser.isLoggedIn=true → loggedIn, με το email ΚΑΙ το userId', () => {
+    expect(deriveAuthStatus({
+      currentUser: { isLoggedIn: true, email: 'δασκάλα@example.com', userId: 'user-abc' },
+      userInteraction: undefined
+    })).toEqual({ status: 'loggedIn', email: 'δασκάλα@example.com', userId: 'user-abc', error: null })
+  })
+
+  it('currentUser.isLoggedIn=true ΧΩΡΙΣ userId (θεωρητικά δυνατό στο πραγματικό API) → userId:null, ΟΧΙ crash', () => {
     expect(deriveAuthStatus({
       currentUser: { isLoggedIn: true, email: 'δασκάλα@example.com' },
       userInteraction: undefined
-    })).toEqual({ status: 'loggedIn', email: 'δασκάλα@example.com', error: null })
+    })).toEqual({ status: 'loggedIn', email: 'δασκάλα@example.com', userId: null, error: null })
   })
 
   it('userInteraction.type=email → emailEntry', () => {
     expect(deriveAuthStatus({
       currentUser: undefined,
       userInteraction: { type: 'email', alerts: [] }
-    })).toEqual({ status: 'emailEntry', email: null, error: null })
+    })).toEqual({ status: 'emailEntry', email: null, userId: null, error: null })
   })
 
   it('userInteraction.type=otp → otpEntry', () => {
     expect(deriveAuthStatus({
       currentUser: undefined,
       userInteraction: { type: 'otp', alerts: [] }
-    })).toEqual({ status: 'otpEntry', email: null, error: null })
+    })).toEqual({ status: 'otpEntry', email: null, userId: null, error: null })
   })
 
   it('currentUser.isLoading=true, χωρίς userInteraction → loading', () => {
     expect(deriveAuthStatus({
       currentUser: { isLoading: true },
       userInteraction: undefined
-    })).toEqual({ status: 'loading', email: null, error: null })
+    })).toEqual({ status: 'loading', email: null, userId: null, error: null })
   })
 
   it('λάθος/ληγμένο OTP (alert INVALID_OTP πάνω στο otp prompt) → παραμένει otpEntry, ΜΕ error', () => {

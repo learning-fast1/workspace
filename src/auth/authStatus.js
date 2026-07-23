@@ -37,18 +37,28 @@ function extractError(userInteraction) {
 
 // currentUser/userInteraction: οι ΤΡΕΧΟΥΣΕΣ τιμές (όχι τα ίδια τα observables) των db.cloud.currentUser
 // / db.cloud.userInteraction — ό,τι επιστρέφει useObservable(...) σε κάθε render.
+//
+// Sprint 5A Phase 2, Commit 3 — προστέθηκε το πεδίο `userId` (μέχρι τώρα εκτίθετο μόνο το email).
+// Το migration UI χρειάζεται το ΠΡΑΓΜΑΤΙΚΟ userId (όχι το email) για να καλέσει
+// claimLegacyDataOwnership/runMigration — κεντρικοποιημένο εδώ, ίδιο idiom με το email, αντί το
+// νέο component να διαβάζει απευθείας db.cloud.currentUser.value (θα παρέκαμπτε το ήδη υπάρχον
+// σημείο συγκέντρωσης όλων των observable-reads του db.cloud). null σε ΚΑΘΕ άλλο status, ΚΑΙ
+// ρητά null όταν status==='loggedIn' αλλά το ίδιο το dexie-cloud-addon δεν έδωσε userId ακόμα
+// (θεωρητικά δυνατό — UserLogin.userId είναι προαιρετικό πεδίο στο πραγματικό API) — το UI
+// (LegacyDataMigrationSection) πρέπει να το χειριστεί ρητά ως fail-closed, ΟΧΙ να υποθέσει ότι
+// loggedIn συνεπάγεται πάντα userId.
 export function deriveAuthStatus({ currentUser, userInteraction }) {
   if (currentUser?.isLoggedIn) {
-    return { status: 'loggedIn', email: currentUser.email || null, error: null }
+    return { status: 'loggedIn', email: currentUser.email || null, userId: currentUser.userId || null, error: null }
   }
   if (userInteraction?.type === 'email') {
-    return { status: 'emailEntry', email: null, error: extractError(userInteraction) }
+    return { status: 'emailEntry', email: null, userId: null, error: extractError(userInteraction) }
   }
   if (userInteraction?.type === 'otp') {
-    return { status: 'otpEntry', email: null, error: extractError(userInteraction) }
+    return { status: 'otpEntry', email: null, userId: null, error: extractError(userInteraction) }
   }
   if (currentUser?.isLoading) {
-    return { status: 'loading', email: null, error: null }
+    return { status: 'loading', email: null, userId: null, error: null }
   }
-  return { status: 'loggedOut', email: null, error: null }
+  return { status: 'loggedOut', email: null, userId: null, error: null }
 }

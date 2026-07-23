@@ -276,3 +276,13 @@ export async function resetMigrationForTests() {
     await db.table(v2TableName(tableName)).clear()
   }
 }
+
+// Sprint 5A Phase 2, Commit 5 — production API (ΟΧΙ test-only, σε αντίθεση με το παραπάνω).
+// Καλείται ΑΠΟΚΛΕΙΣΤΙΚΑ από το restore ενός LEGACY backup (utils/backup.js): η αντικατάσταση των
+// legacy δεδομένων καθιστά το ήδη-persisted migration state (πίνακες πιθανώς ήδη σημαδεμένοι
+// 'done') παρωχαιωμένο — χωρίς αυτή την επαναφορά, το επόμενο runMigration() θα παρέκαμπτε
+// σιωπηλά τους ήδη 'done' πίνακες, αγνοώντας τα φρέσκα (restored) legacy δεδομένα. ΔΕΝ αγγίζει
+// legacy/_v2 εκπαιδευτικά δεδομένα ούτε το legacyDataOwner claim — ΜΟΝΟ το migration state.
+export async function resetMigrationStateForUser(userId) {
+  await persistState(freshState(userId))
+}

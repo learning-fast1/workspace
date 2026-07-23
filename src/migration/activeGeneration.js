@@ -7,10 +7,13 @@ import { getMigrationState } from './migrationEngine.js'
 // αυτή τη συσκευή, ΓΙΑ αυτόν τον χρήστη. appMeta ΠΑΡΑΜΕΝΕΙ η μοναδική πηγή αλήθειας — το
 // module-level cache παρακάτω είναι ΑΠΟΚΛΕΙΣΤΙΚΑ ένα καθρέφτισμα (mirror) της τελευταίας γνωστής
 // τιμής, ΠΟΤΕ ανεξάρτητη πηγή. Ρητή απόφαση (review): ΕΝΑΣ εσωτερικός setter (setCachedGeneration)
-// γράφει το cache — καλείται ΜΟΝΟ από τα 3 σημεία που έχουν νόημα: initializeActiveGeneration
+// γράφει το cache — καλείται ΜΟΝΟ από τα σημεία που έχουν νόημα: initializeActiveGeneration
 // (εκκίνηση εφαρμογής), activateV2Generation (η ίδια η ενεργοποίηση), resetActiveGenerationForTests
-// (test-only καθαρισμός). Το ίδιο το activeTable() ΔΙΑΒΑΖΕΙ μόνο, ΠΟΤΕ γράφει.
+// (test-only καθαρισμός), και (Commit 5) setActiveGenerationForRestoredV2/
+// forceLegacyGenerationForRestore — οι δύο πράξεις ενεργοποίησης/υποβιβασμού γύρω από ένα restore
+// backup. Το ίδιο το activeTable() ΔΙΑΒΑΖΕΙ μόνο, ΠΟΤΕ γράφει.
 const ACTIVE_GENERATION_KEY = 'phase2ActiveGeneration'
+const RESTORE_FINALIZATION_KEY = 'phase2RestoreFinalization'
 
 let cachedGeneration = 'legacy'
 
@@ -129,6 +132,10 @@ export function activeTable(name) {
 // όπως στην πραγματική εφαρμογή). Το default (true) παραμένει το ίδιο πλήρες καθάρισμα με πριν,
 // για τα ΗΔΗ υπάρχοντα afterEach hooks σε άλλα test αρχεία — καμία αλλαγή συμπεριφοράς εκεί.
 export async function resetActiveGenerationForTests({ clearPersisted = true } = {}) {
+  // Το restore-finalization αρχείο (βλ. παρακάτω) ΔΕΝ συνδέεται με το «hard reload διατηρεί το
+  // persisted marker» σενάριο που εξυπηρετεί το clearPersisted — είναι απλά ένα audit-trail που
+  // ΚΑΘΕ test πρέπει να ξεκινάει καθαρό, άσχετα με clearPersisted.
+  await db.appMeta.delete(RESTORE_FINALIZATION_KEY)
   if (clearPersisted) await db.appMeta.delete(ACTIVE_GENERATION_KEY)
   setCachedGeneration('legacy')
 }
@@ -158,4 +165,54 @@ export function withNewRowId(fields) {
   if (cachedGeneration !== 'v2') return fields
   const { id: _callerSuppliedId, ...rest } = fields
   return { ...rest, id: crypto.randomUUID() }
+}
+
+// Sprint 5A Phase 2, Commit 5 — καλείται ΑΠΟΚΛΕΙΣΤΙΚΑ από το restore ενός v2 backup
+// (utils/backup.js). Σε αντίθεση με το activateV2Generation, ΔΕΝ ελέγχει migration state — δεν
+// υπάρχει καμία μετάβαση να ολοκληρωθεί, τα δεδομένα έφτασαν ήδη migrated μέσα από το ίδιο το
+// backup αρχείο. Ο έλεγχος ιδιοκτησίας/ταυτότητας (backup ownership vs authenticated user) έχει
+// ΗΔΗ γίνει από τον καλούντα ΠΡΙΝ φτάσει εδώ — αυτή η συνάρτηση μόνο γράφει το ήδη-επαληθευμένο
+// marker, ίδιο δισδιάστατο pattern (appMeta πρώτα, μετά cache) με το activateV2Generation.
+export async function setActiveGenerationForRestoredV2(userId) {
+  const marker = { generation: 'v2', userId, setAt: new Date().toISOString() }
+  await db.appMeta.put({ key: ACTIVE_GENERATION_KEY, value: marker })
+  setCachedGeneration('v2')
+  return marker
+}
+
+// Sprint 5A Phase 2, Commit 5 (revision after review) — καλείται ΑΠΟΚΛΕΙΣΤΙΚΑ από το restore ενός
+// LEGACY backup, ΑΜΕΣΩΣ μετά το commit της (ήδη επιτυχημένης) transaction αποκατάστασης δεδομένων,
+// ΠΡΙΝ οποιαδήποτε προσπάθεια claim/migrate/activate.
+//
+// Λόγος (review, blocker): αν η συσκευή ήταν ήδη σε v2 ΠΡΙΝ το restore, οι _v2 πίνακες μόλις
+// καθαρίστηκαν από την ΙΔΙΑ transaction που αποκατέστησε τα legacy δεδομένα — αν το migration που
+// ΑΚΟΛΟΥΘΕΙ αποτύχει (ή δεν προλάβει καν να ξεκινήσει, π.χ. λόγω αποσύνδεσης), ο δείκτης ενεργής
+// γενιάς θα εξακολουθούσε (χωρίς αυτή τη συνάρτηση) να δείχνει ΑΚΟΜΑ 'v2' — η εφαρμογή θα διάβαζε
+// αθόρυβα ΑΔΕΙΑ/μπαγιάτικα _v2 δεδομένα αντί για τα μόλις-αποκατασταθέντα, σωστά legacy δεδομένα.
+//
+// Η ΜΟΝΗ γενιά εγγυημένα συνεπής ΑΜΕΣΩΣ μετά ένα legacy restore είναι η ίδια η legacy — άρα ο
+// δείκτης υποβιβάζεται ΕΔΩ, άνευ όρων, ΠΡΙΝ καν επιχειρηθεί το migration. Μόνο ΜΕΤΑ από πλήρη
+// επιτυχία (claim+reset+migrate+verify+activate) ξαναανεβαίνει σε v2 — βλ. backup.js. Ίδιο idiom
+// με resetActiveGenerationForTests (appMeta delete + setCachedGeneration('legacy')), αλλά ΞΕΧΩΡΙΣΤΗ,
+// production-safe συνάρτηση (εκείνη παραμένει ρητά test-only).
+export async function forceLegacyGenerationForRestore() {
+  await db.appMeta.delete(ACTIVE_GENERATION_KEY)
+  setCachedGeneration('legacy')
+}
+
+// appMeta.value shape: { userId, targetGeneration:'legacy'|'v2', status:'pending'|'complete'|'failed',
+// startedAt, completedAt, error }.
+//
+// Sprint 5A Phase 2, Commit 5 (revision after review) — ΡΗΤΗ, επιθεωρήσιμη καταγραφή της
+// κατάστασης «εκκρεμεί ολοκλήρωση restore» αντί για σιωπηλή συνέχιση όταν το claim/migrate/activate
+// ΜΕΤΑ από ένα ήδη-επιτυχές restore δεδομένων αποτύχει. Χωρίς αυτό, μια τέτοια αποτυχία θα ήταν
+// ΑΟΡΑΤΗ — το appMeta δείχνει τώρα ρητά αν η τελευταία επαναφορά έφτασε (ή όχι, και γιατί) στη
+// γενιά που στόχευε. ΔΕΝ αποτελεί μηχανισμό retry από μόνο του σε αυτό το commit — μόνο state.
+export async function setRestoreFinalizationState(state) {
+  await db.appMeta.put({ key: RESTORE_FINALIZATION_KEY, value: state })
+}
+
+export async function getRestoreFinalizationState() {
+  const row = await db.appMeta.get(RESTORE_FINALIZATION_KEY)
+  return row?.value || null
 }

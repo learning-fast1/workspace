@@ -9,6 +9,7 @@ import AccountSection from './AccountSection.jsx'
 import LegacyDataMigrationSection from './LegacyDataMigrationSection.jsx'
 import GenerationSwitchoverSection from './GenerationSwitchoverSection.jsx'
 import EnableSyncSection from './EnableSyncSection.jsx'
+import SyncDiagnosticsPanel from './SyncDiagnosticsPanel.jsx'
 
 const TABLE_LABELS = {
   students: 'Μαθητές',
@@ -164,6 +165,9 @@ export default function Settings() {
       {/* Sprint 5A Phase 2, Commit 6 — αμέσως μετά: έχει νόημα μόνο ΜΕΤΑ από ενεργή v2 γενιά.
           Αυτο-gated (βλ. EnableSyncSection.jsx). */}
       <EnableSyncSection />
+      {/* Προσωρινό — real-device multi-device sync validation (Sprint 5A Phase 2). Κρυμμένο πίσω
+          από ?diag=1 (βλ. SyncDiagnosticsPanel.jsx). Να αφαιρεθεί μετά την ολοκλήρωση. */}
+      <SyncDiagnosticsPanel />
 
       <div className="section">
         <h2>Σχολικό έτος</h2>

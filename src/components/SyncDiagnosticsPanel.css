@@ -1,0 +1,49 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). ΠΡΟΣΩΡΙΝΟ component (βλ.
+   SyncDiagnosticsPanel.jsx) — σκόπιμα οπτικά "ξένο" (διακεκομμένο περίγραμμα, warning φόντο) ώστε
+   να είναι αμέσως αναγνωρίσιμο ως μη-μόνιμο τμήμα του UI. */
+
+.sync-diagnostics-panel {
+  border: 1px dashed var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.sync-diagnostics-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: var(--space-3);
+}
+
+.sync-diagnostics-panel__table th,
+.sync-diagnostics-panel__table td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.sync-diagnostics-panel__table th {
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: var(--space-4);
+}
+
+.sync-diagnostics-panel__table td {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.sync-diagnostics-panel__test-code {
+  margin-top: var(--space-4);
+}
+
+.sync-diagnostics-panel__test-code label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.sync-diagnostics-panel__test-code input {
+  font-family: monospace;
+}

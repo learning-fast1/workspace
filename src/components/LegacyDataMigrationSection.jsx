@@ -73,7 +73,15 @@ export default function LegacyDataMigrationSection() {
     )
   }
 
-  if (data === undefined) {
+  // Review (transient real-device ErrorBoundary crash κατά την ολοκλήρωση OTP, βλ.
+  // src/phase2AuthTransitionRace.test.jsx) — ΟΧΙ μόνο data===undefined (το useLiveQuery's «ποτέ
+  // δεν έτρεξε ακόμα» sentinel): το ίδιο το query σώμα επιστρέφει ρητά null όταν !hasValidUserId
+  // (βλ. πιο πάνω) — άρα ΑΚΡΙΒΩΣ στο render όπου το hasValidUserId μόλις έγινε true (π.χ. το
+  // userId μόλις έφτασε από db.cloud.currentUser), το useLiveQuery ΔΕΝ έχει προλάβει ακόμα να
+  // ξανατρέξει με τα ΝΕΑ dependencies — ακόμα δείχνει το ΠΑΛΙΟ, ήδη-resolved αποτέλεσμα (null) από
+  // το ΠΡΟΗΓΟΥΜΕΝΟ render όπου hasValidUserId ήταν false. Χωρίς αυτό το data===null branch,
+  // data.hasLegacyData παρακάτω πετάει TypeError — ζωντανά αναπαραγμένο, όχι θεωρητικό.
+  if (data === undefined || data === null) {
     return (
       <div className="section legacy-data-migration-section">
         <h2>Προετοιμασία τοπικών δεδομένων</h2>

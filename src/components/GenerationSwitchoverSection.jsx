@@ -46,7 +46,11 @@ export default function GenerationSwitchoverSection() {
   }
 
   if (!hasValidUserId) return null
-  if (data === undefined) return null
+  // Review (ίδιο εύρημα με LegacyDataMigrationSection.jsx, βλ. εκεί για πλήρη εξήγηση) — το
+  // useLiveQuery's αποτέλεσμα καθυστερεί ένα render πίσω από το hasValidUserId flip· ΑΚΡΙΒΩΣ στο
+  // render όπου hasValidUserId μόλις έγινε true, το data μπορεί ακόμα να είναι το ΠΑΛΙΟ, ήδη-
+  // resolved null (όχι undefined) από τότε που hasValidUserId ήταν false.
+  if (data === undefined || data === null) return null
   if (data.generation !== 'v2' && !data.migrationComplete) return null
 
   if (data.generation === 'v2') {

@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { LogIn, LogOut } from 'lucide-react'
 import useAuth from '../auth/useAuth.js'
+import { isSecureLoginContextAvailable } from '../auth/authStatus.js'
 import FormField from './ui/FormField.jsx'
 import Input from './ui/Input.jsx'
 import Button from './ui/Button.jsx'
 import AlertBanner from './ui/AlertBanner.jsx'
 import './AccountSection.css'
+
+const INSECURE_CONTEXT_MESSAGE = 'Η σύνδεση απαιτεί ασφαλή σύνδεση (HTTPS ή localhost). Η τρέχουσα διεύθυνση δεν υποστηρίζεται.'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -21,9 +24,24 @@ export default function AccountSection() {
   const [otpDraft, setOtpDraft] = useState('')
   const [localError, setLocalError] = useState(null)
   const [logoutError, setLogoutError] = useState(null)
+  const [loginError, setLoginError] = useState(null)
 
   // CLOUD_ENABLED=false (βλ. AuthProvider.jsx) — καμία εμφάνιση, καμία κλήση db.cloud.* έγινε ήδη.
   if (status === 'disabled') return null
+
+  // Review — real-device εύρημα (βλ. auth/authStatus.js#isSecureLoginContextAvailable για πλήρη
+  // εξήγηση): db.cloud.login() πετάει ΜΕΣΑ στο δικό του, μη-πιασμένο promise όταν δεν υπάρχει
+  // secure context (π.χ. πρόσβαση μέσω LAN IP πάνω από HTTP, όχι localhost/HTTPS) — ΚΑΜΙΑ αλλαγή
+  // στην ίδια την authentication λογική εδώ, μόνο ένας ΠΡΟΛΗΠΤΙΚΟΣ έλεγχος πριν την κλήση, ώστε ο
+  // χρήστης να δει ΣΑΦΕΣ μήνυμα αντί για απόλυτη σιωπή.
+  function handleLogin() {
+    setLoginError(null)
+    if (!isSecureLoginContextAvailable()) {
+      setLoginError(INSECURE_CONTEXT_MESSAGE)
+      return
+    }
+    actions.login()
+  }
 
   function handleSubmitEmail(e) {
     e.preventDefault()
@@ -76,8 +94,9 @@ export default function AccountSection() {
       {status === 'loggedOut' && (
         <>
           <p className="hint">Δεν είσαι συνδεδεμένος. Η σύνδεση δεν αλλάζει πώς λειτουργεί σήμερα το Workspace — τα δεδομένα σου παραμένουν στη συσκευή.</p>
+          {loginError && <AlertBanner variant="danger">{loginError}</AlertBanner>}
           <div className="actions-row">
-            <Button variant="primary" icon={LogIn} onClick={actions.login}>Σύνδεση</Button>
+            <Button variant="primary" icon={LogIn} onClick={handleLogin}>Σύνδεση</Button>
           </div>
         </>
       )}

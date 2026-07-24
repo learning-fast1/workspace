@@ -38,6 +38,24 @@ describe('AccountSection', () => {
     expect(acts.login).toHaveBeenCalledTimes(1)
   })
 
+  // Real-device εύρημα — βλ. auth/authStatus.js#isSecureLoginContextAvailable. Χωρίς αυτό το
+  // preflight check, το db.cloud.login() θα πέταγε ΜΕΣΑ στο δικό του, μη-πιασμένο promise
+  // (LAN IP πάνω από HTTP, όχι localhost/HTTPS) — ο χρήστης δεν έβλεπε ΤΙΠΟΤΑ.
+  it('status "loggedOut", ΧΩΡΙΣ crypto.subtle (μη ασφαλές context) → δείχνει σαφές μήνυμα, ΔΕΝ καλεί actions.login', async () => {
+    vi.stubGlobal('crypto', {}) // υπάρχει crypto, ΧΩΡΙΣ subtle — ακριβώς ό,τι θα έβλεπε ο addon
+    const acts = actions()
+    mockUseAuth.mockReturnValue({ status: 'loggedOut', email: null, error: null, actions: acts })
+    const user = userEvent.setup()
+    render(<AccountSection />)
+
+    await user.click(screen.getByRole('button', { name: 'Σύνδεση' }))
+
+    expect(screen.getByText('Η σύνδεση απαιτεί ασφαλή σύνδεση (HTTPS ή localhost). Η τρέχουσα διεύθυνση δεν υποστηρίζεται.')).toBeInTheDocument()
+    expect(acts.login).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
+  })
+
   it('status "loading" → δείχνει «Φόρτωση…»', () => {
     mockUseAuth.mockReturnValue({ status: 'loading', email: null, error: null, actions: actions() })
     render(<AccountSection />)

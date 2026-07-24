@@ -14,6 +14,21 @@
 // Άλλη πραγματικότητα του API (DXCErrorAlert['messageCode']): δεν υπάρχει ξεχωριστός κωδικός για
 // «έληξε ο κωδικός» — λάθος ΚΑΙ ληγμένο OTP καταλήγουν και τα δύο σε 'INVALID_OTP'. Το μήνυμα προς
 // τον χρήστη είναι σκόπιμα διατυπωμένο ώστε να καλύπτει και τις δύο περιπτώσεις.
+// Review — real-device εύρημα, evidence-based (βλ. node_modules/dexie-cloud-addon/.../
+// userAuthenticate: `if (!crypto.subtle) { throw new Error('...insecure location...') }`,
+// καλείται από κάθε πρώτο login σε νέα συσκευή/session). Το crypto.subtle (Web Crypto API)
+// υπάρχει ΜΟΝΟ σε secure context — HTTPS, ή localhost/127.0.0.1 (ρητή εξαίρεση των browsers).
+// Μια πρόσβαση μέσω απλής LAN IP πάνω από HTTP (π.χ. δοκιμή από κινητό στο ίδιο δίκτυο) ΔΕΝ είναι
+// secure context — το db.cloud.login() θα πετάξει ΜΕΣΑ στο δικό του, μη-πιασμένο promise (ΟΧΙ
+// κατά το rendering, άρα ΟΧΙ πιασμένο από ErrorBoundary) — ο χρήστης βλέπει ΚΥΡΙΟΛΕΚΤΙΚΑ τίποτα.
+// Ο έλεγχος εδώ ΑΝΤΙΚΑΤΟΠΤΡΙΖΕΙ ΑΚΡΙΒΩΣ τον έλεγχο του ίδιου του addon (`!crypto.subtle`) — ΟΧΙ
+// μια ξεχωριστή/διαφορετική ερμηνεία («secure context» θα μπορούσε θεωρητικά να αποκλίνει).
+// Καλείται ΠΡΙΝ από το db.cloud.login() (βλ. AccountSection.jsx) — καθαρή, testable συνάρτηση,
+// ΚΑΜΙΑ αλλαγή στην ίδια τη λογική authentication.
+export function isSecureLoginContextAvailable() {
+  return Boolean(globalThis.crypto?.subtle)
+}
+
 const ERROR_MESSAGES = {
   INVALID_OTP: 'Λάθος ή ληγμένος κωδικός. Δοκίμασε ξανά ή ζήτησε νέο κωδικό.',
   INVALID_EMAIL: 'Μη έγκυρη διεύθυνση email.',

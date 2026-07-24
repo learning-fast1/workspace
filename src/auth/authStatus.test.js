@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { deriveAuthStatus } from './authStatus.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { deriveAuthStatus, isSecureLoginContextAvailable } from './authStatus.js'
 
 describe('deriveAuthStatus — καθαρή συνάρτηση, χωρίς Dexie/React/δίκτυο', () => {
   it('χωρίς currentUser και χωρίς userInteraction → loggedOut', () => {
@@ -96,5 +96,27 @@ describe('deriveAuthStatus — καθαρή συνάρτηση, χωρίς Dexie
       userInteraction: { type: 'otp', alerts: [] }
     })
     expect(result.status).toBe('otpEntry')
+  })
+})
+
+// Real-device εύρημα (βλ. σχόλιο στο ίδιο το authStatus.js) — dexie-cloud-addon's userAuthenticate
+// πετάει `!crypto.subtle` μέσα σε μη-πιασμένο promise όταν δεν υπάρχει secure context (π.χ. LAN IP
+// πάνω από HTTP). Ο έλεγχος εδώ πρέπει να αντικατοπτρίζει ΑΚΡΙΒΩΣ την ίδια συνθήκη.
+describe('isSecureLoginContextAvailable — καθρέφτης του dexie-cloud-addon\'s δικού του !crypto.subtle ελέγχου', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('crypto.subtle διαθέσιμο (κανονικό secure context, π.χ. localhost/HTTPS) → true', () => {
+    vi.stubGlobal('crypto', { subtle: {} })
+    expect(isSecureLoginContextAvailable()).toBe(true)
+  })
+
+  it('crypto χωρίς subtle (π.χ. LAN IP πάνω από HTTP) → false', () => {
+    vi.stubGlobal('crypto', {})
+    expect(isSecureLoginContextAvailable()).toBe(false)
+  })
+
+  it('κανένα crypto καθόλου → false, ΚΑΝΕΝΑ crash', () => {
+    vi.stubGlobal('crypto', undefined)
+    expect(isSecureLoginContextAvailable()).toBe(false)
   })
 })

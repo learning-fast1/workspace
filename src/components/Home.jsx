@@ -39,11 +39,11 @@ async function checkBackupReminder() {
 // «Για μαθητή εκτός σημερινής ουράς παραμένει μια πολύ μικρή, ξεχωριστή γραμμή»).
 async function findStaleGoals() {
   const [students, goals, measurements, sessions, todayQueue] = await Promise.all([
-    db.students.toArray(),
-    db.goals.where('status').equals('active').toArray(),
-    db.measurements.toArray(),
-    db.sessions.toArray(),
-    db.dailyQueue.where('date').equals(todayLocalISO()).toArray()
+    activeTable('students').toArray(),
+    activeTable('goals').where('status').equals('active').toArray(),
+    activeTable('measurements').toArray(),
+    activeTable('sessions').toArray(),
+    activeTable('dailyQueue').where('date').equals(todayLocalISO()).toArray()
   ])
 
   const activeStudentIds = new Set(students.filter((s) => s.active).map((s) => s.id))

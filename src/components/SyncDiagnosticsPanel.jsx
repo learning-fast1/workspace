@@ -6,6 +6,7 @@ import useAuth from '../auth/useAuth.js'
 import { getCachedGeneration } from '../migration/activeGeneration.js'
 import { getLegacyDataOwner } from '../migration/legacyOwnership.js'
 import { checkSyncPrerequisites, isSessionSyncActive } from '../migration/syncAuthorization.js'
+import { loadStudentsWithStats } from './StudentList.jsx'
 import Button from './ui/Button.jsx'
 import AlertBanner from './ui/AlertBanner.jsx'
 import './SyncDiagnosticsPanel.css'
@@ -54,6 +55,16 @@ export default function SyncDiagnosticsPanel() {
       pendingMutationCount = `σφάλμα: ${serializeError(err)}`
     }
 
+    // Καλεί ΤΗΝ ΙΔΙΑ ακριβώς συνάρτηση που χρησιμοποιεί το StudentList.jsx (exported ρητά γι' αυτόν
+    // τον σκοπό, καμία αλλαγή συμπεριφοράς) — ώστε να φανεί αν το ίδιο το query της StudentList
+    // επιστρέφει 0 εγγραφές, ή αν επιστρέφει περισσότερες και χάνονται αργότερα σε filter/render.
+    let studentListResultCount = null
+    try {
+      studentListResultCount = (await loadStudentsWithStats()).length
+    } catch (err) {
+      studentListResultCount = `σφάλμα: ${serializeError(err)}`
+    }
+
     setSnapshot({
       cloudAvailable,
       email: status === 'loggedIn' ? email : null,
@@ -74,7 +85,8 @@ export default function SyncDiagnosticsPanel() {
       realms: persistedSyncState?.realms || [],
       inviteRealms: persistedSyncState?.inviteRealms || [],
       studentsV2Count,
-      pendingMutationCount
+      pendingMutationCount,
+      studentListResultCount
     })
     setRefreshedAt(new Date())
   }
@@ -140,6 +152,7 @@ export default function SyncDiagnosticsPanel() {
             <tr><th>inviteRealms</th><td>{snapshot.inviteRealms.length ? snapshot.inviteRealms.join(', ') : '—'}</td></tr>
             <tr><th>students_v2 πλήθος γραμμών (τοπικά)</th><td>{snapshot.studentsV2Count}</td></tr>
             <tr><th>$students_v2_mutations εκκρεμείς</th><td>{snapshot.pendingMutationCount}</td></tr>
+            <tr><th>StudentList query result count</th><td>{snapshot.studentListResultCount}</td></tr>
           </tbody>
         </table>
       )}

@@ -23,6 +23,14 @@ vi.mock('../migration/syncAuthorization.js', () => ({
   isSessionSyncActive: (...args) => mockIsSessionSyncActive(...args)
 }))
 
+// Mockάρουμε ολόκληρο το StudentList.jsx (ΟΧΙ μόνο το loadStudentsWithStats) ώστε το test αυτού του
+// panel να μην τραβάει μέσα του όλο το StudentList component tree (AppShell/PageHeader/κ.λπ.) — το
+// panel χρησιμοποιεί ΑΠΟΚΛΕΙΣΤΙΚΑ την exported συνάρτηση, ΠΟΤΕ το ίδιο το component.
+const mockLoadStudentsWithStats = vi.fn()
+vi.mock('./StudentList.jsx', () => ({
+  loadStudentsWithStats: (...args) => mockLoadStudentsWithStats(...args)
+}))
+
 // Ίδιο μοτίβο ελέγχου read-only: ΚΑΘΕ write-ικανή μέθοδο (configure/sync/login/add/put/update/
 // delete) την κάνουμε spy ώστε ένα ενδεχόμενο, κατά λάθος write να ΣΠΑΕΙ το test αντί να περνάει
 // αθόρυβα — το panel πρέπει να μένει ΑΥΣΤΗΡΑ αναγνωστικό σε ΟΛΗ τη διάρκεια render+αλληλεπίδρασης.
@@ -87,7 +95,13 @@ beforeEach(() => {
   mockGetLegacyDataOwner.mockResolvedValue({ userId: 'user-abc-123' })
   mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
   mockIsSessionSyncActive.mockReturnValue(true)
+  mockLoadStudentsWithStats.mockResolvedValue([{ id: 's1' }, { id: 's2' }])
 })
+
+function getDiagRowValue(label) {
+  const th = screen.getByText(label)
+  return th.nextElementSibling.textContent
+}
 
 afterEach(() => {
   cleanup()
@@ -111,6 +125,14 @@ describe('SyncDiagnosticsPanel', () => {
     expect(screen.getByText('v2')).toBeInTheDocument()
     expect(screen.getByText('rlm-1')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument() // students_v2 count
+    expect(getDiagRowValue('StudentList query result count')).toBe('2')
+  })
+
+  it('StudentList query result count — καλεί ΤΗΝ ΙΔΙΑ loadStudentsWithStats() που χρησιμοποιεί το StudentList, δείχνει σφάλμα αν πετάξει', async () => {
+    mockLoadStudentsWithStats.mockRejectedValueOnce(new Error('boom'))
+    renderAt('/settings?diag=1')
+    await screen.findByText('δασκάλα@example.com')
+    await waitFor(() => expect(getDiagRowValue('StudentList query result count')).toMatch(/σφάλμα: Error: boom/))
   })
 
   it('δεν εμφανίζει ονόματα/σημειώσεις μαθητών στον πίνακα διαγνωστικών — μόνο τα ρητά πεδία', async () => {

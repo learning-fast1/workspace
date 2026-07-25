@@ -18,7 +18,7 @@ import './StudentList.css'
 // Συγκεντρωτικό, καθαρά αναγνωστικό query — ΕΝΑ query ανά πίνακα (students/goals/sessions) για
 // ΟΛΟΥΣ τους μαθητές μαζί, όχι ένα query ανά μαθητή. Έτσι το StudentCard μένει καθαρά presentational
 // (μηδενικές δικές του queries) χωρίς να δημιουργείται πρόβλημα N+1.
-async function loadStudentsWithStats() {
+export async function loadStudentsWithStats() {
   const [students, goals, sessions] = await Promise.all([
     activeTable('students').orderBy('code').toArray(),
     activeTable('goals').where('status').equals('active').toArray(),

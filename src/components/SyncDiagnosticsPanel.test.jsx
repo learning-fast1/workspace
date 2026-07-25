@@ -80,6 +80,7 @@ const { configureSpy, syncSpy, loginSpy, studentsV2Table, mutationsTable, mockDb
 vi.mock('../db.js', () => ({ default: mockDb, CLOUD_ENABLED: true }))
 
 import SyncDiagnosticsPanel from './SyncDiagnosticsPanel.jsx'
+import { resetSyncResponseCaptureForTests, isCaptureArmed } from '../migration/syncResponseCapture.js'
 
 function renderAt(path) {
   return render(
@@ -96,6 +97,9 @@ beforeEach(() => {
   mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
   mockIsSessionSyncActive.mockReturnValue(true)
   mockLoadStudentsWithStats.mockResolvedValue([{ id: 's1' }, { id: 's2' }])
+  // Πραγματικό module (ΟΧΙ mock) — jsdom περιβάλλον εδώ (.test.jsx), υπάρχει πραγματικό localStorage.
+  localStorage.clear()
+  resetSyncResponseCaptureForTests()
 })
 
 function getDiagRowValue(label) {
@@ -106,6 +110,8 @@ function getDiagRowValue(label) {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  localStorage.clear()
+  resetSyncResponseCaptureForTests()
 })
 
 describe('SyncDiagnosticsPanel', () => {
@@ -179,6 +185,66 @@ describe('SyncDiagnosticsPanel', () => {
     expect(await screen.findByText('Δεν βρέθηκε τοπικά.')).toBeInTheDocument()
   })
 
+  it('καταγραφή sync response — εξ ορισμού ανενεργή, κουμπί «Ενεργοποίηση καταγραφής»', async () => {
+    renderAt('/settings?diag=1')
+    await screen.findByText('δασκάλα@example.com')
+    expect(screen.getByRole('button', { name: /Ενεργοποίηση καταγραφής/ })).toBeInTheDocument()
+    expect(isCaptureArmed()).toBe(false)
+  })
+
+  it('κλικ «Ενεργοποίηση καταγραφής» → armCapture() γράφει το localStorage flag, το κουμπί γίνεται «Απενεργοποίηση»', async () => {
+    const user = userEvent.setup()
+    renderAt('/settings?diag=1')
+    await screen.findByText('δασκάλα@example.com')
+
+    await user.click(screen.getByRole('button', { name: /Ενεργοποίηση καταγραφής/ }))
+
+    expect(isCaptureArmed()).toBe(true)
+    expect(await screen.findByRole('button', { name: 'Απενεργοποίηση καταγραφής' })).toBeInTheDocument()
+  })
+
+  it('κλικ «Απενεργοποίηση καταγραφής» → καθαρίζει το flag', async () => {
+    const user = userEvent.setup()
+    renderAt('/settings?diag=1')
+    await screen.findByText('δασκάλα@example.com')
+    await user.click(screen.getByRole('button', { name: /Ενεργοποίηση καταγραφής/ }))
+    await user.click(await screen.findByRole('button', { name: 'Απενεργοποίηση καταγραφής' }))
+
+    expect(isCaptureArmed()).toBe(false)
+  })
+
+  it('καταγεγραμμένα sync events εμφανίζονται στο panel ΧΩΡΙΣ περιεχόμενο μαθητή, με κουμπί λήψης', async () => {
+    const { installConsoleCapture } = await import('../migration/syncResponseCapture.js')
+    const originalDebug = console.debug
+    console.debug = vi.fn()
+    installConsoleCapture()
+    console.debug('Sync response', {
+      serverRevision: '1:2',
+      changes: [{
+        table: 'students_v2',
+        muts: [{ type: 'insert', keys: ['08ec81fe-...'], values: [{ code: 'n2', notes: 'ΜΥΣΤΙΚΗ ΣΗΜΕΙΩΣΗ' }] }]
+      }]
+    })
+
+    const user = userEvent.setup()
+    renderAt('/settings?diag=1')
+    await screen.findByText('δασκάλα@example.com')
+    await user.click(screen.getByRole('button', { name: /Ανανέωση διαγνωστικών/ }))
+
+    const captureSection = await waitFor(() => {
+      const el = document.querySelector('.sync-diagnostics-panel__capture table')
+      if (!el) throw new Error('capture table not rendered yet')
+      return el
+    })
+    expect(captureSection).toHaveTextContent('Sync response')
+    expect(screen.getByRole('button', { name: /Λήψη καταγραφής/ })).toBeInTheDocument()
+    expect(document.querySelector('.sync-diagnostics-panel__capture')).not.toHaveTextContent(/ΜΥΣΤΙΚΗ/)
+    expect(captureSection).toHaveTextContent('students_v2')
+    expect(captureSection).toHaveTextContent('insert')
+
+    console.debug = originalDebug
+  })
+
   it('ΠΟΤΕ δεν καλεί write-ικανές μεθόδους (configure/sync/login/add/put/update/delete) σε render + αλληλεπιδράσεις', async () => {
     const user = userEvent.setup()
     renderAt('/settings?diag=1')
@@ -186,6 +252,8 @@ describe('SyncDiagnosticsPanel', () => {
     await user.click(screen.getByRole('button', { name: /Ανανέωση διαγνωστικών/ }))
     await user.type(screen.getByLabelText(/Έλεγχος κωδικού μαθητή/), 'Μ1')
     await user.click(screen.getByRole('button', { name: 'Έλεγχος' }))
+    await user.click(screen.getByRole('button', { name: /Ενεργοποίηση καταγραφής/ }))
+    await user.click(await screen.findByRole('button', { name: 'Απενεργοποίηση καταγραφής' }))
 
     expect(configureSpy).not.toHaveBeenCalled()
     expect(syncSpy).not.toHaveBeenCalled()

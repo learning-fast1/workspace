@@ -9,7 +9,14 @@ import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import AuthProvider from './auth/AuthProvider.jsx'
 import RecoveryFailedScreen from './components/RecoveryFailedScreen.jsx'
+import { isCaptureArmed, installConsoleCapture } from './migration/syncResponseCapture.js'
 import './index.css'
+
+// Πρέπει να τρέξει ΕΔΩ, πριν από ΟΤΙΔΗΠΟΤΕ άλλο (ακόμα και πριν το registerSW/bootstrap) — το
+// dexie-cloud-addon μπορεί να πυροδοτήσει sync πολύ νωρίς μέσα στο bootstrap(). Ενεργό ΜΟΝΟ αν
+// arm-αρίστηκε ρητά από το SyncDiagnosticsPanel (localStorage flag) σε προηγούμενη φόρτωση — καμία
+// επίδραση στην κανονική λειτουργία της εφαρμογής όταν δεν είναι armed.
+if (isCaptureArmed()) installConsoleCapture()
 
 registerSW({ immediate: true })
 

@@ -6,6 +6,7 @@ import useAuth from '../auth/useAuth.js'
 import { getCachedGeneration } from '../migration/activeGeneration.js'
 import { getLegacyDataOwner } from '../migration/legacyOwnership.js'
 import { checkSyncPrerequisites, isSessionSyncActive } from '../migration/syncAuthorization.js'
+import { isCaptureArmed, armCapture, disarmCapture, getCapturedEvents } from '../migration/syncResponseCapture.js'
 import { loadStudentsWithStats } from './StudentList.jsx'
 import Button from './ui/Button.jsx'
 import AlertBanner from './ui/AlertBanner.jsx'
@@ -26,6 +27,8 @@ export default function SyncDiagnosticsPanel() {
   const [testCodeResult, setTestCodeResult] = useState(null)
   const [snapshot, setSnapshot] = useState(null)
   const [refreshedAt, setRefreshedAt] = useState(null)
+  const [captureArmed, setCaptureArmed] = useState(false)
+  const [capturedEvents, setCapturedEvents] = useState([])
 
   async function runDiagnostics() {
     if (!enabled) return
@@ -89,6 +92,31 @@ export default function SyncDiagnosticsPanel() {
       studentListResultCount
     })
     setRefreshedAt(new Date())
+    setCaptureArmed(isCaptureArmed())
+    setCapturedEvents(getCapturedEvents())
+  }
+
+  function handleArmCapture() {
+    armCapture()
+    setCaptureArmed(true)
+  }
+
+  function handleDisarmCapture() {
+    disarmCapture()
+    setCaptureArmed(false)
+  }
+
+  function handleDownloadCapturedLog() {
+    const json = JSON.stringify(getCapturedEvents(), null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sync-capture-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   useEffect(() => {
@@ -178,6 +206,45 @@ export default function SyncDiagnosticsPanel() {
                   ? `Βρέθηκε τοπικά (id: ${testCodeResult.id}).`
                   : 'Δεν βρέθηκε τοπικά.'}
             </p>
+          )}
+        </div>
+      )}
+
+      {snapshot?.cloudAvailable && (
+        <div className="sync-diagnostics-panel__capture">
+          <h3>Καταγραφή πραγματικού sync response (προσωρινό)</h3>
+          <p className="hint">
+            Καταγράφει ΜΟΝΟ table/type/keys από τις ήδη υπάρχουσες console.debug κλήσεις του ίδιου
+            του dexie-cloud-addon ("Sync request"/"Sync response"/"Applying server changes") — ποτέ
+            περιεχόμενο μαθητή. Χρειάζεται πλήρη επαναφόρτωση της σελίδας ΜΕΤΑ την ενεργοποίηση, ώστε
+            να «ακούσει» το επόμενο πραγματικό sync από την αρχή.
+          </p>
+          <div className="actions-row">
+            {captureArmed ? (
+              <Button variant="secondary" onClick={handleDisarmCapture}>Απενεργοποίηση καταγραφής</Button>
+            ) : (
+              <Button variant="secondary" onClick={handleArmCapture}>Ενεργοποίηση καταγραφής (μετά από reload)</Button>
+            )}
+            {capturedEvents.length > 0 && (
+              <Button variant="secondary" onClick={handleDownloadCapturedLog}>
+                Λήψη καταγραφής ({capturedEvents.length})
+              </Button>
+            )}
+          </div>
+          {captureArmed && capturedEvents.length === 0 && (
+            <p className="hint">Ενεργή — κάνε πλήρη επαναφόρτωση της σελίδας τώρα για να καταγραφεί το επόμενο sync.</p>
+          )}
+          {capturedEvents.length > 0 && (
+            <table className="sync-diagnostics-panel__table">
+              <tbody>
+                {capturedEvents.map((ev, i) => (
+                  <tr key={i}>
+                    <th>{ev.ts} — {ev.label}</th>
+                    <td>{JSON.stringify(ev.changes ?? ev.changesSummary ?? ev, null, 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}

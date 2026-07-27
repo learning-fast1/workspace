@@ -63,12 +63,21 @@ describe('Πλήρης ροή: migrate → activate v2 → ενεργοποίη�
 
     // 4) ΠΡΟΣΟΜΟΙΩΣΗ επόμενου reload — ΑΚΡΙΒΩΣ ό,τι υπολογίζει το db.js bootstrap ΠΡΙΝ το
     // db.cloud.configure()/db.open(): το hint είναι ήδη διαθέσιμο ΣΥΓΧΡΟΝΑ.
+    // Review (real-device εύρημα: $baseRevs άδειο, καμία λήψη ΠΟΤΕ) — σε αυτό το test file
+    // CLOUD_ENABLED=false (βλ. .env.test.local), άρα το πραγματικό db.tables ΔΕΝ περιλαμβάνει τους
+    // εσωτερικούς πίνακες του addon (realms/members/roles/$...). Προσθέτονται εδώ ρητά στο
+    // allTableNames ώστε το test να ελέγχει ΣΥΜΠΕΡΙΦΟΡΑ (ποτέ δεν αποκλείονται από το sync), όχι
+    // απλή αριθμητική που θα περνούσε ακόμα κι αν ξαναγύριζε το bug.
     const allTableNames = db.tables.map((t) => t.name)
+      .concat(['realms', 'members', 'roles', '$logins', '$baseRevs', '$syncState', '$jobs', '$students_v2_mutations'])
     const unsyncedTables = computeUnsyncedTables({ hint: readSyncAuthorizationHint(), allTableNames })
     for (const legacy of MIGRATED_TABLE_NAMES) expect(unsyncedTables).toContain(legacy)
     expect(unsyncedTables).toContain('appMeta')
     for (const legacy of MIGRATED_TABLE_NAMES) expect(unsyncedTables).not.toContain(v2TableName(legacy))
-    expect(unsyncedTables.length).toBe(allTableNames.length - MIGRATED_TABLE_NAMES.length)
+    expect(unsyncedTables).not.toContain('realms')
+    expect(unsyncedTables).not.toContain('members')
+    expect(unsyncedTables).not.toContain('roles')
+    expect(unsyncedTables.some((name) => name.startsWith('$'))).toBe(false)
 
     // 5) ΠΡΟΣΟΜΟΙΩΣΗ post-open επιβεβαίωσης (main.jsx, ΑΜΕΣΩΣ μετά το initializeActiveGeneration).
     resetSessionSyncForTests() // νέα σελίδα-φόρτωση = καθαρό in-memory session state
@@ -130,5 +139,35 @@ describe('Πλήρης ροή: migrate → activate v2 → ενεργοποίη�
     const active = await verifySyncAuthorizationOrShutdown({ getAuthenticatedUserId: () => ALICE, configure: () => {} })
     expect(active).toBe(false)
     expect(readSyncAuthorizationHint()).toBeNull()
+  })
+})
+
+// Review (real-device εύρημα: $baseRevs άδειο, καμία λήψη ΠΟΤΕ σε καθαρή συσκευή) — κατοχυρώνει ρητά
+// την ΣΚΟΠΙΜΗ ασυμμετρία μεταξύ των δύο κλάδων του computeUnsyncedTables: χωρίς hint (Phase 1) η
+// εγγύηση παραμένει απόλυτη («κυριολεκτικά τίποτα, ούτε υποδομή»)· ΜΟΝΟ αφού υπάρχει hint επιτρέπεται
+// στην υποδομή του addon (realms/members/roles/$...) να συγχρονιστεί, μαζί με τους 16 _v2 πίνακες.
+describe('computeUnsyncedTables — η ασυμμετρία των δύο κλάδων είναι σκόπιμη, όχι παράλειψη', () => {
+  const SYNTHETIC_ADDON_TABLES = ['realms', 'members', 'roles', '$logins', '$baseRevs', '$syncState', '$jobs', '$students_v2_mutations']
+
+  function fullTableNameList() {
+    return MIGRATED_TABLE_NAMES
+      .concat(MIGRATED_TABLE_NAMES.map(v2TableName))
+      .concat(['appMeta'])
+      .concat(SYNTHETIC_ADDON_TABLES)
+  }
+
+  it('χωρίς hint → επιστρέφονται ΟΛΑ τα ονόματα αναλλοίωτα, ΟΥΤΕ καν η υποδομή του addon εξαιρείται', () => {
+    const allTableNames = fullTableNameList()
+    expect(computeUnsyncedTables({ hint: null, allTableNames })).toEqual(allTableNames)
+  })
+
+  it('με hint → εξαιρούνται ΚΑΙ οι 16 _v2 πίνακες ΚΑΙ η υποδομή του addon (realms/members/roles/$...)', () => {
+    const allTableNames = fullTableNameList()
+    const unsyncedTables = computeUnsyncedTables({ hint: ALICE, allTableNames })
+
+    for (const legacy of MIGRATED_TABLE_NAMES) expect(unsyncedTables).toContain(legacy)
+    expect(unsyncedTables).toContain('appMeta')
+    for (const legacy of MIGRATED_TABLE_NAMES) expect(unsyncedTables).not.toContain(v2TableName(legacy))
+    for (const addonTable of SYNTHETIC_ADDON_TABLES) expect(unsyncedTables).not.toContain(addonTable)
   })
 })

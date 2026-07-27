@@ -53,12 +53,23 @@ export function clearSyncAuthorizationHint() {
   storage.removeItem(HINT_KEY)
 }
 
-// hint απόν → η ΠΛΗΡΗΣ λίστα (ΑΚΡΙΒΩΣ η σημερινή, αναλλοίωτη συμπεριφορά — καμία εγγραφή ΠΟΤΕ δεν
-// συγχρονίζεται χωρίς hint). hint παρόν → όλα ΕΚΤΟΣ από τους 16 _v2 πίνακες (legacy + appMeta +
-// οτιδήποτε μελλοντικό μη-migrated table παραμένουν πάντα εκτός, αντλείται από allTableNames όχι
-// από καρφωμένη λίστα). Το ΙΔΙΟ το hint ΔΕΝ αποφασίζει ΤΙΠΟΤΑ άλλο εδώ — απλά επιλέγει ανάμεσα σε
-// δύο ήδη-καθορισμένες, στατικές λίστες.
+const ADDON_TABLES = new Set(['realms', 'members', 'roles'])
+const isAddonTable = (name) => name.startsWith('$') || ADDON_TABLES.has(name)
+
 export function computeUnsyncedTables({ hint, allTableNames }) {
+  // hint απόν → η ΠΛΗΡΗΣ λίστα, ΚΥΡΙΟΛΕΚΤΙΚΑ τίποτα δεν συγχρονίζεται — ΟΥΤΕ καν η υποδομή του ίδιου
+  // του addon (realms/members/roles/$...). Η ασυμμετρία με τον παρακάτω κλάδο είναι ΣΚΟΠΙΜΗ, όχι
+  // παράλειψη: η εγγύηση του Phase 1 («καμία εξουσιοδότηση → μηδενικό sync») παραμένει απόλυτη,
+  // χωρίς εξαίρεση ούτε για «αθώους» πίνακες υποδομής — δεν αλλάζει ως παρενέργεια διόρθωσης bug
+  // (review, βλ. db.test.js #3/#4, ρητά διατηρημένα ανέγγιχτα).
   if (!hint) return allTableNames
-  return allTableNames.filter((name) => !V2_TABLE_NAMES.has(name))
+
+  // hint παρόν — real-device εύρημα (καθαρή συσκευή: $baseRevs άδειο, καμία λήψη ΠΟΤΕ δεν
+  // ολοκληρώθηκε ΜΕΤΑ την εξουσιοδότηση): το allTableNames περιλαμβάνει ΚΑΙ τους εσωτερικούς
+  // πίνακες του dexie-cloud-addon (realms, members, roles, $logins, $baseRevs, $syncState, $jobs,
+  // $*_mutations). Αυτοί ΔΕΝ είναι εκπαιδευτικά δεδομένα προς προστασία — χωρίς αυτούς ο client δεν
+  // χτίζει ποτέ τη σωστή εικόνα realm/access του, άρα καμία λήψη δεν ολοκληρώνεται. Εξαιρούνται
+  // λοιπόν ΕΔΩ, ΜΟΝΟ αφού υπάρχει ρητό hint — μαζί με τους 16 _v2 πίνακες (legacy + appMeta
+  // παραμένουν πάντα εκτός, αντλείται από allTableNames όχι από καρφωμένη λίστα).
+  return allTableNames.filter((name) => !isAddonTable(name) && !V2_TABLE_NAMES.has(name))
 }

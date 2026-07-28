@@ -832,7 +832,21 @@ export async function restoreDailyQueueEntry(entry) {
 // ημερομηνία), η γραμμή «κλείνει» ΑΜΕΣΩΣ μέσω notHeld συνεδρίας — ίδιος μηχανισμός με το χειροκίνητο
 // «Δεν πραγματοποιήθηκε», όχι διαγραφή της γραμμής. Για μετακίνηση, στιγμιότυπο (snapshot) του
 // περιεχομένου του slot ΤΗ ΣΤΙΓΜΗ της μετακίνησης — όχι ζωντανή αναφορά (§4).
-export async function applyScheduleException({ type, seriesId, originalDate, newDate, reason }) {
+//
+// Phase 2 Stage B — «Αλλαγή ώρας» μίας ημερομηνίας: ΕΠΕΚΤΑΣΗ του ήδη υπάρχοντος 'moved' αντί για
+// νέο τύπο (review: ίδια ΑΚΡΙΒΩΣ μηχανική — snapshot override σε μία ημερομηνία — απλά με
+// newDate === originalDate). Ο resolver (scheduleResolution.js) ΉΔΗ χειρίζεται αυτή την περίπτωση
+// σωστά χωρίς καμία δική του αλλαγή: όταν originalDate === newDate, η σειρά αποκλείεται ΚΑΙ
+// ξαναπροστίθεται από το ΙΔΙΟ exception (suppress+re-add), καταλήγοντας σε ΑΚΡΙΒΩΣ μία εμφάνιση με
+// τη νέα ώρα — καμία αλλαγή στο σχήμα/στη λογική επίλυσης χρειάστηκε.
+//
+// newStartTime (προαιρετικό): μόνο για αλλαγή-ώρας-ίδιας-ημέρας — αντικαθιστά τη snapshotted ώρα.
+// Σε αυτή την περίπτωση η εμφάνιση ΣΥΝΕΧΙΖΕΙ να πραγματοποιείται σήμερα (ΔΕΝ είναι notHeld) — αν η
+// ημέρα έχει ήδη παραχθεί, ενημερώνεται απευθείας η γραμμή dailyQueue (το plannedTime είναι
+// στιγμιότυπο στη δημιουργία, βλ. σχόλιο db.js v7/v8 — δεν ξαναϋπολογίζεται μόνο του).
+export async function applyScheduleException({ type, seriesId, originalDate, newDate, newStartTime, reason }) {
+  const isSameDayTimeChange = type === 'moved' && newDate === originalDate
+
   let snapshot = {}
   if (type === 'moved') {
     const versions = await activeTable('scheduleSlots').where('seriesId').equals(seriesId).toArray()
@@ -843,7 +857,7 @@ export async function applyScheduleException({ type, seriesId, originalDate, new
       snapshot = {
         studentIds: active.studentIds,
         slotType: active.type,
-        startTime: active.startTime,
+        startTime: isSameDayTimeChange && newStartTime ? newStartTime : active.startTime,
         durationMinutes: active.durationMinutes,
         label: active.label
       }
@@ -858,6 +872,16 @@ export async function applyScheduleException({ type, seriesId, originalDate, new
     reason: reason || '',
     ...snapshot
   }))
+
+  if (isSameDayTimeChange) {
+    const dailyQueueTable = activeTable('dailyQueue')
+    const originEntries = await dailyQueueTable.where('date').equals(originalDate).toArray()
+    const originEntry = originEntries.find((e) => e.scheduleSeriesId === seriesId)
+    if (originEntry && newStartTime) {
+      await dailyQueueTable.update(originEntry.id, { plannedTime: newStartTime })
+    }
+    return
+  }
 
   const originEntries = await activeTable('dailyQueue').where('date').equals(originalDate).toArray()
   const originEntry = originEntries.find((e) => e.scheduleSeriesId === seriesId)

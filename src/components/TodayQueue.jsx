@@ -14,6 +14,8 @@ import Button from './ui/Button.jsx'
 import EmptyState from './ui/EmptyState.jsx'
 import Modal from './ui/Modal.jsx'
 import DateField from './ui/DateField.jsx'
+import FormField from './ui/FormField.jsx'
+import Input from './ui/Input.jsx'
 import TodayQueueItem from './TodayQueueItem.jsx'
 import './TodayQueue.css'
 
@@ -77,6 +79,8 @@ export default function TodayQueue({ date: dateProp }) {
   const [acceptingSuggestion, setAcceptingSuggestion] = useState(false)
   const [moveTarget, setMoveTarget] = useState(null) // entry να μετακινηθεί
   const [moveDate, setMoveDate] = useState(today)
+  const [timeChangeTarget, setTimeChangeTarget] = useState(null) // entry για αλλαγή ώρας ίδιας ημέρας (Phase 2 Stage B)
+  const [newTime, setNewTime] = useState('')
   const [notHeldTarget, setNotHeldTarget] = useState(null) // entry προς επιβεβαίωση «Δεν πραγματοποιήθηκε»
   const [markingNotHeld, setMarkingNotHeld] = useState(false)
   const [, forceTick] = useState(0)
@@ -144,6 +148,20 @@ export default function TodayQueue({ date: dateProp }) {
       newDate: moveDate
     })
     setMoveTarget(null)
+  }
+
+  // Phase 2 Stage B — «Αλλαγή ώρας» ΜΟΝΟ για σήμερα (ίδια ημερομηνία), ΧΩΡΙΣ να αγγίζει το
+  // εβδομαδιαίο template· επέκταση του 'moved' με newDate === originalDate (βλ. db.js).
+  async function handleConfirmTimeChange() {
+    if (!timeChangeTarget || !newTime) return
+    await applyScheduleException({
+      type: 'moved',
+      seriesId: timeChangeTarget.scheduleSeriesId,
+      originalDate: timeChangeTarget.date,
+      newDate: timeChangeTarget.date,
+      newStartTime: newTime
+    })
+    setTimeChangeTarget(null)
   }
 
   async function handleMove(entry, direction) {
@@ -232,6 +250,7 @@ export default function TodayQueue({ date: dateProp }) {
                 onRestore={() => handleRestore(entry)}
                 onMarkNotHeld={() => setNotHeldTarget(entry)}
                 onMove={entry.scheduleSeriesId != null ? () => { setMoveTarget(entry); setMoveDate(date) } : undefined}
+                onChangeTime={entry.scheduleSeriesId != null ? () => { setTimeChangeTarget(entry); setNewTime(entry.plannedTime || '') } : undefined}
                 onMoveUp={() => handleMove(entry, -1)}
                 onMoveDown={() => handleMove(entry, 1)}
               />
@@ -266,6 +285,26 @@ export default function TodayQueue({ date: dateProp }) {
       >
         <p>Η σημερινή εμφάνιση δεν θα πραγματοποιηθεί σήμερα — θα μετακινηθεί στη νέα ημερομηνία. Το σταθερό πρόγραμμα δεν αλλάζει.</p>
         <DateField id="moveTargetDate" value={moveDate} onChange={setMoveDate} />
+      </Modal>
+
+      {/* Phase 2 Stage B — ίδια ημερομηνία, μόνο η ώρα αλλάζει. Ξεχωριστό action/modal από τη
+          «Μετακίνηση σε άλλη μέρα» παραπάνω — διαφορετική πρόθεση χρήστη, ίδιος υποκείμενος
+          μηχανισμός (applyScheduleException type:'moved', βλ. db.js). */}
+      <Modal
+        open={!!timeChangeTarget}
+        onClose={() => setTimeChangeTarget(null)}
+        title="Αλλαγή ώρας"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setTimeChangeTarget(null)}>Ακύρωση</Button>
+            <Button variant="primary" onClick={handleConfirmTimeChange} disabled={!newTime}>Αλλαγή ώρας</Button>
+          </>
+        }
+      >
+        <p>Η ώρα αλλάζει ΜΟΝΟ για σήμερα — η συνεδρία εξακολουθεί να πραγματοποιείται. Το σταθερό εβδομαδιαίο πρόγραμμα δεν αλλάζει.</p>
+        <FormField htmlFor="timeChangeNewTime" label="Νέα ώρα">
+          <Input id="timeChangeNewTime" type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+        </FormField>
       </Modal>
 
       <Modal

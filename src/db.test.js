@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Dexie from 'dexie'
 import db, {
   migrateDomainNamesToIds, ensureDomainTemplatesSeeded, createScheduleSlot, saveScheduleSlotEdit,
-  copyScheduleDay, ensureDayGenerated, recordSessionNotHeld,
+  copyScheduleDay, ensureDayGenerated, recordSessionNotHeld, applyScheduleException, bulkCancelDay,
   migrateRevisedGoalStatusToActive, backfillGoalEvents,
   transitionGoalStatus, createGoal, getAllowedGoalStatusTransitions,
   saveGoalAsTemplate, listGoalTemplates, updateGoalTemplate, deleteGoalTemplate,
@@ -413,6 +413,118 @@ describe('copyScheduleDay — mode "replace" πάνω σε ήδη παραχθε
     const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
     expect(queueToday).toHaveLength(1) // ΠΟΤΕ διπλότυπο, όσες φορές κι αν επαναληφθεί
     expect(queueToday[0].studentIds).toEqual([3])
+  })
+})
+
+// Phase 2 Stage B — «Αλλαγή ώρας» μίας συγκεκριμένης ημερομηνίας, επέκταση του ήδη υπάρχοντος
+// 'moved' (newDate === originalDate) αντί για νέο τύπο. Πρώτη φορά που το applyScheduleException
+// δοκιμάζεται άμεσα/integration-level σε αυτό το αρχείο — καλύπτει ΚΑΙ τη νέα συμπεριφορά ΚΑΙ τη
+// backward compatibility των ήδη υπαρχόντων 'cancelled'/'moved' (cross-date), αφού μέχρι τώρα καμία
+// δεν είχε ρητό test εδώ (μόνο έμμεση κάλυψη μέσω του copyScheduleDay suite παραπάνω).
+describe('applyScheduleException — Phase 2 Stage B: αλλαγή ώρας ίδιας ημέρας (επέκταση "moved")', () => {
+  const today = todayLocalISO()
+  const dow = weekdayOf(today)
+  const nextWeek = addDays(today, 7)
+
+  it('ΔΕΝ δημιουργεί νέα έκδοση στο scheduleSlots — το template παραμένει ανέγγιχτο', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+
+    await applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+
+    const slots = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    expect(slots).toHaveLength(1) // ΚΑΜΙΑ νέα έκδοση
+    expect(slots[0].startTime).toBe('09:00') // το template δεν άλλαξε
+  })
+
+  it('η νέα ώρα εμφανίζεται ΜΟΝΟ στη συγκεκριμένη ημερομηνία — οι επόμενες επαναλήψεις παραμένουν στην αρχική ώρα', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+
+    const slots = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    const exceptions = await db.scheduleExceptions.where('seriesId').equals(seriesId).toArray()
+
+    const occToday = resolveOccurrencesForDate(today, { scheduleSlots: slots, scheduleExceptions: exceptions })
+    expect(occToday).toHaveLength(1) // ΑΚΡΙΒΩΣ μία εμφάνιση, ΟΧΙ δύο (suppress + re-add του ίδιου exception)
+    expect(occToday[0].startTime).toBe('11:00')
+
+    const occNextWeek = resolveOccurrencesForDate(nextWeek, { scheduleSlots: slots, scheduleExceptions: exceptions })
+    expect(occNextWeek).toHaveLength(1)
+    expect(occNextWeek[0].startTime).toBe('09:00') // η επόμενη επανάληψη ΔΕΝ επηρεάζεται
+  })
+
+  it('αν η ημέρα έχει ήδη παραχθεί, ενημερώνεται απευθείας η γραμμή dailyQueue (plannedTime)', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+    const before = (await db.dailyQueue.where('date').equals(today).toArray())[0]
+    expect(before.plannedTime).toBe('09:00')
+
+    await applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+
+    const after = await db.dailyQueue.get(before.id)
+    expect(after.plannedTime).toBe('11:00')
+    expect(after.id).toBe(before.id) // ΙΔΙΑ γραμμή ενημερώθηκε, όχι νέα/διπλή
+    const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
+    expect(queueToday).toHaveLength(1) // καμία δεύτερη/ορφανή γραμμή
+  })
+
+  it('η συνεδρία ΣΥΝΕΧΙΖΕΙ να πραγματοποιείται — καμία notHeld συνεδρία δημιουργείται (σε αντίθεση με πραγματική μετακίνηση/ακύρωση)', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+
+    await applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+
+    const sessionsToday = await db.sessions.where('date').equals(today).toArray()
+    expect(sessionsToday).toHaveLength(0) // καμία notHeld δημιουργήθηκε
+  })
+
+  it('backward compatibility — «cancelled» συνεχίζει να λειτουργεί όπως πριν (notHeld + suppressed occurrence)', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+
+    await applyScheduleException({ type: 'cancelled', seriesId, originalDate: today })
+
+    const sessionsToday = await db.sessions.where('date').equals(today).toArray()
+    expect(sessionsToday).toHaveLength(1)
+    expect(sessionsToday[0].status).toBe('notHeld')
+
+    const slots = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    const exceptions = await db.scheduleExceptions.where('seriesId').equals(seriesId).toArray()
+    const occ = resolveOccurrencesForDate(today, { scheduleSlots: slots, scheduleExceptions: exceptions })
+    expect(occ).toHaveLength(0) // η εμφάνιση αποκλείεται σήμερα
+
+    const occNextWeek = resolveOccurrencesForDate(nextWeek, { scheduleSlots: slots, scheduleExceptions: exceptions })
+    expect(occNextWeek).toHaveLength(1) // η επόμενη εβδομάδα ΔΕΝ επηρεάζεται
+  })
+
+  it('backward compatibility — «moved» σε άλλη ημερομηνία συνεχίζει να λειτουργεί όπως πριν (notHeld στην αρχική, νέα εμφάνιση στη νέα ημερομηνία)', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+    const futureDate = addDays(today, 2)
+
+    await applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: futureDate })
+
+    const sessionsToday = await db.sessions.where('date').equals(today).toArray()
+    expect(sessionsToday).toHaveLength(1)
+    expect(sessionsToday[0].status).toBe('notHeld') // η αρχική ημέρα «κλείνει» κανονικά, ΟΧΙ όπως στην αλλαγή ώρας
+
+    const queueOnFutureDate = await db.dailyQueue.where('date').equals(futureDate).toArray()
+    expect(queueOnFutureDate).toHaveLength(1) // η νέα ημερομηνία παράχθηκε
+    expect(queueOnFutureDate[0].studentIds).toEqual([1])
+
+    const slots = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    expect(slots).toHaveLength(1) // το template ΔΕΝ άλλαξε ούτε εδώ
+  })
+
+  it('backward compatibility — bulkCancelDay (χρησιμοποιεί το ίδιο applyScheduleException) συνεχίζει να λειτουργεί', async () => {
+    await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await createScheduleSlot({ dayOfWeek: dow, startTime: '10:00', durationMinutes: 30, type: 'individual', studentIds: [2], label: '' })
+
+    const cancelledCount = await bulkCancelDay(today, 'Σχολική αργία')
+    expect(cancelledCount).toBe(2)
+
+    const exceptions = await db.scheduleExceptions.where('originalDate').equals(today).toArray()
+    expect(exceptions).toHaveLength(2)
+    expect(exceptions.every((e) => e.type === 'cancelled')).toBe(true)
   })
 })
 

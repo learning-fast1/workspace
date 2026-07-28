@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import db from '../db.js'
+import db, { createScheduleSlot, ensureDayGenerated } from '../db.js'
+import { todayLocalISO, weekdayOf } from '../utils/date.js'
 import TodayQueue from './TodayQueue.jsx'
 
 beforeEach(async () => {
@@ -48,6 +50,45 @@ describe('TodayQueue — μόνο πληροφορία, καμία ενέργε�
 
     expect(screen.queryByText('Έκτακτη ατομική')).not.toBeInTheDocument()
     expect(screen.queryByText('Έκτακτη ομαδική')).not.toBeInTheDocument()
+  })
+})
+
+// Phase 2 Stage B — «Αλλαγή ώρας» μίας ημερομηνίας, από το πραγματικό UI (component-level, όχι μόνο
+// db.test.js). Μόνο για γραμμές που προήλθαν από το εβδομαδιαίο πρόγραμμα (scheduleSeriesId !=
+// null) — ίδια εξάρτηση με το ήδη υπάρχον «Μετακίνηση σε άλλη μέρα».
+describe('TodayQueue — «Αλλαγή ώρας» (Phase 2 Stage B)', () => {
+  it('αλλάζει την εμφανιζόμενη ώρα ΜΟΝΟ για σήμερα, χωρίς να αγγίζει το template', async () => {
+    const today = todayLocalISO()
+    const dow = weekdayOf(today)
+    // ΟΧΙ καρφωμένο id=1 — άλλα tests σε αυτό το αρχείο ήδη προσθέτουν μαθητές πριν από αυτό,
+    // το auto-increment counter του Dexie ΔΕΝ επαναφέρεται μόνο με db.tables.clear() (βλ. afterEach).
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [studentId], label: '' })
+    await ensureDayGenerated(today)
+
+    const user = userEvent.setup()
+    renderQueue({ date: today })
+
+    await screen.findByText('09:00')
+    await user.click(screen.getByRole('button', { name: /Ενέργειες για Μ1/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Αλλαγή ώρας' }))
+
+    const timeInput = await screen.findByLabelText('Νέα ώρα')
+    await user.clear(timeInput)
+    await user.type(timeInput, '11:00')
+    await user.click(screen.getByRole('button', { name: 'Αλλαγή ώρας' }))
+
+    // Το modal button ΚΑΙ το menu item έχουν το ίδιο label «Αλλαγή ώρας» — findByText στη γραμμή
+    // επιβεβαιώνει ότι η ΕΜΦΑΝΙΖΟΜΕΝΗ ώρα άλλαξε πραγματικά, όχι απλά ότι το modal έκλεισε.
+    await waitFor(async () => expect(await screen.findByText('11:00')).toBeInTheDocument())
+    expect(screen.queryByText('09:00')).not.toBeInTheDocument()
+
+    const slots = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    expect(slots).toHaveLength(1)
+    expect(slots[0].startTime).toBe('09:00') // το template ΔΕΝ άλλαξε
+
+    const sessionsToday = await db.sessions.where('date').equals(today).toArray()
+    expect(sessionsToday).toHaveLength(0) // καμία notHeld — η συνεδρία συνεχίζει να πραγματοποιείται
   })
 })
 

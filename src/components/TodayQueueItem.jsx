@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Ban, CircleCheck, RotateCcw, UserRound, Users, XCircle } from 'lucide-react'
+import { ArrowDown, ArrowUp, Ban, CircleCheck, Clock, RotateCcw, UserRound, Users, XCircle } from 'lucide-react'
 import Card from './ui/Card.jsx'
 import OverflowMenu from './ui/OverflowMenu.jsx'
 import { moodOption } from '../config/moodOptions.js'
@@ -13,12 +13,16 @@ import './TodayQueueItem.css'
 // συνεχίζει να δουλεύει αμετάβλητη όταν αυτά τα props απουσιάζουν):
 // - `plannedTime`/`timeState` ('now'|'soon'|null): η ώρα είναι πλέον ο κύριος οπτικός άξονας —
 //   εμφανίζεται πάντα η ΠΡΟΓΡΑΜΜΑΤΙΣΜΕΝΗ ώρα, αμετάβλητη ό,τι κι αν συμβεί αργότερα (Technical
-//   Plan, τελευταίος γύρος σημείο 2 — καμία «πραγματική ώρα έναρξης» καταγράφεται ποτέ).
+//   Plan, τελευταίος γύρος σημείο 2 — καμία «πραγματική ώρα έναρξης» καταγράφεται ποτέ). Phase 2
+//   Stage B: ΜΙΑ ρητή εξαίρεση — «Αλλαγή ώρας» (`onChangeTime`) ενημερώνει σκόπιμα αυτό το πεδίο
+//   για τη σημερινή γραμμή, βλ. applyScheduleException στο db.js.
 // - `color`: λεπτή έγχρωμη ταυτότητα μαθητή/ομάδας (utils/scheduleColor.js) — ΠΟΤΕ μοναδική
 //   πηγή αναγνώρισης, πάντα μαζί με τον κωδικό.
 // - `notHeld`: η γραμμή «έκλεισε» με «Δεν πραγματοποιήθηκε» αντί για πραγματική συνεδρία —
 //   διακριτή, ήπια οπτική μεταχείριση, ΟΧΙ ίδια με το πράσινο ✓ του «ολοκληρώθηκε».
 // - `onMarkNotHeld`/`onRestore`: η ενιαία «Επαναφορά στη σειρά» καλύπτει ΚΑΙ skip ΚΑΙ notHeld.
+// - `onChangeTime` (Phase 2 Stage B): αλλαγή ώρας ΜΟΝΟ για τη σημερινή ημερομηνία — ΔΕΝ αγγίζει
+//   το εβδομαδιαίο πρόγραμμα, ΔΕΝ σημαίνει notHeld (η συνεδρία συνεχίζει να πραγματοποιείται).
 export default function TodayQueueItem({
   students,
   isGroup,
@@ -38,6 +42,7 @@ export default function TodayQueueItem({
   onRestore,
   onMarkNotHeld,
   onMove,
+  onChangeTime,
   onMoveUp,
   onMoveDown,
   canMoveUp,
@@ -56,6 +61,9 @@ export default function TodayQueueItem({
     )
     if (!skipped && onMarkNotHeld) {
       menuItems.push({ label: 'Δεν πραγματοποιήθηκε', icon: Ban, onClick: onMarkNotHeld, variant: 'danger' })
+    }
+    if (!skipped && onChangeTime) {
+      menuItems.push({ label: 'Αλλαγή ώρας', icon: Clock, onClick: onChangeTime })
     }
     if (!skipped && onMove) {
       menuItems.push({ label: 'Μετακίνηση σε άλλη μέρα', icon: ArrowUp, onClick: onMove })

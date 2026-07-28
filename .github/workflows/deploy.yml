@@ -27,18 +27,31 @@ jobs:
       # Readiness blockers v1 (review χρήστη) — υποχρεωτικό πριν από το build/deploy: μια
       # αποτυχία εδώ ΣΤΑΜΑΤΑΕΙ ολόκληρο το workflow, ΚΑΝΕΝΑ deploy δεν συμβαίνει.
       - run: npm test
+      # CI hardening follow-up (review χρήστη) — ΞΕΧΩΡΙΣΤΟ build ΜΟΝΟ για το pre-deploy smoke,
+      # με VITE_DEXIE_CLOUD_URL ΡΗΤΑ κενό (ΟΧΙ το πραγματικό vars.VITE_DEXIE_CLOUD_URL): το
+      # cloud-disabled αυτό dist/ σερβίρεται στη συνέχεια με `npm run preview` πάνω από
+      # localhost — αν το πραγματικό cloud URL ήταν ενεργό εδώ, το CORS allowlist του Dexie
+      # Cloud (σωστά scoped ΜΟΝΟ στο πραγματικό production domain, ΟΧΙ σε CI localhost) θα
+      # μπλόκαρε μόνιμα αυτό το βήμα — ΧΩΡΙΣ να προστεθεί localhost στο allowlist γι' αυτό.
+      # Αντικαθίσταται πλήρως από το πραγματικό production build παρακάτω πριν το upload.
+      - run: npm run build
+        env:
+          VITE_DEXIE_CLOUD_URL: ''
+      - run: npx playwright install --with-deps chromium
+      # Πραγματικό production build (dist/) σερβίρεται τοπικά με `npm run preview` — βλ.
+      # playwright.config.js#webServer. Μια αποτυχία εδώ αποτυγχάνει το build job ΚΑΙ μπλοκάρει
+      # το deploy job παρακάτω.
+      - run: npx playwright test
+      # Πραγματικό production build, ΜΕΤΑ το pre-deploy smoke — αντικαθιστά πλήρως το
+      # cloud-disabled dist/ παραπάνω με το πραγματικό artifact (πραγματικό
+      # vars.VITE_DEXIE_CLOUD_URL, ΑΚΡΙΒΩΣ όπως πριν το CI hardening) — αυτό, ΚΑΙ ΜΟΝΟ αυτό,
+      # ανεβαίνει παρακάτω.
       - run: npm run build
         env:
           # Sprint 5A Phase 1 — όχι μυστικό (βλ. .env.example), γι' αυτό repository VARIABLE
           # (vars.*) και όχι secret. Απουσία αυτής της μεταβλητής (π.χ. σε fork) σημαίνει το
           # feature flag είναι off — build χωρίς κανένα cloud addon ενεργό.
           VITE_DEXIE_CLOUD_URL: ${{ vars.VITE_DEXIE_CLOUD_URL }}
-      # Readiness blockers v1 (review χρήστη) — pre-deploy smoke: Playwright σερβίρει το ΙΔΙΟ
-      # build που μόλις παράχθηκε παραπάνω με `npm run preview` (πραγματικό production build,
-      # ΟΧΙ dev server — βλ. playwright.config.js#webServer), ΟΧΙ PLAYWRIGHT_BASE_URL εδώ ρητά.
-      # Μια αποτυχία εδώ αποτυγχάνει το build job ΚΑΙ μπλοκάρει το deploy job παρακάτω.
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

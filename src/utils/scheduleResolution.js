@@ -45,6 +45,9 @@ export function resolveOccurrencesForDate(date, { scheduleSlots, scheduleExcepti
   }
 
   for (const ex of movedIn) {
+    // Phase 2 Stage B: για αλλαγή-ώρας-ίδιας-ημέρας, ex.originalDate === date, οπότε movedFrom
+    // εδώ ισούται με την ΤΡΕΧΟΥΣΑ ημερομηνία της εμφάνισης, όχι με πραγματική μετακίνηση ημέρας.
+    // Μελλοντικά UI labels («Μετακινήθηκε από…») πρέπει να εμφανίζονται ΜΟΝΟ όταν movedFrom !== date.
     occurrences.push({
       seriesId: ex.seriesId,
       slotId: null,

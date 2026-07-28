@@ -5,7 +5,7 @@ import { FUNCTIONAL_PROFILE_DOMAIN_IDS } from './config/functionalProfileDomains
 import { DOMAIN_TEMPLATES_SEED } from './config/domainTemplates.js'
 import { addDays, todayLocalISO } from './utils/date.js'
 import { resolveOccurrencesForDate } from './utils/scheduleResolution.js'
-import { sameStudentSet, matchedSession } from './utils/dailyQueue.js'
+import { sameStudentSet, matchedSession, isEntryDone } from './utils/dailyQueue.js'
 import { GOAL_TEMPLATE_FIELDS } from './utils/goalTemplates.js'
 import { sortSchoolYearsByStartDate } from './utils/schoolYearFilter.js'
 import { validateCriterionConfig, generateCriterionText } from './utils/measurementTypes/index.js'
@@ -847,6 +847,21 @@ export async function restoreDailyQueueEntry(entry) {
 export async function applyScheduleException({ type, seriesId, originalDate, newDate, newStartTime, reason }) {
   const isSameDayTimeChange = type === 'moved' && newDate === originalDate
 
+  // Hardening (data-layer guard, ΟΧΙ μόνο UI gating): αν η σημερινή γραμμή έχει ήδη ολοκληρωθεί,
+  // η αλλαγή ώρας απορρίπτεται ΠΡΙΝ από οποιαδήποτε εγγραφή (καμία exception, καμία ενημέρωση
+  // dailyQueue) — επαναχρησιμοποιεί το ήδη υπάρχον isEntryDone, όχι νέο completion-detection pattern.
+  let sameDayEntry = null
+  if (isSameDayTimeChange) {
+    const originEntries = await activeTable('dailyQueue').where('date').equals(originalDate).toArray()
+    sameDayEntry = originEntries.find((e) => e.scheduleSeriesId === seriesId) || null
+    if (sameDayEntry) {
+      const sessionsOnDate = await activeTable('sessions').where('date').equals(originalDate).toArray()
+      if (isEntryDone(sameDayEntry, sessionsOnDate)) {
+        throw new Error('Δεν είναι δυνατή η αλλαγή ώρας — η συνεδρία έχει ήδη ολοκληρωθεί σήμερα.')
+      }
+    }
+  }
+
   let snapshot = {}
   if (type === 'moved') {
     const versions = await activeTable('scheduleSlots').where('seriesId').equals(seriesId).toArray()
@@ -874,11 +889,8 @@ export async function applyScheduleException({ type, seriesId, originalDate, new
   }))
 
   if (isSameDayTimeChange) {
-    const dailyQueueTable = activeTable('dailyQueue')
-    const originEntries = await dailyQueueTable.where('date').equals(originalDate).toArray()
-    const originEntry = originEntries.find((e) => e.scheduleSeriesId === seriesId)
-    if (originEntry && newStartTime) {
-      await dailyQueueTable.update(originEntry.id, { plannedTime: newStartTime })
+    if (sameDayEntry && newStartTime) {
+      await activeTable('dailyQueue').update(sameDayEntry.id, { plannedTime: newStartTime })
     }
     return
   }

@@ -526,6 +526,63 @@ describe('applyScheduleException — Phase 2 Stage B: αλλαγή ώρας ίδ
     expect(exceptions).toHaveLength(2)
     expect(exceptions.every((e) => e.type === 'cancelled')).toBe(true)
   })
+
+  // Hardening follow-up: data-layer guard, ΟΧΙ μόνο UI gating — applyScheduleException πρέπει να
+  // απορρίπτει την αλλαγή ώρας όταν η σημερινή γραμμή έχει ήδη ολοκληρωθεί, ανεξάρτητα από το αν
+  // το UI θα το επέτρεπε ή όχι. Επαναχρησιμοποιεί το ήδη υπάρχον isEntryDone (dailyQueue.js).
+  it('απορρίπτει την αλλαγή ώρας αν η σημερινή dailyQueue γραμμή έχει ήδη ολοκληρωθεί (throws, καμία εγγραφή)', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+    await db.sessions.add({ date: today, studentIds: [1], status: 'completed' })
+
+    await expect(
+      applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+    ).rejects.toThrow()
+  })
+
+  it('μετά την απορριφθείσα αλλαγή ώρας, το scheduleSlots template παραμένει ανέγγιχτο', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+    await db.sessions.add({ date: today, studentIds: [1], status: 'completed' })
+
+    await expect(
+      applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+    ).rejects.toThrow()
+
+    const slots = await db.scheduleSlots.where('seriesId').equals(seriesId).toArray()
+    expect(slots).toHaveLength(1)
+    expect(slots[0].startTime).toBe('09:00')
+  })
+
+  it('μετά την απορριφθείσα αλλαγή ώρας, δεν δημιουργείται ούτε τροποποιείται κανένα scheduleException, ούτε αλλάζει το plannedTime', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+    await db.sessions.add({ date: today, studentIds: [1], status: 'completed' })
+    const before = (await db.dailyQueue.where('date').equals(today).toArray())[0]
+
+    await expect(
+      applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+    ).rejects.toThrow()
+
+    const exceptions = await db.scheduleExceptions.where('seriesId').equals(seriesId).toArray()
+    expect(exceptions).toHaveLength(0)
+
+    const after = await db.dailyQueue.get(before.id)
+    expect(after.plannedTime).toBe('09:00')
+  })
+
+  it('μη ολοκληρωμένη γραμμή συνεχίζει να αλλάζει κανονικά ώρα — ο νέος έλεγχος δεν μπλοκάρει τη φυσιολογική περίπτωση', async () => {
+    const seriesId = await createScheduleSlot({ dayOfWeek: dow, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+
+    await applyScheduleException({ type: 'moved', seriesId, originalDate: today, newDate: today, newStartTime: '11:00' })
+
+    const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
+    expect(queueToday).toHaveLength(1)
+    expect(queueToday[0].plannedTime).toBe('11:00')
+    const exceptions = await db.scheduleExceptions.where('seriesId').equals(seriesId).toArray()
+    expect(exceptions).toHaveLength(1)
+  })
 })
 
 describe('Schema v9 (Sprint 7, Technical Plan Στάδιο 1) — καθαρή εγκατάσταση', () => {

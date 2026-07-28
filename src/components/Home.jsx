@@ -15,7 +15,7 @@ import {
   UserRoundPlus,
   Users
 } from 'lucide-react'
-import { getLastBackupAt } from '../db.js'
+import { getLastBackupAt, getDisplayName } from '../db.js'
 import { activeTable } from '../migration/activeGeneration.js'
 import { exportBackupFile } from '../utils/backup.js'
 import { formatDateEl, todayLocalISO } from '../utils/date.js'
@@ -103,6 +103,7 @@ function StatCard({ icon: Icon, label, value, emptyHint }) {
 // παραμένει: Ατομικό/Ομαδικό είναι οι πρώτες, πιο εμφανείς quick actions.
 export default function Home() {
   const backupReminder = useLiveQuery(checkBackupReminder, [])
+  const displayName = useLiveQuery(getDisplayName, [])
   const stats = useLiveQuery(loadDashboardStats, [])
   const recentActivity = useLiveQuery(loadRecentActivity, [])
   const [creatingBackup, setCreatingBackup] = useState(false)
@@ -126,7 +127,7 @@ export default function Home() {
   return (
     <AppShell>
       <div className="dashboard-header">
-        <h1 className="dashboard-greeting">Καλημέρα, Βικτώρια</h1>
+        <h1 className="dashboard-greeting">Καλημέρα{displayName ? `, ${displayName}` : ''}</h1>
         <p className="dashboard-date">{formatDateEl(todayLocalISO())}</p>
         <p className="dashboard-subtitle">Ορίστε μια γρήγορη εικόνα της ημέρας σου.</p>
       </div>

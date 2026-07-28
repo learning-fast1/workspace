@@ -10,6 +10,7 @@ import db, {
   recordSchoolYearParticipation, setStudentActive, applySchoolYearTransition,
   updateGoalCriterion, deleteStudent, deleteSession, migrateGoalDomainsToBroaderDomains,
   dismissNotification, snoozeNotification, unsnoozeNotification, cleanupOrphanedNotificationState,
+  getDisplayName, setDisplayName,
   DATA_TABLE_NAMES
 } from './db.js'
 import { restoreFromBackup } from './utils/backup.js'
@@ -1848,9 +1849,10 @@ describe('Sprint 5A Phase 1 — CLOUD_ENABLED feature flag (db.js)', () => {
 // πραγματικά χρησιμοποιήσιμοι — όχι μόνο δηλωμένοι.
 describe('Schema v11 (Phase 2 parallel-table foundation, reconciled μετά τα Sprint 7/8)', () => {
   it('ανοίγει στο v11 και δηλώνει _v2 αντίστοιχο για ΚΑΘΕ πίνακα δεδομένων του legacy σχήματος', async () => {
-    // db.verno: 12 (Smart Notifications, βλ. db.version(12) — notificationState/_v2 προστέθηκαν
-    // ΜΕΤΑ το v11 που αυτό το describe block ελέγχει, δεν αγγίζουν τίποτα από όσα ελέγχονται εδώ).
-    expect(db.verno).toBe(12)
+    // db.verno: 13 (Smart Notifications v12 + userSettings v13, βλ. db.version(12)/db.version(13)
+    // — και οι δύο προστέθηκαν ΜΕΤΑ το v11 που αυτό το describe block ελέγχει, δεν αγγίζουν τίποτα
+    // από όσα ελέγχονται εδώ).
+    expect(db.verno).toBe(13)
 
     const tableNames = db.tables.map((t) => t.name)
     const legacyDataTables = [
@@ -1992,5 +1994,35 @@ describe('Smart Notifications — dismissNotification/snoozeNotification/cleanup
       await expect(unsnoozeNotification('does-not-exist')).resolves.toBeUndefined()
       expect(await db.notificationState.get('does-not-exist')).toBeUndefined()
     })
+  })
+})
+
+// Readiness blockers (review χρήστη) — displayName μέσω του γενικού userSettings πίνακα. Η
+// συμπεριφορά στη γενιά v2 (deterministic id, migration) καλύπτεται ξεχωριστά από
+// migration/migrationEngine.test.js (πλήρες, ρεαλιστικό migration/activation setup) — εδώ
+// ελέγχεται μόνο η γενιά legacy, ίδιο εύρος με κάθε άλλη συνάρτηση αυτού του αρχείου.
+describe('getDisplayName / setDisplayName', () => {
+  it('χωρίς καμία ρύθμιση ακόμα → null', async () => {
+    expect(await getDisplayName()).toBeNull()
+  })
+
+  it('μετά το setDisplayName → getDisplayName επιστρέφει την ίδια τιμή', async () => {
+    await setDisplayName('Όλγα')
+    expect(await getDisplayName()).toBe('Όλγα')
+  })
+
+  it('δεύτερο setDisplayName αντικαθιστά (ΔΕΝ προσθέτει δεύτερο row)', async () => {
+    await setDisplayName('Όλγα')
+    await setDisplayName('Μαρία')
+
+    expect(await getDisplayName()).toBe('Μαρία')
+    expect(await db.userSettings.count()).toBe(1)
+  })
+
+  it('αποθηκεύει key/value/updatedAt στο πραγματικό row (legacy primary key: key)', async () => {
+    await setDisplayName('Όλγα')
+    const row = await db.userSettings.get('displayName')
+    expect(row).toMatchObject({ key: 'displayName', value: 'Όλγα' })
+    expect(row.updatedAt).toBeTruthy()
   })
 })

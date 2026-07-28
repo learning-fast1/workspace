@@ -61,11 +61,40 @@ describe('EnableSyncSection', () => {
     await waitFor(() => expect(container).toBeEmptyDOMElement())
   })
 
-  it('προϋποθέσεις ok, session συγχρονισμού ανενεργό → κουμπί ενεργοποίησης', async () => {
+  it('προϋποθέσεις ok, session συγχρονισμού ανενεργό → κουμπί ενεργοποίησης, ενημέρωση cloud ΚΑΙ checkbox εξουσιοδότησης', async () => {
     mockUseAuth.mockReturnValue(loggedIn())
     mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
     render(<EnableSyncSection />)
     expect(await screen.findByRole('button', { name: /Ενεργοποίηση συγχρονισμού/ })).toBeInTheDocument()
+    expect(screen.getByText(/θα μεταφέρει τα δεδομένα μαθητών/)).toBeInTheDocument()
+    expect(screen.getByText(/πολιτική του σχολείου ή του οργανισμού/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /Επιβεβαιώνω ότι έχω την απαραίτητη εξουσιοδότηση/ })).toBeInTheDocument()
+  })
+
+  it('cloud sync gate: το κουμπί είναι disabled μέχρι να επιλεγεί το checkbox εξουσιοδότησης', async () => {
+    mockUseAuth.mockReturnValue(loggedIn())
+    mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
+    const user = userEvent.setup()
+    render(<EnableSyncSection />)
+
+    const button = await screen.findByRole('button', { name: /Ενεργοποίηση συγχρονισμού/ })
+    const checkbox = screen.getByRole('checkbox', { name: /Επιβεβαιώνω/ })
+    expect(button).toBeDisabled()
+
+    await user.click(checkbox)
+    expect(button).not.toBeDisabled()
+  })
+
+  it('cloud sync gate: κλικ στο (disabled) κουμπί χωρίς checkbox ΔΕΝ καλεί το activation API', async () => {
+    mockUseAuth.mockReturnValue(loggedIn())
+    mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
+    const user = userEvent.setup()
+    render(<EnableSyncSection />)
+
+    const button = await screen.findByRole('button', { name: /Ενεργοποίηση συγχρονισμού/ })
+    await user.click(button)
+
+    expect(mockActivateSyncForCurrentUser).not.toHaveBeenCalled()
   })
 
   it('προϋποθέσεις ok, session συγχρονισμού ΗΔΗ ενεργό → μήνυμα επιβεβαίωσης, ΚΑΝΕΝΑ κουμπί', async () => {
@@ -77,7 +106,7 @@ describe('EnableSyncSection', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('κλικ → καλεί activateSyncForCurrentUser ΚΑΙ ΜΕΤΑ reload', async () => {
+  it('κλικ (μετά από επιβεβαίωση) → καλεί activateSyncForCurrentUser ΚΑΙ ΜΕΤΑ reload', async () => {
     mockUseAuth.mockReturnValue(loggedIn())
     mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
     mockActivateSyncForCurrentUser.mockResolvedValue({ userId: USER_ID })
@@ -85,6 +114,7 @@ describe('EnableSyncSection', () => {
     render(<EnableSyncSection />)
 
     const button = await screen.findByRole('button', { name: /Ενεργοποίηση/ })
+    await user.click(screen.getByRole('checkbox', { name: /Επιβεβαιώνω/ }))
     await user.click(button)
 
     await waitFor(() => expect(mockActivateSyncForCurrentUser).toHaveBeenCalledTimes(1))
@@ -100,6 +130,7 @@ describe('EnableSyncSection', () => {
     render(<EnableSyncSection />)
 
     const button = await screen.findByRole('button', { name: /Ενεργοποίηση/ })
+    await user.click(screen.getByRole('checkbox', { name: /Επιβεβαιώνω/ }))
     await user.click(button)
     await user.click(button)
     resolveActivate({ userId: USER_ID })
@@ -108,7 +139,7 @@ describe('EnableSyncSection', () => {
     expect(mockActivateSyncForCurrentUser).toHaveBeenCalledTimes(1)
   })
 
-  it('activateSyncForCurrentUser πετάει → δείχνει το μήνυμα, ΔΕΝ κάνει reload', async () => {
+  it('activateSyncForCurrentUser πετάει → δείχνει το μήνυμα, ΔΕΝ κάνει reload, ΚΑΙ το checkbox επιβεβαίωσης επανέρχεται σε μη επιλεγμένη κατάσταση', async () => {
     mockUseAuth.mockReturnValue(loggedIn())
     mockCheckSyncPrerequisites.mockResolvedValue({ ok: true, reason: null })
     mockActivateSyncForCurrentUser.mockRejectedValue(new Error('Δεν πληρούνται οι προϋποθέσεις συγχρονισμού.'))
@@ -116,9 +147,13 @@ describe('EnableSyncSection', () => {
     render(<EnableSyncSection />)
 
     const button = await screen.findByRole('button', { name: /Ενεργοποίηση/ })
+    const checkbox = screen.getByRole('checkbox', { name: /Επιβεβαιώνω/ })
+    await user.click(checkbox)
     await user.click(button)
 
     expect(await screen.findByText('Δεν πληρούνται οι προϋποθέσεις συγχρονισμού.')).toBeInTheDocument()
     expect(window.location.reload).not.toHaveBeenCalled()
+    expect(checkbox).not.toBeChecked()
+    expect(button).toBeDisabled()
   })
 })

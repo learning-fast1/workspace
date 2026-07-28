@@ -254,6 +254,28 @@ db.version(12).stores({
   notificationState_v2: 'id, studentId, snoozedUntil'
 })
 
+// Readiness blockers (review χρήστη) — γενικός key/value πίνακας ρυθμίσεων χρήστη (v1: μόνο
+// displayName). ΝΕΟΣ πίνακας ΚΑΙ στις δύο γενιές ΤΑΥΤΟΧΡΟΝΑ, ίδια λογική με το notificationState
+// παραπάνω (καμία legacy ιστορία πριν αυτό το commit).
+//
+// legacy 'key': ίδιο σχήμα με το appMeta — primary key ΕΙΝΑΙ το όνομα της ρύθμισης (π.χ.
+// 'displayName'), όχι numeric id.
+//
+// _v2 'id, key' — ΕΠΙΤΗΔΕΣ ΔΙΑΦΟΡΕΤΙΚΟ από το legacy, ΙΔΙΟ σκεπτικό με το domainTemplates_v2
+// ('id, domain' αντί για 'domain'): το generic migration/verification engine (rowMapper.js/
+// migrationEngine.js) υποθέτει παντού ότι το _v2 primary key λέγεται `id` και είναι το
+// deterministic hash που παράγει το mapRowForMigration — ΠΟΤΕ δεν ξαναγράφει το πεδίο `key` του
+// legacy row (δεν είναι foreign key, βλ. foreignKeyMap.js). Αν το _v2 primary key παρέμενε `key`
+// (κυριολεκτικά όπως το legacy), το ήδη υπάρχον verifyMigration (targetTable.get(expected.id))
+// θα αναζητούσε ΠΑΝΤΑ λάθος τιμή και θα μπλόκαρε ΜΟΝΙΜΑ το migration κάθε χρήστη με ρυθμισμένο
+// displayName — γι' αυτό `id` παραμένει το πραγματικό primary key, με το `key` ως απλό,
+// αναζητήσιμο πεδίο δίπλα του (βλ. getDisplayName/setDisplayName παρακάτω, ΙΔΙΟ idiom με
+// ensureDomainTemplatesSeeded).
+db.version(13).stores({
+  userSettings: 'key',
+  userSettings_v2: 'id, key'
+})
+
 // Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables
 // είναι πλήρες μόνο μετά από αυτές) και πριν από οποιοδήποτε query/open.
 //
@@ -990,6 +1012,37 @@ export async function getLastBackupAt() {
 
 export async function setLastBackupAt(isoDate) {
   await db.appMeta.put({ key: 'lastBackupAt', value: isoDate })
+}
+
+// Readiness blockers (review χρήστη) — displayName μέσω του γενικού userSettings πίνακα (ΟΧΙ
+// appMeta: πρέπει να ταξιδεύει σε δεύτερη συσκευή/μετά από restore, βλ. db.version(13) παραπάνω
+// για πλήρη εξήγηση). ΠΑΝΤΑ πλήρες .toArray() + φιλτράρισμα στη μνήμη (ΟΧΙ .get('displayName') —
+// στη γενιά v2 το πραγματικό primary key είναι το deterministic `id`, όχι το `key`) — ίδιο idiom
+// με το ensureDomainTemplatesSeeded/domainTemplates, ασήμαντο κόστος αφού ο πίνακας έχει το πολύ
+// μία χούφτα γραμμές (v1: μία μόνο, 'displayName').
+export async function getDisplayName() {
+  const rows = await activeTable('userSettings').toArray()
+  const row = rows.find((r) => r.key === 'displayName')
+  return row?.value || null
+}
+
+export async function setDisplayName(name) {
+  const table = activeTable('userSettings')
+  const fields = { key: 'displayName', value: name, updatedAt: new Date().toISOString() }
+  if (getCachedGeneration() !== 'v2') {
+    await table.put(fields)
+    return
+  }
+  const userId = currentUserIdOrNull()
+  if (typeof userId !== 'string' || userId.trim() === '') {
+    throw new Error('setDisplayName: απαιτείται συνδεδεμένος χρήστης στη γενιά v2 για τον υπολογισμό του deterministic id.')
+  }
+  // ΙΔΙΟ deterministicId(userId, tableName, key) με το migration engine (Σταθερό ανά (χρήστη,
+  // key) — ΟΧΙ νέο, ξεχωριστό σχήμα) ώστε ένα ξανα-γράψιμο (π.χ. αλλαγή ονόματος δεύτερη φορά) να
+  // ενημερώνει ΤΗΝ ΙΔΙΑ γραμμή αντί να δημιουργεί δεύτερη, και να μην συγκρούεται με ένα ήδη
+  // μεταφερμένο (από πραγματικό legacy→v2 migration) row για τον ίδιο χρήστη/ρύθμιση.
+  const id = await deterministicId(userId, 'userSettings', 'displayName')
+  await table.put({ id, ...fields })
 }
 
 // ---------------------------------------------------------------------------------------------

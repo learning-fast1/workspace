@@ -5,9 +5,9 @@ import {
 import { DATA_TABLE_NAMES } from '../db.js'
 
 describe('MIGRATED_TABLE_NAMES — canonical manifest', () => {
-  it('περιέχει ακριβώς 17 πίνακες, χωρίς διπλότυπα', () => {
-    expect(MIGRATED_TABLE_NAMES).toHaveLength(17)
-    expect(new Set(MIGRATED_TABLE_NAMES).size).toBe(17)
+  it('περιέχει ακριβώς 18 πίνακες, χωρίς διπλότυπα', () => {
+    expect(MIGRATED_TABLE_NAMES).toHaveLength(18)
+    expect(new Set(MIGRATED_TABLE_NAMES).size).toBe(18)
   })
 
   it('δεν περιλαμβάνει appMeta (μόνιμα τοπικό, ποτέ δεν μεταφέρεται)', () => {
@@ -30,9 +30,13 @@ describe('legacyPrimaryKeyField', () => {
     expect(legacyPrimaryKeyField('domainTemplates')).toBe('domain')
   })
 
+  it('userSettings: το legacy primary key είναι το key, ΟΧΙ id', () => {
+    expect(legacyPrimaryKeyField('userSettings')).toBe('key')
+  })
+
   it('κάθε άλλος πίνακας: το legacy primary key είναι το id', () => {
     for (const table of MIGRATED_TABLE_NAMES) {
-      if (table === 'domainTemplates') continue
+      if (table === 'domainTemplates' || table === 'userSettings') continue
       expect(legacyPrimaryKeyField(table)).toBe('id')
     }
   })

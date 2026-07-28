@@ -48,6 +48,23 @@ afterEach(async () => {
 })
 
 describe('NotificationsInbox — v1', () => {
+  // Regression (review — bug εντοπίστηκε από το Playwright production-smoke suite, βλ.
+  // e2e/smoke.spec.js): το useNotifications() καλούνταν ΠΑΛΙΟΤΕΡΑ στο ίδιο component που αποδίδει
+  // το <AppShell>, ΕΚΤΟΣ του <NotificationsProvider> που αυτό παρέχει — crash σε ΚΑΘΕ πραγματική
+  // φόρτωση του /notifications. Το renderInbox() παραπάνω δεν το έπιανε ΠΟΤΕ γιατί τυλίγει με
+  // ΔΙΚΟ ΤΟΥ, επιπλέον provider. Αυτό εδώ αποδίδει το NotificationsInbox ΑΚΡΙΒΩΣ όπως το App.jsx
+  // (ΧΩΡΙΣ κανένα εξωτερικό NotificationsProvider) — αν το bug ξαναεμφανιστεί, σκάει εδώ.
+  it('αποδίδεται σωστά ΧΩΡΙΣ εξωτερικό NotificationsProvider (ίδιο μοτίβο με App.jsx πραγματικής χρήσης)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/notifications']}>
+        <Routes>
+          <Route path="/notifications" element={<NotificationsInbox />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    expect(await screen.findByText('Όλα ενημερωμένα!')).toBeInTheDocument()
+  })
+
   it('χωρίς καμία ειδοποίηση → θετικό EmptyState, καμία λίστα/φίλτρα', async () => {
     renderInbox()
     expect(await screen.findByText('Όλα ενημερωμένα!')).toBeInTheDocument()

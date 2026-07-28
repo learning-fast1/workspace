@@ -7,3 +7,11 @@
   white-space: normal;
   text-align: left;
 }
+
+.enable-sync-section__confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}

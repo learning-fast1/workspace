@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -40,6 +41,10 @@ export default defineConfig({
     // Library) — τα *.test.js (πλειοψηφία, pure-logic/Dexie) παραμένουν στο ελαφρύ 'node' όπως πριν,
     // καμία επιβάρυνση/ρίσκο για την υπάρχουσα σουίτα.
     environmentMatchGlobs: [['**/*.test.jsx', 'jsdom']],
-    setupFiles: ['./src/test/setup.js']
+    setupFiles: ['./src/test/setup.js'],
+    // Playwright ζει σε δικό του runtime/config (playwright.config.js, testDir: './e2e') — defense-
+    // in-depth ώστε το vitest να μην προσπαθήσει ΠΟΤΕ να τρέξει *.spec.js αρχεία εκεί μέσα με λάθος
+    // test runner, ανεξάρτητα από το ακριβές default include pattern του vitest.
+    exclude: [...configDefaults.exclude, 'e2e/**']
   }
 })

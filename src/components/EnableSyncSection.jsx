@@ -19,6 +19,11 @@ export default function EnableSyncSection() {
   const { status, userId } = useAuth()
   const [isRunning, setIsRunning] = useState(false)
   const [actionError, setActionError] = useState(null)
+  // Cloud sync gate (review χρήστη) — ΟΧΙ «συγκατάθεση GDPR»: ρητή επιβεβαίωση εξουσιοδότησης
+  // σύμφωνα με την πολιτική σχολείου/οργανισμού. Τοπικό state only, ΟΥΔΕΠΟΤΕ αποθηκεύεται πουθενά
+  // (ούτε localStorage/appMeta) — ξαναζητείται σε ΚΑΘΕ προσπάθεια ενεργοποίησης, το πιο
+  // συντηρητικό default.
+  const [confirmed, setConfirmed] = useState(false)
   const runGuardRef = useRef(false)
 
   const hasValidUserId = status === 'loggedIn' && typeof userId === 'string' && userId.trim() !== ''
@@ -29,7 +34,7 @@ export default function EnableSyncSection() {
   }, [hasValidUserId, userId])
 
   async function handleActivate() {
-    if (runGuardRef.current) return
+    if (runGuardRef.current || !confirmed) return
     runGuardRef.current = true
     setIsRunning(true)
     setActionError(null)
@@ -38,6 +43,10 @@ export default function EnableSyncSection() {
       window.location.reload()
     } catch (err) {
       setActionError(err?.message || 'Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+      // Review χρήστη: μετά από αποτυχημένη (ή ακυρωμένη) ενεργοποίηση, η επιβεβαίωση επανέρχεται
+      // σε μη επιλεγμένη κατάσταση — καμία «κολλημένη» προηγούμενη επιβεβαίωση να επιτρέψει ένα
+      // επόμενο, ασυνείδητο ξανά-κλικ χωρίς νέα, ρητή επιβεβαίωση.
+      setConfirmed(false)
       runGuardRef.current = false
       setIsRunning(false)
     }
@@ -65,9 +74,25 @@ export default function EnableSyncSection() {
         Τα δεδομένα σου είναι έτοιμα για συγχρονισμό. Η ενεργοποίηση θα ισχύσει μετά από
         επαναφόρτωση της εφαρμογής.
       </p>
+      {/* Cloud sync gate (review χρήστη) — ΟΧΙ «συγκατάθεση GDPR»: ενημέρωση ότι δεδομένα
+          μαθητών μεταφέρονται σε cloud υποδομή + ρητή επιβεβαίωση εξουσιοδότησης σύμφωνα με την
+          πολιτική σχολείου/οργανισμού. */}
+      <AlertBanner variant="info">
+        Η ενεργοποίηση συγχρονισμού θα μεταφέρει τα δεδομένα μαθητών από αυτή τη συσκευή σε cloud
+        υποδομή (Dexie Cloud). Ενεργοποίησε μόνο αν έχεις την απαραίτητη εξουσιοδότηση σύμφωνα με
+        την πολιτική του σχολείου ή του οργανισμού σου.
+      </AlertBanner>
+      <label className="enable-sync-section__confirm">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          onChange={(e) => setConfirmed(e.target.checked)}
+        />
+        Επιβεβαιώνω ότι έχω την απαραίτητη εξουσιοδότηση.
+      </label>
       {actionError && <AlertBanner variant="danger">{actionError}</AlertBanner>}
       <div className="actions-row">
-        <Button variant="primary" icon={RefreshCw} loading={isRunning} onClick={handleActivate}>
+        <Button variant="primary" icon={RefreshCw} loading={isRunning} disabled={!confirmed} onClick={handleActivate}>
           Ενεργοποίηση συγχρονισμού
         </Button>
       </div>

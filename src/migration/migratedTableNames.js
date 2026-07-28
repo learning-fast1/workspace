@@ -28,14 +28,22 @@ export const MIGRATED_TABLE_NAMES = [
   // Smart Notifications (review χρήστη) — πλήρως ανεξάρτητος πίνακας, μπαίνει στο τέλος ίδια
   // λογική με goalTemplates/calendarEvents παραπάνω. ΜΟΝΑΔΙΚΗ εξαίρεση: το δικό του primary key
   // ΔΕΝ είναι αυτόματο (βλ. db.js) — deterministic string id, ΙΔΙΟ σε legacy ΚΑΙ _v2.
-  'notificationState'
+  'notificationState',
+  // Readiness blockers (review χρήστη) — γενικός, per-device-independent «key/value» πίνακας
+  // ρυθμίσεων χρήστη (π.χ. displayName), πλήρως ανεξάρτητος, μπαίνει στο τέλος ίδια λογική με τα
+  // παραπάνω. Legacy primary key είναι το `key` (βλ. LEGACY_PRIMARY_KEY_FIELD παρακάτω, ΙΔΙΟ idiom
+  // με το domainTemplates/`domain`) — ΟΧΙ το `id`. Σε αντίθεση με το notificationState, ΕΔΩ ο v2
+  // πίνακας χρειάζεται πραγματικό migration-safe `id` (deterministic hash) ΓΙΑΤΙ πρέπει να
+  // ταξιδεύει σε δεύτερη συσκευή/μετά από restore — βλ. db.js#userSettings_v2 για την πλήρη εξήγηση.
+  'userSettings'
 ]
 
 // domainTemplates είναι η ΜΟΝΑΔΙΚΗ εξαίρεση όπου το legacy primary key ΔΕΝ είναι `id` — είναι το
 // ίδιο το `domain` (string). Το migration χρειάζεται να ξέρει αυτό ρητά, ώστε να υπολογίζει το
 // deterministic id από τη ΣΩΣΤΗ παλιά τιμή (βλ. rowMapper.js) — ΟΧΙ από ένα ανύπαρκτο row.id.
 export const LEGACY_PRIMARY_KEY_FIELD = {
-  domainTemplates: 'domain'
+  domainTemplates: 'domain',
+  userSettings: 'key'
 }
 
 export function legacyPrimaryKeyField(tableName) {

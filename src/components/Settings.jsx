@@ -5,6 +5,8 @@ import { getActiveSchoolYear, listSchoolYears } from '../db.js'
 import { exportBackupFile, validateBackupPayload, restoreFromBackup } from '../utils/backup.js'
 import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
 import { formatDateEl } from '../utils/date.js'
+import DisplayNameSection from './DisplayNameSection.jsx'
+import StorageSafetySection from './StorageSafetySection.jsx'
 import AccountSection from './AccountSection.jsx'
 import LegacyDataMigrationSection from './LegacyDataMigrationSection.jsx'
 import GenerationSwitchoverSection from './GenerationSwitchoverSection.jsx'
@@ -152,8 +154,11 @@ export default function Settings() {
 
       <h1>Ρυθμίσεις</h1>
 
-      {/* Sprint 5A Phase 1 — πρώτη ενότητα, πάνω από το Σχολικό έτος (Technical Plan §Flows,
-          ροή 1). Δεν αποδίδει τίποτα αν CLOUD_ENABLED=false (βλ. AccountSection.jsx). */}
+      {/* Readiness blockers v1 (review χρήστη) — ΠΡΩΤΗ ενότητα, πριν καν το Λογαριασμό: δεν
+          εξαρτάται από cloud/login (βλ. DisplayNameSection.jsx). */}
+      <DisplayNameSection />
+      {/* Sprint 5A Phase 1 — πάνω από το Σχολικό έτος (Technical Plan §Flows, ροή 1). Δεν αποδίδει
+          τίποτα αν CLOUD_ENABLED=false (βλ. AccountSection.jsx). */}
       <AccountSection />
       {/* Sprint 5A Phase 2, Commit 3 — αμέσως μετά το AccountSection: έχει νόημα μόνο ΜΕΤΑ τη
           σύνδεση. Αυτο-gated (βλ. LegacyDataMigrationSection.jsx) — αποδίδει null αν δεν είναι
@@ -235,7 +240,11 @@ export default function Settings() {
         )}
       </div>
 
-      <div className="section">
+      {/* Readiness blockers v1 (review χρήστη) — ΑΜΕΣΩΣ πριν το «Αντίγραφο ασφαλείας»: ρητή οπτική
+          σύνδεση storage persistence ↔ ανάγκη τακτικού backup (βλ. StorageSafetySection.jsx). */}
+      <StorageSafetySection />
+
+      <div className="section" id="backup-section">
         <h2>Αντίγραφο ασφαλείας</h2>
         <p className="hint">
           Όλα τα δεδομένα μένουν μόνο σε αυτή τη συσκευή. Κατέβασε τακτικά αντίγραφο ασφαλείας —

@@ -45,11 +45,30 @@ function studentLabelFor(n) {
   return n.student ? `${n.student.code}${n.student.nickname ? ` — ${n.student.nickname}` : ''}` : '—'
 }
 
+// Bug διορθώθηκε (review, εντοπίστηκε από το νέο Playwright production-smoke suite — βλ.
+// e2e/smoke.spec.js): το useNotifications() καλούνταν ΕΔΩ, στο ΙΔΙΟ component που αποδίδει το
+// <AppShell> παρακάτω — το <NotificationsProvider> όμως ζει ΜΕΣΑ στο AppShell, γύρω από τα ΠΑΙΔΙΑ
+// του, ΟΧΙ γύρω από το ίδιο το component που το instantiate-άρει. Αποτέλεσμα: ΚΑΘΕ φόρτωση του
+// /notifications (direct URL, refresh, ή κλικ στο κουδούνι από οπουδήποτε) πετούσε πραγματικά
+// «useNotifications() πρέπει να καλείται μέσα σε <NotificationsProvider>» και γκρέμιζε ΟΛΟΚΛΗΡΗ
+// την εφαρμογή στο γενικό ErrorBoundary — τα δικά του component tests δεν το έπιαναν ΠΟΤΕ επειδή
+// τυλίγουν το NotificationsInbox με ΔΙΚΟ ΤΟΥΣ, επιπλέον <NotificationsProvider> (βλ.
+// NotificationsInbox.test.jsx#renderInbox), κρύβοντας ακριβώς αυτό το κενό. Διόρθωση: το
+// useNotifications() μετακινήθηκε σε ξεχωριστό, εσωτερικό component (NotificationsInboxContent)
+// που αποδίδεται ΩΣ ΠΑΙΔΙ του ΕΝΟΣ <AppShell> — ίδιο idiom με Home.jsx/HomeAttentionWidget.jsx.
+export default function NotificationsInbox() {
+  return (
+    <AppShell>
+      <NotificationsInboxContent />
+    </AppShell>
+  )
+}
+
 // Notifications Inbox (review χρήστη) — ΞΕΧΩΡΙΣΤΗ σελίδα, ΚΟΙΝΟΣ engine/schema/provider με το
 // HomeAttentionWidget/Header (βλ. shell/NotificationsProvider.jsx) — καμία δεύτερη υπολογιστική
 // λογική εδώ, μόνο rendering + φίλτρα + per-row ενέργειες. Χωρίς bulk actions, χωρίς pagination/
 // virtualization, χωρίς ιστορικό dismissed (ρητές αποφάσεις review) — visible + snoozed μόνο.
-export default function NotificationsInbox() {
+function NotificationsInboxContent() {
   const navigate = useNavigate()
   const result = useNotifications()
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -107,26 +126,26 @@ export default function NotificationsInbox() {
 
   if (result.status === 'loading') {
     return (
-      <AppShell>
+      <>
         <PageHeader title="Ειδοποιήσεις" />
         <p aria-busy="true">Φόρτωση…</p>
-      </AppShell>
+      </>
     )
   }
 
   if (result.status === 'error') {
     return (
-      <AppShell>
+      <>
         <PageHeader title="Ειδοποιήσεις" />
         <p role="alert" className="notifications-inbox__error">
           <AlertTriangle size={16} aria-hidden="true" /> Δεν ήταν δυνατή η φόρτωση των ειδοποιήσεων.
         </p>
-      </AppShell>
+      </>
     )
   }
 
   return (
-    <AppShell>
+    <>
       <PageHeader
         title="Ειδοποιήσεις"
         subtitle="Ό,τι χρειάζεται την προσοχή σου σε ολόκληρο το caseload, σε ένα σημείο."
@@ -268,6 +287,6 @@ export default function NotificationsInbox() {
           )}
         </>
       )}
-    </AppShell>
+    </>
   )
 }

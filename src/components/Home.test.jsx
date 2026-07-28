@@ -45,6 +45,22 @@ function recentBackupISO(daysAgo) {
 // Feedback χρήστη: πριν, το backup banner εξαφανιζόταν ΕΝΤΕΛΩΣ μόλις γινόταν το πρώτο backup — ο
 // χρήστης έχανε κάθε ορατότητα στην κατάσταση του backup. Τώρα γίνεται μόνιμο, ήρεμο status (πράσινο)
 // αντί να εξαφανίζεται, με δυνατότητα νέου backup με ένα tap.
+// Readiness blockers v1 (review χρήστη) — αφαίρεση hardcoded «Βικτώρια», γενικό fallback
+// «Καλημέρα» χωρίς όνομα/κόμμα όταν δεν έχει ρυθμιστεί τίποτα.
+describe('Home — χαιρετισμός (displayName)', () => {
+  it('χωρίς ρυθμισμένο displayName → απλό «Καλημέρα», ΧΩΡΙΣ κόμμα/όνομα', async () => {
+    renderHome()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Καλημέρα'))
+    expect(screen.getByRole('heading', { level: 1 })).not.toHaveTextContent(',')
+  })
+
+  it('με ρυθμισμένο displayName → «Καλημέρα, {όνομα}»', async () => {
+    await db.userSettings.put({ key: 'displayName', value: 'Όλγα', updatedAt: '2026-01-01T00:00:00.000Z' })
+    renderHome()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Καλημέρα, Όλγα'))
+  })
+})
+
 describe('Home — backup banner', () => {
   it('χωρίς κανένα backup ποτέ → banner προειδοποίησης, ΚΑΝΕΝΑ status', async () => {
     renderHome()

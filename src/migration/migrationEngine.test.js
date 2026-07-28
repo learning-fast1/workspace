@@ -45,6 +45,11 @@ async function seedAllTables() {
   // Smart Notifications — ΜΟΝΑΔΙΚΟΣ πίνακας με ΜΗ-αυτόματο (string, deterministic) legacy primary
   // key· επιβεβαιώνει ότι η γενική migration μηχανή δεν υποθέτει numeric ++id οπουδήποτε.
   await db.notificationState.add({ id: `goalStale:${goalId}:2026-01-01`, studentId, snoozedUntil: null, dismissedAt: null, schemaVersion: 1, updatedAt: '2026-01-01T00:00:00.000Z' })
+  // Readiness blockers — userSettings: legacy primary key `key` (string, ΟΧΙ id), _v2 primary key
+  // `id` (deterministic hash) — επιβεβαιώνει ότι η γενική migration μηχανή χειρίζεται σωστά έναν
+  // πίνακα όπου το legacy ΚΑΙ το _v2 primary key ΔΙΑΦΕΡΟΥΝ ονομαστικά (ίδιο σκεπτικό με
+  // domainTemplates/domain, βλ. db.js#userSettings_v2).
+  await db.userSettings.add({ key: 'displayName', value: 'Δοκιμαστική Όλγα', updatedAt: '2026-01-01T00:00:00.000Z' })
 
   return { studentId, yearId, goalId, sessionId, slotId }
 }
@@ -106,7 +111,7 @@ describe('runMigration — ιδιοκτησία τοπικών δεδομένω�
 })
 
 describe('runMigration — καθαρό migration (χωρίς προηγούμενη κατάσταση, όλοι οι πίνακες)', () => {
-  it('μεταφέρει και τους 17 πίνακες, σημειώνει complete, verification passed, appMeta persisted', async () => {
+  it('μεταφέρει και τους 18 πίνακες, σημειώνει complete, verification passed, appMeta persisted', async () => {
     const ids = await seedAllTables()
     await claimLegacyDataOwnership(ALICE, withAlice)
 
@@ -129,6 +134,18 @@ describe('runMigration — καθαρό migration (χωρίς προηγούμε
     const goalV2 = await db.goals_v2.get(goalV2Id)
     expect(goalV2.studentId).toBe(await deterministicId(ALICE, 'students', ids.studentId))
     expect(goalV2.title).toBe('Στόχος')
+  })
+
+  it('userSettings: το legacy row (primary key `key`) μεταφέρεται σε _v2 row με deterministic `id`, το πεδίο `key` παραμένει αναζητήσιμο ΑΝΕΠΑΦΟ', async () => {
+    await seedAllTables()
+    await claimLegacyDataOwnership(ALICE, withAlice)
+
+    const state = await runMigration(withAlice)
+    expect(state.status).toBe('complete')
+
+    const expectedId = await deterministicId(ALICE, 'userSettings', 'displayName')
+    const row = await db.userSettings_v2.get(expectedId)
+    expect(row).toMatchObject({ id: expectedId, key: 'displayName', value: 'Δοκιμαστική Όλγα' })
   })
 
   it('κάθε _v2 πίνακας έχει ΑΚΡΙΒΩΣ τον ίδιο αριθμό γραμμών με τον legacy πίνακά του', async () => {

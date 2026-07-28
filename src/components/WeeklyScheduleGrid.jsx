@@ -58,6 +58,7 @@ export default function WeeklyScheduleGrid({ slots, studentById, selectedDay, on
                 const isGroup = slot.studentIds.length > 1
                 const namesLabel = namesFor(slot)
                 const widthPercent = 100 / block.columnCount
+                const fullLabel = `Επεξεργασία: ${namesLabel}, ${day.label} ${slot.startTime}, ${slot.durationMinutes}′`
                 return (
                   <button
                     key={slot.id}
@@ -71,7 +72,8 @@ export default function WeeklyScheduleGrid({ slots, studentById, selectedDay, on
                       '--slot-color': colorForIdentity(slot.studentIds)
                     }}
                     onClick={() => onEditSlot(slot)}
-                    aria-label={`Επεξεργασία: ${namesLabel}, ${day.label} ${slot.startTime}, ${slot.durationMinutes}′`}
+                    aria-label={fullLabel}
+                    title={fullLabel}
                   >
                     <span className="weekly-grid__block-icon" aria-hidden="true">
                       {isGroup ? <Users size={12} /> : <UserRound size={12} />}

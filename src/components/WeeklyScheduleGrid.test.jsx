@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -95,5 +97,41 @@ describe('WeeklyScheduleGrid — read-only πλέγμα (καμία δική τ�
     const inactiveCount = container.querySelectorAll('.weekly-grid__day--inactive').length
     expect(days).toHaveLength(5)
     expect(inactiveCount).toBe(4)
+  })
+
+  // Visual QA (review χρήστη, μετά την έγκριση Weekly Grid v1) — σε πραγματικό browser, 3-4
+  // αμοιβαία επικαλυπτόμενα slots σε desktop έκαναν κάθε block τόσο στενό (jsdom δεν κάνει
+  // πραγματικό layout, άρα δεν αναπαράγεται εδώ, μόνο η προσβάσιμη διαφυγή ελέγχεται) που εικονίδιο
+  // + όνομα + ώρα δεν χωρούσαν καθόλου. Το native `title` tooltip είναι η διαφυγή για ποντίκι όταν
+  // το CSS container query (βλ. .css test παρακάτω) κρύψει εικονίδιο/ώρα λόγω στενότητας.
+  it('κάθε block έχει native title tooltip με το ΙΔΙΟ πλήρες κείμενο με το aria-label', () => {
+    const slots = [slot({ id: 1, dayOfWeek: 1, startTime: '09:00', durationMinutes: 30 })]
+    render(<WeeklyScheduleGrid slots={slots} studentById={studentById} selectedDay={1} onEditSlot={() => {}} />)
+    const block = screen.getByRole('button', { name: /Επεξεργασία: Μ1, Δευτέρα 09:00, 30′/ })
+    expect(block).toHaveAttribute('title', block.getAttribute('aria-label'))
+  })
+})
+
+// Visual QA (review χρήστη) — bug βρέθηκε live: ένα @container rule πριν τους base κανόνες
+// .weekly-grid__block-icon/-time ακυρωνόταν σιωπηλά (ίδια specificity, ο ΤΕΛΕΥΤΑΙΟΣ κανόνας στο
+// cascade κερδίζει) — το εικονίδιο ΔΕΝ κρυβόταν ποτέ σε πολύ στενά blocks, παρόλο που η ώρα
+// κρυβόταν σωστά. jsdom δεν κάνει πραγματικό container-query layout, άρα το μόνο αξιόπιστο test
+// είναι στο ΙΔΙΟ το CSS αρχείο — ελέγχει τη σειρά, όχι το πραγματικό rendering.
+describe('WeeklyScheduleGrid.css — cascade order του @container rule (regression, βρέθηκε στο visual QA)', () => {
+  const css = readFileSync(resolve(process.cwd(), 'src/components/WeeklyScheduleGrid.css'), 'utf-8')
+
+  it('περιέχει container-type: inline-size στο .weekly-grid__block', () => {
+    expect(css).toMatch(/container-type:\s*inline-size/)
+  })
+
+  it('το @container rule που κρύβει icon/time έρχεται ΜΕΤΑ τους δικούς τους base κανόνες display', () => {
+    const containerRuleIndex = css.indexOf('@container')
+    const iconBaseRuleIndex = css.indexOf('.weekly-grid__block-icon {')
+    const timeBaseRuleIndex = css.indexOf('.weekly-grid__block-time {')
+    expect(containerRuleIndex).toBeGreaterThan(-1)
+    expect(iconBaseRuleIndex).toBeGreaterThan(-1)
+    expect(timeBaseRuleIndex).toBeGreaterThan(-1)
+    expect(containerRuleIndex).toBeGreaterThan(iconBaseRuleIndex)
+    expect(containerRuleIndex).toBeGreaterThan(timeBaseRuleIndex)
   })
 })

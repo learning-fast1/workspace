@@ -1,0 +1,179 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). */
+
+.student-dashboard-panel-wrap {
+  margin-bottom: var(--space-5);
+}
+
+.student-dashboard-panel-wrap:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 4px;
+}
+
+/* Προσωρινή επισήμανση όταν ο χρήστης έρχεται από το HomeAttentionWidget (Technical Plan Στάδιο
+   13, σημείο 5) — μεταβατικό highlight, ΠΟΤΕ μόνιμο state, χωρίς animation αν ο χρήστης προτιμά
+   λιγότερη κίνηση. */
+.student-dashboard-panel__attention-item--highlighted {
+  background: var(--color-surface-soft);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--shell-radius);
+  transition: background 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-dashboard-panel__attention-item--highlighted {
+    transition: none;
+  }
+}
+
+.student-dashboard-panel__heading {
+  font-size: var(--font-lg);
+  margin: 0 0 var(--space-3);
+}
+
+.student-dashboard-panel,
+.student-dashboard-panel__loading {
+  padding: var(--space-4);
+}
+
+.student-dashboard-panel--error {
+  border-color: var(--color-danger);
+}
+
+.student-dashboard-panel__error-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-danger);
+  margin: 0;
+}
+
+/* ---------- CTA (ερώτηση 5) — πρώτο στοιχείο, χωρίς κύλιση πριν από αυτό (σημείο 11) ---------- */
+
+.student-dashboard-panel__cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 2px solid var(--color-primary);
+  background: var(--color-surface-soft);
+}
+
+.student-dashboard-panel__cta--allCaughtUp {
+  border-color: var(--color-success);
+}
+
+.student-dashboard-panel__cta-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.student-dashboard-panel__cta--allCaughtUp .student-dashboard-panel__cta-icon {
+  color: var(--color-success);
+}
+
+.student-dashboard-panel__cta-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.student-dashboard-panel__cta-label {
+  font-weight: 700;
+  font-size: var(--font-md);
+  margin: 0;
+}
+
+.student-dashboard-panel__cta-detail {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
+/* ---------- Ερωτήσεις 1-4, τρεις συμπαγείς ενότητες (σημείο 2) ---------- */
+
+.student-dashboard-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .student-dashboard-panel__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.student-dashboard-panel__section {
+  padding: var(--space-4);
+}
+
+.student-dashboard-panel__section-title {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.student-dashboard-panel__empty {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.student-dashboard-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.student-dashboard-panel__plan-item,
+.student-dashboard-panel__delta-item,
+.student-dashboard-panel__attention-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.student-dashboard-panel__plan-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.student-dashboard-panel__plan-reason {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.student-dashboard-panel__delta-value {
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.student-dashboard-panel__delta-value--up {
+  color: var(--color-success);
+}
+
+.student-dashboard-panel__delta-value--down {
+  color: var(--color-danger);
+}
+
+.student-dashboard-panel__attention-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.student-dashboard-panel__attention-reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  color: var(--color-warning-ink, var(--color-text-secondary));
+  background: var(--color-surface-soft);
+  border-radius: 999px;
+  padding: 2px var(--space-2);
+}

@@ -1,22 +1,19 @@
-import { ArrowLeft, Archive, ArchiveRestore, CalendarDays, CircleCheck, Pencil, PlayCircle, Target, Trash2 } from 'lucide-react'
+import { ArrowLeft, Archive, ArchiveRestore, Pencil, PlayCircle, Trash2 } from 'lucide-react'
 import Card from './ui/Card.jsx'
 import Badge from './ui/Badge.jsx'
 import Button from './ui/Button.jsx'
 import OverflowMenu from './ui/OverflowMenu.jsx'
-import StatCard from './ui/StatCard.jsx'
 import './StudentProfileHero.css'
 
-// Καθαρά presentational — καμία query. Όλα τα στατιστικά έρχονται ήδη υπολογισμένα/μορφοποιημένα
-// από το StudentProfile (ίδιο μοτίβο με το StudentCard/StudentList).
+// Καθαρά presentational — καμία query. Οι 4 στατιστικές κάρτες που υπήρχαν εδώ αντικαταστάθηκαν
+// πλήρως από το StudentDashboardPanel (Technical Plan Στάδιο 12) — ΔΕΝ προστίθεται το panel εδώ
+// μέσα, δίπλα ή γύρω από κάτι παλιό· το StudentProfile.jsx το εμφανίζει ως ξεχωριστή, πρώτη
+// ενότητα μετά αυτό το Hero.
 export default function StudentProfileHero({
   code,
   nickname,
   grade,
   active,
-  activeGoalsCount,
-  totalSessions,
-  goalsAtCriterionLabel,
-  lastSessionLabel,
   sessionTo,
   onBack,
   onEdit,
@@ -58,13 +55,6 @@ export default function StudentProfileHero({
             ]}
           />
         </div>
-      </div>
-
-      <div className="profile-hero__stats">
-        <StatCard icon={Target} label="Ενεργοί στόχοι" value={activeGoalsCount} />
-        <StatCard icon={CalendarDays} label="Συνεδρίες" value={totalSessions} />
-        <StatCard icon={CircleCheck} label="Στόχοι στο κριτήριο" value={goalsAtCriterionLabel} />
-        <StatCard icon={CalendarDays} label="Τελευταία συνεδρία" value={lastSessionLabel} />
       </div>
     </Card>
   )

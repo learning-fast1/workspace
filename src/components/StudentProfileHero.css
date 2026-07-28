@@ -97,18 +97,3 @@
   flex-wrap: wrap;
 }
 
-.profile-hero__stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--color-border);
-}
-
-/* 768px — ίδιο καθιερωμένο breakpoint με όλη την υπόλοιπη εφαρμογή (StudentList/StudentForm/
-   FunctionalProfileEditor/AppShell), όχι δικό του. */
-@media (min-width: 768px) {
-  .profile-hero__stats {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}

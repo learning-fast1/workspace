@@ -1,18 +1,16 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { UserX } from 'lucide-react'
 import { deleteStudent, setStudentActive } from '../db.js'
 import { activeTable } from '../migration/activeGeneration.js'
-import { sessionDateMap } from '../utils/sessions.js'
-import { measurementNumericValue, parseCriterionTarget } from '../utils/measurementValue.js'
-import { formatDateElShort } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
 import EmptyState from './ui/EmptyState.jsx'
 import Tabs from './ui/Tabs.jsx'
 import Modal from './ui/Modal.jsx'
 import Button from './ui/Button.jsx'
 import StudentProfileHero from './StudentProfileHero.jsx'
+import StudentDashboardPanel from './StudentDashboardPanel.jsx'
 import FunctionalProfileEditor from './FunctionalProfileEditor.jsx'
 import PreferencesEditor from './PreferencesEditor.jsx'
 import GoalsList from './GoalsList.jsx'
@@ -29,71 +27,20 @@ const TABS = [
   { id: 'report', label: 'Έκθεση' }
 ]
 
-// Συγκεντρωτικό query για τα 4 στατιστικά του Hero — ίδιο πνεύμα με το loadDashboardStats του
-// Home.jsx (ξεχωριστό, μικρό aggregate query ανά ενότητα οθόνης, όχι κοινόχρηστο cross-component
-// state). «Στόχοι στο κριτήριο»: μόνο ενεργοί στόχοι με μετρήσιμη τελευταία τιμή ΚΑΙ αναγνωρίσιμο
-// κριτήριο μετράνε ως «στο κριτήριο» — οι υπόλοιποι (π.χ. duration, ή χωρίς ακόμα μέτρηση)
-// παραμένουν στον παρονομαστή αλλά όχι στον αριθμητή, ώστε να μη δείχνουμε fake ακρίβεια.
-async function loadHeroStats(studentId) {
-  const [goals, measurements, sessions] = await Promise.all([
-    db.goals.where('studentId').equals(studentId).toArray(),
-    db.measurements.where('studentId').equals(studentId).toArray(),
-    db.sessions.toArray()
-  ])
-  const sessionDateById = sessionDateMap(sessions)
-  const activeGoals = goals.filter((g) => g.status === 'active')
-
-  let atCriterionCount = 0
-  for (const g of activeGoals) {
-    const goalMeasurements = measurements
-      .filter((m) => m.goalId === g.id)
-      .map((m) => ({ ...m, date: sessionDateById[m.sessionId] }))
-      .filter((m) => m.date)
-      .sort((a, b) => a.date.localeCompare(b.date))
-    const latest = goalMeasurements[goalMeasurements.length - 1]
-    if (!latest) continue
-    // Το duration εξαιρείται σκόπιμα: η κατεύθυνση του «καλού» δεν είναι πάντα σαφής (π.χ. διάρκεια
-    // δραστηριότητας θέλουμε να ΑΥΞΗΘΕΙ, διάρκεια δύσκολης συμπεριφοράς θέλουμε να ΜΕΙΩΘΕΙ) — μια απλή
-    // "τιμή >= κριτήριο" σύγκριση θα έδειχνε ψευδώς «στο κριτήριο» ανεξάρτητα από ποια κατεύθυνση ισχύει.
-    if (g.measurementType === 'duration') continue
-    const numericValue = measurementNumericValue(g.measurementType, latest.value)
-    const criterionTarget = parseCriterionTarget(g.criterion, g.measurementType)
-    if (numericValue !== null && criterionTarget !== null && numericValue >= criterionTarget) {
-      atCriterionCount++
-    }
-  }
-
-  let totalSessions = 0
-  let lastSessionDate = null
-  for (const s of sessions) {
-    if (!s.studentIds?.includes(studentId)) continue
-    if (s.absentStudentIds?.includes(studentId)) continue
-    // Sprint 6: μια συνεδρία που καταγράφηκε απευθείας ως notHeld (δεν πραγματοποιήθηκε) δεν
-    // μετράει ως πραγματική συνεδρία εδώ — ίδιο σκεπτικό με το absentStudentIds παραπάνω.
-    if (s.status === 'notHeld') continue
-    totalSessions++
-    if (!lastSessionDate || s.date > lastSessionDate) lastSessionDate = s.date
-  }
-
-  return {
-    activeGoalsCount: activeGoals.length,
-    totalSessions,
-    goalsAtCriterionLabel: activeGoals.length > 0 ? `${atCriterionCount}/${activeGoals.length}` : '—',
-    lastSessionLabel: lastSessionDate ? formatDateElShort(lastSessionDate) : 'Καμία ακόμα'
-  }
-}
-
 export default function StudentProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const studentId = Number(id)
+  // Από το HomeAttentionWidget (Technical Plan Στάδιο 13, σημείο 5) — best-effort, ΔΕΝ επιβιώνει
+  // σε reload (react-router state). Το StudentDashboardPanel έχει ήδη ασφαλές fallback χωρίς αυτό.
+  const focusGoalId = location.state?.focusGoalId ?? null
   const [activeTab, setActiveTab] = useState('goals')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   // null = «δεν έχει τρέξει ακόμα» (βλ. ίδιο μοτίβο ήδη στην παλιά υλοποίηση) — χωρίς αυτό, ένας
   // μαθητής που πραγματικά δεν υπάρχει δεν θα ξεχώριζε από «φορτώνει ακόμα».
   const student = useLiveQuery(() => activeTable('students').get(studentId), [studentId], null)
-  const heroStats = useLiveQuery(() => loadHeroStats(studentId), [studentId])
 
   if (student === null) {
     return (
@@ -144,16 +91,16 @@ export default function StudentProfile() {
         nickname={student.nickname}
         grade={student.grade}
         active={student.active}
-        activeGoalsCount={heroStats ? heroStats.activeGoalsCount : '—'}
-        totalSessions={heroStats ? heroStats.totalSessions : '—'}
-        goalsAtCriterionLabel={heroStats ? heroStats.goalsAtCriterionLabel : '—'}
-        lastSessionLabel={heroStats ? heroStats.lastSessionLabel : '—'}
         sessionTo={`/teaching/session/${studentId}`}
         onBack={() => navigate('/students')}
         onEdit={() => navigate(`/students/${studentId}/edit`)}
         onToggleActive={toggleActive}
         onDelete={() => setConfirmDeleteOpen(true)}
       />
+
+      {/* Πλήρης αντικατάσταση των παλιών 4 στατιστικών καρτών (Technical Plan Στάδιο 12, σημείο 1)
+          — ΟΧΙ προσθήκη πάνω/κάτω από αυτές, ήδη αφαιρέθηκαν εντελώς από το StudentProfileHero. */}
+      <StudentDashboardPanel studentId={studentId} focusGoalId={focusGoalId} />
 
       <Tabs tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
 

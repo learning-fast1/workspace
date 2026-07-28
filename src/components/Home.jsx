@@ -15,14 +15,13 @@ import {
 } from 'lucide-react'
 import { getLastBackupAt } from '../db.js'
 import { activeTable } from '../migration/activeGeneration.js'
-import { sessionDateMap } from '../utils/sessions.js'
 import { formatDateEl, todayLocalISO } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
 import TodayQueue from './TodayQueue.jsx'
+import HomeAttentionWidget from './HomeAttentionWidget.jsx'
 import './Home.css'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-const STALE_AFTER_DAYS = 14
 const BACKUP_REMINDER_AFTER_DAYS = 7
 
 // ΑΜΕΤΑΒΛΗΤΗ business logic — ίδιες συναρτήσεις με πριν, μόνο η παρουσίαση αλλάζει παρακάτω.
@@ -31,48 +30,6 @@ async function checkBackupReminder() {
   if (!lastBackupAt) return { needed: true, days: null }
   const days = Math.floor((new Date() - new Date(lastBackupAt)) / MS_PER_DAY)
   return { needed: days > BACKUP_REMINDER_AFTER_DAYS, days }
-}
-
-// Ενεργοί στόχοι (ενεργών μαθητών) χωρίς μέτρηση πάνω από STALE_AFTER_DAYS μέρες, ΕΚΤΟΣ όσων
-// μαθητών βρίσκονται ήδη στη σημερινή «Η μέρα μου» — αυτοί βλέπουν το ίδιο σήμα inline στη δική
-// τους γραμμή (utils/attentionSignal.js), ώστε να μη φαίνεται δύο φορές (Sprint 5 Product Design:
-// «Για μαθητή εκτός σημερινής ουράς παραμένει μια πολύ μικρή, ξεχωριστή γραμμή»).
-async function findStaleGoals() {
-  const [students, goals, measurements, sessions, todayQueue] = await Promise.all([
-    activeTable('students').toArray(),
-    activeTable('goals').where('status').equals('active').toArray(),
-    activeTable('measurements').toArray(),
-    activeTable('sessions').toArray(),
-    activeTable('dailyQueue').where('date').equals(todayLocalISO()).toArray()
-  ])
-
-  const activeStudentIds = new Set(students.filter((s) => s.active).map((s) => s.id))
-  const queuedStudentIds = new Set(todayQueue.flatMap((e) => e.studentIds))
-  const sessionDateById = sessionDateMap(sessions)
-
-  const lastMeasuredByGoal = {}
-  for (const m of measurements) {
-    const date = sessionDateById[m.sessionId]
-    if (!date) continue
-    if (!lastMeasuredByGoal[m.goalId] || date > lastMeasuredByGoal[m.goalId]) {
-      lastMeasuredByGoal[m.goalId] = date
-    }
-  }
-
-  const today = new Date()
-  const stale = []
-  for (const g of goals) {
-    if (!activeStudentIds.has(g.studentId)) continue
-    if (queuedStudentIds.has(g.studentId)) continue
-    const referenceDate = lastMeasuredByGoal[g.id] || g.startDate
-    if (!referenceDate) continue
-    const days = Math.floor((today - new Date(referenceDate)) / MS_PER_DAY)
-    if (days > STALE_AFTER_DAYS) {
-      const student = students.find((s) => s.id === g.studentId)
-      stale.push({ goalId: g.id, studentId: g.studentId, studentCode: student?.code, title: g.title, days })
-    }
-  }
-  return stale.sort((a, b) => b.days - a.days)
 }
 
 // Νέα, καθαρά αναγνωστικά queries (τίποτα δεν γράφεται/αλλάζει) — τροφοδοτούν μόνο τα Stat Cards
@@ -133,7 +90,6 @@ function StatCard({ icon: Icon, label, value, emptyHint }) {
 // Αρχική οθόνη — dashboard (βλ. DESIGN_SYSTEM.md). Η φιλοσοφία «η συνεδρία είναι το κέντρο» (SPEC.md)
 // παραμένει: Ατομικό/Ομαδικό είναι οι πρώτες, πιο εμφανείς quick actions.
 export default function Home() {
-  const staleGoals = useLiveQuery(findStaleGoals, [])
   const backupReminder = useLiveQuery(checkBackupReminder, [])
   const stats = useLiveQuery(loadDashboardStats, [])
   const recentActivity = useLiveQuery(loadRecentActivity, [])
@@ -160,23 +116,12 @@ export default function Home() {
 
       <TodayQueue />
 
-      {staleGoals && staleGoals.length > 0 && (
-        <div className="dashboard-notice">
-          <AlertTriangle size={20} className="dashboard-notice-icon" />
-          <div>
-            <p className="dashboard-notice-title">
-              {staleGoals.length} στόχ{staleGoals.length === 1 ? 'ος' : 'οι'} χωρίς μέτρηση πάνω από 14 μέρες
-            </p>
-            <ul>
-              {staleGoals.map((g) => (
-                <li key={g.goalId}>
-                  <Link to={`/students/${g.studentId}/goals/${g.goalId}`}>{g.studentCode} — {g.title}</Link> ({g.days} μέρες)
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+      {/* Δευτερεύον, ήρεμο widget (Technical Plan Στάδιο 13) — ΚΑΤΩ από «Η μέρα μου», ΔΕΝ
+          ανταγωνίζεται το σημερινό πρόγραμμα ή το κύριο CTA. Κρύβεται εντελώς όταν δεν υπάρχει
+          τίποτα να δείξει (βλ. HomeAttentionWidget.jsx). Μοναδική πηγή αλήθειας για «Χρειάζονται
+          προσοχή» στην Αρχική — το παλιότερο, επικαλυπτόμενο findStaleGoals()/.dashboard-notice
+          αφαιρέθηκε (Sprint 7 cleanup) ώστε να μην υπάρχουν δύο ξεχωριστά attention systems εδώ. */}
+      <HomeAttentionWidget />
 
       <h2 className="dashboard-section-title">Επισκόπηση</h2>
       <div className="dashboard-stats">

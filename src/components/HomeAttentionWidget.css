@@ -1,0 +1,133 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Σκόπιμα ΧΩΡΙΣ κόκκινο/warning
+   χρώμα ή έντονο περίγραμμα (Technical Plan Στάδιο 13, σημείο 1) — δευτερεύον, ήρεμο widget, ΟΧΙ
+   hero treatment. Το παλιότερο, επικαλυπτόμενο .dashboard-notice (findStaleGoals) αφαιρέθηκε από
+   το Home.jsx στο Sprint 7 cleanup — αυτό το widget είναι πλέον η μοναδική πηγή αλήθειας. */
+
+.home-attention-widget {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+}
+
+.home-attention-widget__heading {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-2);
+}
+
+.home-attention-widget__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-attention-widget__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-1);
+  border: none;
+  border-top: 1px solid var(--color-border);
+  background: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.home-attention-widget__row:hover {
+  background: var(--color-surface-soft);
+}
+
+.home-attention-widget__row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.home-attention-widget__student {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.home-attention-widget__goal-title {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.home-attention-widget__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  flex-basis: 100%;
+}
+
+@media (min-width: 640px) {
+  .home-attention-widget__reasons {
+    flex-basis: auto;
+  }
+}
+
+.home-attention-widget__reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+}
+
+/* Χρωματική διαφοροποίηση ανά τύπο λόγου (Sprint 7 feedback χρήστη, σημείο 2) — ΜΟΝΟ στο μικρό
+   inline εικονίδιο/κείμενο κάθε λόγου, ΟΧΙ σε ολόκληρο το widget/row (παραμένει ήρεμο container,
+   βλ. σχόλιο στην κορυφή του αρχείου — καμία αντίφαση, η ένταση μένει στο απολύτως απαραίτητο). */
+.home-attention-widget__reason--stale {
+  color: var(--color-danger);
+}
+
+.home-attention-widget__reason--pausedTooLong {
+  color: var(--color-text-secondary);
+}
+
+.home-attention-widget__reason--nearCriterion {
+  color: var(--color-warning);
+}
+
+/* ---------- Loading / error ---------- */
+
+.home-attention-widget--loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.home-attention-widget__skeleton-line {
+  height: 16px;
+  border-radius: 4px;
+  background: var(--color-surface-soft);
+}
+
+.home-attention-widget__skeleton-line:first-child {
+  width: 40%;
+}
+
+.home-attention-widget--error {
+  color: var(--color-text-secondary);
+}
+
+.home-attention-widget__error-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  margin: 0;
+}

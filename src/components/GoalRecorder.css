@@ -31,9 +31,70 @@
   font-size: var(--font-md);
 }
 
+/* Bug report (Success Ratio — διόρθωση misclick) — δεύτερη, σκόπιμα μικρότερη/πιο διακριτική σειρά
+   κάτω από τα κύρια +1 κουμπιά· διορθωτική ενέργεια, όχι πρωτεύον workflow, αλλά ΠΑΝΤΑ ≥ 44px
+   (ελάχιστο touch target, COMPONENT_GUIDE.md). */
+.goal-recorder__row--adjust {
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.goal-recorder .goal-recorder__btn--adjust {
+  min-height: 44px;
+  font-size: var(--font-sm);
+}
+
 .goal-recorder__tally {
   text-align: center;
   font-weight: 600;
   color: var(--color-text-secondary);
   margin: 0;
+}
+
+/* Technical Plan Στάδιο 8 — Κλίμακα 1–5: κάθετη στοίβα πλήρων γραμμών αντί για κουμπιά-σε-σειρά
+   (εγκεκριμένη απόκλιση από το αρχικό sketch, mobile-friendlier με πλήρες κείμενο περιγραφής). */
+.goal-recorder__row--column {
+  flex-direction: column;
+}
+
+.goal-recorder .goal-recorder__btn--wide {
+  min-height: 48px;
+  text-align: left;
+  justify-content: flex-start;
+  white-space: normal;
+}
+
+/* Checklist/Βήματα εργασίας (δομημένα) — tap-λίστα, native checkbox ανά γραμμή. */
+.goal-recorder__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-recorder__list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  cursor: pointer;
+}
+
+.goal-recorder__list-row input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.goal-recorder__list-number {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.goal-recorder__list-label {
+  flex: 1;
 }

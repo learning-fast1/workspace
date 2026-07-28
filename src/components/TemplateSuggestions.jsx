@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { activeTable } from '../migration/activeGeneration.js'
 import ChipListEditor from './ChipListEditor.jsx'
+import './TemplateSuggestions.css'
 
 // Προτάσεις (goalStarters/baselineExamples/commonCriteria) του DomainTemplate ενός τομέα.
 // Κλικ σε πρόταση = συμπληρώνει το πεδίο. Οι προτάσεις είναι επεξεργάσιμες (προσθήκη/αφαίρεση), αποθηκευμένες στη βάση.
@@ -36,8 +37,8 @@ export default function TemplateSuggestions({ domain, field, label, onApply }) {
   }
 
   return (
-    <div className="suggestions">
-      <p className="hint">{label}</p>
+    <div className="template-suggestions">
+      <p className="template-suggestions__label">{label}</p>
       <ChipListEditor
         items={items}
         onAdd={handleAdd}

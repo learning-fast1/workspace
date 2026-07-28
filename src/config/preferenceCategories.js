@@ -4,6 +4,6 @@ export const PREFERENCE_CATEGORIES = [
   { key: 'dislikes', label: 'Δεν του αρέσει' },
   { key: 'reinforcers', label: 'Ενισχυτές' },
   { key: 'favoriteActivities', label: 'Αγαπημένα παιχνίδια/δραστηριότητες' },
-  { key: 'triggers', label: 'Triggers' },
+  { key: 'triggers', label: 'Τον αναστατώνει' },
   { key: 'calmingThings', label: 'Τον ηρεμεί' }
 ]

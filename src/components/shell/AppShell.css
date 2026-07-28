@@ -166,14 +166,21 @@
 .app-shell-sidebar-header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   height: var(--shell-header-height);
-  padding: 0 var(--space-4);
-  font-weight: 700;
-  font-size: var(--font-lg);
+  padding: 0;
   color: var(--color-text);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.app-shell-sidebar-logo {
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  object-position: left center;
+  display: block;
 }
 
 .app-shell-nav {

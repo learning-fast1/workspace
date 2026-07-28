@@ -1,0 +1,95 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Mobile review (product polish):
+   πλήρης μετάβαση από το παλιό, pre-redesign .chip/.chip-list/.add-item-row (src/index.css) σε
+   δικές του κλάσεις πάνω στο νέο design system — μία πηγή αλήθειας πλέον για ΚΑΘΕ χρήση
+   (TemplateSuggestions στον Goal Wizard ΚΑΙ PreferencesEditor στους Ενισχυτές), όχι δύο
+   παράλληλα οπτικά ύφη με CSS specificity tricks ανάμεσά τους. */
+
+.chip-list-editor__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* Απλές ετικέτες (π.χ. Ενισχυτές) — σύντομες λέξεις/φράσεις, στρογγυλό chip. */
+.chip-list-editor__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 6px 6px 6px var(--space-3);
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-size: var(--font-sm);
+}
+
+.chip-list-editor__text {
+  overflow-wrap: anywhere;
+}
+
+/* Προτάσεις διατύπωσης (π.χ. Goal Wizard, TemplateSuggestions) — τυπικά ολόκληρες προτάσεις, όχι
+   μονολεκτικές ετικέτες. Card-στυλ αντί για στρογγυλό pill (product feedback: «λιγότερο σαν
+   μεγάλα text blocks, περισσότερο σαν επιλογές» — πιο φυσικό διάβασμα σε κινητό). */
+.chip-list-editor__chip--suggestion {
+  align-items: flex-start;
+  max-width: 260px;
+  padding: 2px 2px 2px var(--space-3);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.chip-list-editor__apply {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+}
+
+.chip-list-editor__apply:hover {
+  color: var(--color-primary);
+}
+
+.chip-list-editor__remove {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chip-list-editor__remove:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.chip-list-editor__remove:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.chip-list-editor__add-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.chip-list-editor__add-input {
+  flex: 1;
+  min-width: 0;
+}

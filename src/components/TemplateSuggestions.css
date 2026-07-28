@@ -1,0 +1,13 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Αντικατέστησε τις παλιές,
+   κοινόχρηστες .suggestions/.hint (src/index.css) — δικές του κλάσεις πλέον, ώστε να μην
+   εξαρτάται από γενικό, μοιρασμένο legacy CSS (βλ. ChipListEditor.css για το ίδιο σκεπτικό). */
+
+.template-suggestions {
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.template-suggestions__label {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  margin: 0 0 var(--space-2);
+}

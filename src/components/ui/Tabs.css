@@ -10,6 +10,18 @@
   /* Οριζόντιο scroll ΜΟΝΟ μέσα σε αυτή τη μπάρα (COMPONENT_GUIDE.md § Tabs) — όχι στη σελίδα. */
 }
 
+/* Mobile review (product polish, σημείο 6): η μπάρα ήταν ήδη scrollable (overflow-x:auto παραπάνω),
+   αλλά χωρίς κανένα οπτικό σημάδι ότι υπάρχουν κι άλλα tabs δεξιά — το τελευταίο tab έδειχνε απλώς
+   κομμένο στην άκρη αντί να δείχνει «scrollable». Ήπιο fade στη δεξιά άκρη, ΜΟΝΟ σε mobile πλάτη
+   όπου 5 tabs τυπικά δεν χωράνε (σε tablet/desktop χωράνε άνετα, οπότε το fade θα ήταν παραπλανητικό
+   — δεν υπάρχει κάτι άλλο να δει κανείς). Καθαρά CSS, χωρίς JS scroll-tracking.*/
+@media (max-width: 767px) {
+  .tabs {
+    mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+  }
+}
+
 .tabs__tab {
   flex-shrink: 0;
   min-height: 44px;

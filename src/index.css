@@ -245,51 +245,6 @@ legend {
   font-weight: normal;
 }
 
-.chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0.4rem 0;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: var(--color-priority-low);
-  color: var(--color-text);
-  border: none;
-  border-radius: 1rem;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.9rem;
-}
-
-.chip-selected {
-  background: var(--color-primary);
-  color: var(--color-primary-ink);
-  font-weight: 600;
-}
-
-.chip-remove {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-danger-ink);
-  font-size: 0.9rem;
-  line-height: 1;
-  padding: 0;
-}
-
-.add-item-row {
-  display: flex;
-  gap: 0.4rem;
-  margin-top: 0.4rem;
-}
-
-.add-item-row input {
-  flex: 1;
-}
-
 .section {
   background: var(--color-card);
   border: 1px solid var(--color-border);
@@ -417,28 +372,6 @@ legend {
   border: 1px solid var(--color-border);
   background: var(--color-card);
   color: var(--color-text);
-}
-
-.suggestions {
-  margin: 0.5rem 0 1rem;
-  padding: 0.6rem 0.8rem;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 0.6rem;
-}
-
-.chip-suggestion {
-  padding: 0.2rem 0.3rem 0.2rem 0.7rem;
-}
-
-.chip-apply {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  padding: 0;
-  text-align: left;
 }
 
 /* Home screen */

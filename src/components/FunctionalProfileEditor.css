@@ -104,14 +104,17 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* Mobile review (product polish, σημείο 5) — λίγο πιο συμπαγές ύψος/padding ανά γραμμή, ώστε να
+   φαίνονται περισσότερες ενότητες χωρίς τόσο scrolling. min-height παραμένει ≥44px (a11y touch
+   target floor). */
 .profile-editor__accordion-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   width: 100%;
-  min-height: 52px;
-  padding: var(--space-3) 0;
+  min-height: 48px;
+  padding: var(--space-2) 0;
   border: none;
   background: none;
   color: var(--color-text);

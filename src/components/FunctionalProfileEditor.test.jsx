@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -49,5 +51,19 @@ describe('FunctionalProfileEditor — παραμένει στους 14 αναλ�
     // Badge με τον αριθμό επιλεγμένων στοιχείων δίπλα στο «Ανάγνωση».
     const readingButton = within(nav).getByText('Ανάγνωση').closest('button')
     expect(within(readingButton).getByText('1')).toBeInTheDocument()
+  })
+})
+
+// Mobile review (product polish, σημείο 5) — οι γραμμές accordion ήταν πιο ψηλές από όσο χρειάζεται.
+// «Καρφώνουμε» εδώ τη CSS δήλωση (jsdom δεν κάνει πραγματικό layout/ύψος measurement).
+describe('FunctionalProfileEditor.css: accordion header — πιο συμπαγές, ΠΑΝΤΑ ≥44px touch target', () => {
+  it('.profile-editor__accordion-header έχει min-height 48px (όχι πια 52px), min-height ≥ 44px (a11y)', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/components/FunctionalProfileEditor.css'), 'utf-8')
+    const match = css.match(/\.profile-editor__accordion-header\s*\{([^}]*)\}/)
+    expect(match).toBeTruthy()
+    const minHeightMatch = match[1].match(/min-height:\s*(\d+)px/)
+    expect(minHeightMatch).toBeTruthy()
+    expect(Number(minHeightMatch[1])).toBeGreaterThanOrEqual(44)
+    expect(Number(minHeightMatch[1])).toBeLessThan(52)
   })
 })

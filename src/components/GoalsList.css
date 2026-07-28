@@ -36,3 +36,11 @@
   gap: var(--space-4);
   max-width: 900px;
 }
+
+/* Mobile review (product polish, σημείο 6) — λίγο περισσότερος αέρας ανάμεσα στις κάρτες στόχων σε
+   στενές οθόνες, όπου η πυκνότητα αισθάνεται πιο σφιχτή απ' ό,τι σε desktop. */
+@media (max-width: 767px) {
+  .goals-list__grid {
+    gap: var(--space-5);
+  }
+}

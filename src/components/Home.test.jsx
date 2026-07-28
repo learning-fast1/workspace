@@ -34,6 +34,14 @@ function renderHome() {
   )
 }
 
+// Σχετικό με «τώρα» (ΟΧΙ hardcoded απόλυτη ημερομηνία) — bug βρέθηκε ζωντανά: 3 tests παρακάτω
+// χρησιμοποιούσαν ένα σταθερό '2026-07-20', το οποίο σταμάτησε να είναι «πρόσφατο» (<7 μέρες, βλ.
+// BACKUP_REMINDER_AFTER_DAYS στο Home.jsx) μόλις πέρασε αρκετός πραγματικός χρόνος — άσχετο με το
+// Smart Notifications work, εντοπίστηκε τρέχοντας το πλήρες suite.
+function recentBackupISO(daysAgo) {
+  return new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString()
+}
+
 // Feedback χρήστη: πριν, το backup banner εξαφανιζόταν ΕΝΤΕΛΩΣ μόλις γινόταν το πρώτο backup — ο
 // χρήστης έχανε κάθε ορατότητα στην κατάσταση του backup. Τώρα γίνεται μόνιμο, ήρεμο status (πράσινο)
 // αντί να εξαφανίζεται, με δυνατότητα νέου backup με ένα tap.
@@ -45,7 +53,7 @@ describe('Home — backup banner', () => {
   })
 
   it('πρόσφατο backup (<7 μέρες) → ΜΟΝΙΜΟ status banner, ΟΧΙ εξαφάνιση', async () => {
-    await setLastBackupAt('2026-07-20T09:30:00.000Z')
+    await setLastBackupAt(recentBackupISO(2))
     renderHome()
 
     await waitFor(() => expect(screen.getByText('Τελευταίο αντίγραφο ασφαλείας')).toBeInTheDocument())
@@ -66,7 +74,7 @@ describe('Home — backup banner', () => {
   })
 
   it('κλικ σε «Δημιουργία νέου backup» καλεί το exportBackupFile', async () => {
-    await setLastBackupAt('2026-07-20T09:30:00.000Z')
+    await setLastBackupAt(recentBackupISO(2))
     const user = userEvent.setup()
     renderHome()
 
@@ -77,7 +85,7 @@ describe('Home — backup banner', () => {
   })
 
   it('αποτυχία exportBackupFile δείχνει μήνυμα σφάλματος, ΔΕΝ πετάει σιωπηλά', async () => {
-    await setLastBackupAt('2026-07-20T09:30:00.000Z')
+    await setLastBackupAt(recentBackupISO(2))
     exportBackupFile.mockRejectedValueOnce(new Error('Εσκεμμένο σφάλμα δοκιμής'))
     const user = userEvent.setup()
     renderHome()

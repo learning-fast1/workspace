@@ -35,7 +35,10 @@ export default function StudentProfile() {
   // Από το HomeAttentionWidget (Technical Plan Στάδιο 13, σημείο 5) — best-effort, ΔΕΝ επιβιώνει
   // σε reload (react-router state). Το StudentDashboardPanel έχει ήδη ασφαλές fallback χωρίς αυτό.
   const focusGoalId = location.state?.focusGoalId ?? null
-  const [activeTab, setActiveTab] = useState('goals')
+  // Smart Notifications (review χρήστη) — π.χ. μια ειδοποίηση «πρόχειρη αναφορά» πρέπει να ανοίγει
+  // ΚΑΤΕΥΘΕΙΑΝ στο tab «Έκθεση», όχι στο προεπιλεγμένο «Στόχοι». Ίδιο idiom με το ήδη υπάρχον
+  // location.state.focusGoalId — best-effort, ΔΕΝ επιβιώνει σε reload.
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'goals')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   // null = «δεν έχει τρέξει ακόμα» (βλ. ίδιο μοτίβο ήδη στην παλιά υλοποίηση) — χωρίς αυτό, ένας

@@ -9,6 +9,7 @@ import db, {
   createSchoolYear, getActiveSchoolYear, setActiveSchoolYear, listSchoolYears,
   recordSchoolYearParticipation, setStudentActive, applySchoolYearTransition,
   updateGoalCriterion, deleteStudent, deleteSession, migrateGoalDomainsToBroaderDomains,
+  dismissNotification, snoozeNotification, cleanupOrphanedNotificationState,
   DATA_TABLE_NAMES
 } from './db.js'
 import { restoreFromBackup } from './utils/backup.js'
@@ -1847,7 +1848,9 @@ describe('Sprint 5A Phase 1 — CLOUD_ENABLED feature flag (db.js)', () => {
 // πραγματικά χρησιμοποιήσιμοι — όχι μόνο δηλωμένοι.
 describe('Schema v11 (Phase 2 parallel-table foundation, reconciled μετά τα Sprint 7/8)', () => {
   it('ανοίγει στο v11 και δηλώνει _v2 αντίστοιχο για ΚΑΘΕ πίνακα δεδομένων του legacy σχήματος', async () => {
-    expect(db.verno).toBe(11)
+    // db.verno: 12 (Smart Notifications, βλ. db.version(12) — notificationState/_v2 προστέθηκαν
+    // ΜΕΤΑ το v11 που αυτό το describe block ελέγχει, δεν αγγίζουν τίποτα από όσα ελέγχονται εδώ).
+    expect(db.verno).toBe(12)
 
     const tableNames = db.tables.map((t) => t.name)
     const legacyDataTables = [
@@ -1915,5 +1918,45 @@ describe('Schema v11 (Phase 2 parallel-table foundation, reconciled μετά τ�
     const studentId = await db.students.add({ code: 'ΝΤΤ2', active: true })
     expect(await db.students.get(studentId)).toMatchObject({ code: 'ΝΤΤ2' })
     await db.students.delete(studentId)
+  })
+})
+
+// Smart Notifications — persisted dismiss/snooze κατάσταση (review χρήστη). Το ΠΕΡΙΕΧΟΜΕΝΟ των
+// notifications (severity/label/icon/primaryAction) ΔΕΝ αγγίζεται εδώ — αυτά τα tests αφορούν
+// ΜΟΝΟ τις 3 write functions πάνω στο notificationState schema.
+describe('Smart Notifications — dismissNotification/snoozeNotification/cleanupOrphanedNotificationState', () => {
+  it('dismissNotification γράφει dismissedAt, μηδενίζει snoozedUntil, στοιχειοθετεί schemaVersion', async () => {
+    await dismissNotification('goalStale:1:2020-01-01', { type: 'goalStale', entityType: 'goal', entityId: 1, studentId: 1 })
+    const row = await db.notificationState.get('goalStale:1:2020-01-01')
+    expect(row.dismissedAt).toBeTruthy()
+    expect(row.snoozedUntil).toBeNull()
+    expect(row.schemaVersion).toBe(1)
+    expect(row.studentId).toBe(1)
+  })
+
+  it('snoozeNotification γράφει snoozedUntil, μηδενίζει dismissedAt', async () => {
+    await snoozeNotification('goalStale:1:2020-01-01', '2026-08-01', { type: 'goalStale', entityType: 'goal', entityId: 1, studentId: 1 })
+    const row = await db.notificationState.get('goalStale:1:2020-01-01')
+    expect(row.snoozedUntil).toBe('2026-08-01')
+    expect(row.dismissedAt).toBeNull()
+  })
+
+  it('cleanupOrphanedNotificationState διαγράφει ΜΟΝΟ ό,τι δεν είναι πλέον στο valid set (resolved/orphan)', async () => {
+    await dismissNotification('goalStale:1:2020-01-01', { type: 'goalStale', studentId: 1 })
+    await dismissNotification('goalStale:2:2020-01-01', { type: 'goalStale', studentId: 2 })
+
+    const deletedCount = await cleanupOrphanedNotificationState(['goalStale:1:2020-01-01'])
+
+    expect(deletedCount).toBe(1)
+    expect(await db.notificationState.get('goalStale:1:2020-01-01')).toBeTruthy()
+    expect(await db.notificationState.get('goalStale:2:2020-01-01')).toBeUndefined()
+  })
+
+  it('cleanupOrphanedNotificationState ΔΕΝ διαγράφει ληγμένο snooze (review χρήστη, σημείο 1) όσο το id παραμένει έγκυρο', async () => {
+    await snoozeNotification('goalStale:1:2020-01-01', '2020-01-01', { type: 'goalStale', studentId: 1 }) // ήδη ληγμένο
+
+    await cleanupOrphanedNotificationState(['goalStale:1:2020-01-01'])
+
+    expect(await db.notificationState.get('goalStale:1:2020-01-01')).toBeTruthy()
   })
 })

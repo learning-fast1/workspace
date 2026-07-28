@@ -1,19 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route, useParams, useLocation } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useParams } from 'react-router-dom'
 import db from '../db.js'
 import HomeAttentionWidget from './HomeAttentionWidget.jsx'
 
-// Regression: τα utility tests (homeAttentionData.test.js) αποδεικνύουν ότι ο υπολογισμός είναι
-// σωστός — ΔΕΝ αποδεικνύουν ότι το ίδιο το component κάνει σωστά render/wiring πάνω σε αυτόν τον
-// υπολογισμό (π.χ. λάθος prop name, σπασμένο import, λάθος navigate() route/state shape). Αυτό εδώ
-// είναι το συμπληρωματικό, component-level επίπεδο απόδειξης.
+// Regression: τα utility tests (notificationEngine.test.js/notificationData.test.js) αποδεικνύουν
+// ότι ο υπολογισμός είναι σωστός — ΔΕΝ αποδεικνύουν ότι το ίδιο το component κάνει σωστά
+// render/wiring πάνω σε αυτόν τον υπολογισμό (π.χ. λάθος prop name, σπασμένο import, λάθος
+// navigate() route, σπασμένο dismiss/snooze wiring). Αυτό εδώ είναι το συμπληρωματικό,
+// component-level επίπεδο απόδειξης.
+
+function GoalDetailStub() {
+  const { id, goalId } = useParams()
+  return <div>GOAL-DETAIL-{id}-{goalId}</div>
+}
 
 function StudentProfileStub() {
   const { id } = useParams()
-  const location = useLocation()
-  return <div>PROFILE-{id}-focusGoal-{String(location.state?.focusGoalId)}</div>
+  return <div>PROFILE-{id}</div>
 }
 
 function renderWidget() {
@@ -21,26 +26,21 @@ function renderWidget() {
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route path="/" element={<HomeAttentionWidget />} />
+        <Route path="/students/:id/goals/:goalId" element={<GoalDetailStub />} />
         <Route path="/students/:id" element={<StudentProfileStub />} />
       </Routes>
     </MemoryRouter>
   )
 }
 
-function daysAgoISO(days) {
-  const d = new Date()
-  d.setDate(d.getDate() - days)
-  return d.toISOString().slice(0, 10)
-}
-
 async function seedStudent(overrides = {}) {
   return db.students.add({ code: 'Μ' + Math.random().toString(36).slice(2, 6), active: true, ...overrides })
 }
 
-async function seedGoal(studentId, overrides = {}) {
+async function seedStaleGoal(studentId, overrides = {}) {
   return db.goals.add({
     studentId, domain: 'reading', title: 'Στόχος', status: 'active', priority: 'medium',
-    startDate: '2000-01-01', criterion: '8/10', measurementType: 'successRatio', ...overrides
+    startDate: '2000-01-01', ...overrides
   })
 }
 
@@ -54,43 +54,67 @@ afterEach(async () => {
   db.close()
 })
 
-describe('HomeAttentionWidget — component-level regression', () => {
-  it('χωρίς κανένα attention item → αποδίδει ΤΙΠΟΤΑ (self-hide), όχι κενό banner', async () => {
+describe('HomeAttentionWidget — component-level regression (Smart Notifications)', () => {
+  it('χωρίς καμία ειδοποίηση → αποδίδει ΤΙΠΟΤΑ (self-hide), όχι κενό banner', async () => {
     const { container } = renderWidget()
     await waitFor(() => expect(screen.queryByLabelText(/Φόρτωση: Χρειάζονται προσοχή/)).not.toBeInTheDocument())
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('goal με πολλαπλούς λόγους (nearCriterion + stale) αποδίδει ΚΑΙ τους δύο λόγους στην ΙΔΙΑ γραμμή', async () => {
+  it('goal stale αποδίδει γραμμή με κωδικό μαθητή, ετικέτα, ΚΑΙ ενέργειες αναβολής/απόρριψης', async () => {
     const studentId = await seedStudent({ code: 'ΑΒ12' })
-    const goalId = await seedGoal(studentId, { title: 'Ανάγνωση προτάσεων', startDate: '2000-01-01' })
-    const sessionId = await db.sessions.add({ date: daysAgoISO(30), studentIds: [studentId], status: 'held' })
-    // Κοντά στο criterion (nearCriterion) αλλά παλιά ημερομηνία (>14 μέρες, stale) — ίδιο σενάριο
-    // με το πρώτο test του homeAttentionData.test.js, εδώ ελέγχεται το ΙΔΙΟ render.
-    await db.measurements.add({ studentId, goalId, sessionId, value: { successes: 75, attempts: 100 } })
+    await seedStaleGoal(studentId, { title: 'Ανάγνωση προτάσεων' })
 
     renderWidget()
 
-    await screen.findByText('Ανάγνωση προτάσεων')
-    const row = screen.getByRole('button', { name: /ΑΒ12.*Ανάγνωση προτάσεων/ })
-    expect(row).toHaveTextContent(/.+/) // sanity: κάτι αποδόθηκε
-    // Δύο ξεχωριστά reason chips (nearCriterion + stale) μέσα στην ΙΔΙΑ γραμμή.
-    const reasonChips = row.querySelectorAll('.home-attention-widget__reason')
-    expect(reasonChips.length).toBe(2)
-    const reasonTypes = [...reasonChips].map((el) => el.className.match(/home-attention-widget__reason--(\w+)/)[1])
-    expect(reasonTypes.sort()).toEqual(['nearCriterion', 'stale'])
+    const openButton = await screen.findByRole('button', { name: /^ΑΒ12.*Ανάγνωση προτάσεων/ })
+    expect(openButton).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Ενέργειες για ειδοποίηση: ΑΒ12/ })).toBeInTheDocument()
   })
 
-  it('κλικ σε γραμμή → πλοήγηση στο ΣΩΣΤΟ student profile ΜΕ το σωστό focusGoalId', async () => {
+  it('κλικ στο άνοιγμα ενός goalStale item → πλοήγηση ΑΠΕΥΘΕΙΑΣ στο GoalDetail (primaryAction: openGoal)', async () => {
     const studentId = await seedStudent({ code: 'ΓΔ34' })
-    const goalId = await seedGoal(studentId, { title: 'Στόχος προς έλεγχο', startDate: '2000-01-01' })
+    const goalId = await seedStaleGoal(studentId, { title: 'Στόχος προς έλεγχο' })
 
     const user = userEvent.setup()
     renderWidget()
 
-    const row = await screen.findByRole('button', { name: /ΓΔ34.*Στόχος προς έλεγχο/ })
-    await user.click(row)
+    const openButton = await screen.findByRole('button', { name: /^ΓΔ34.*Στόχος προς έλεγχο/ })
+    await user.click(openButton)
 
-    expect(await screen.findByText(`PROFILE-${studentId}-focusGoal-${goalId}`)).toBeInTheDocument()
+    expect(await screen.findByText(`GOAL-DETAIL-${studentId}-${goalId}`)).toBeInTheDocument()
+  })
+
+  it('«Απόρριψη» από το OverflowMenu κρύβει αμέσως την ειδοποίηση (persisted dismiss)', async () => {
+    const studentId = await seedStudent({ code: 'ΕΖ56' })
+    await seedStaleGoal(studentId, { title: 'Στόχος Ε' })
+
+    const user = userEvent.setup()
+    renderWidget()
+
+    await screen.findByRole('button', { name: /^ΕΖ56/ })
+    await user.click(screen.getByRole('button', { name: /Ενέργειες για ειδοποίηση: ΕΖ56/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Απόρριψη' }))
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^ΕΖ56/ })).not.toBeInTheDocument())
+    expect(await db.notificationState.count()).toBe(1)
+  })
+
+  it('«Αναβολή: Αύριο» από το OverflowMenu κρύβει την ειδοποίηση μέχρι να λήξει η αναβολή', async () => {
+    const studentId = await seedStudent({ code: 'ΗΘ78' })
+    await seedStaleGoal(studentId, { title: 'Στόχος Η' })
+
+    const user = userEvent.setup()
+    renderWidget()
+
+    await screen.findByRole('button', { name: /^ΗΘ78/ })
+    await user.click(screen.getByRole('button', { name: /Ενέργειες για ειδοποίηση: ΗΘ78/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Αναβολή: Αύριο' }))
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^ΗΘ78/ })).not.toBeInTheDocument())
+    const stateRows = await db.notificationState.toArray()
+    expect(stateRows).toHaveLength(1)
+    expect(stateRows[0].snoozedUntil).toBeTruthy()
+    expect(stateRows[0].dismissedAt).toBeNull()
   })
 })

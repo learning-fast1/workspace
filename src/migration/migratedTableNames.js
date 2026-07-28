@@ -24,7 +24,11 @@ export const MIGRATED_TABLE_NAMES = [
   'goalEvents',
   'sessionGoalAssessments',
   'goalTemplates',
-  'calendarEvents'
+  'calendarEvents',
+  // Smart Notifications (review χρήστη) — πλήρως ανεξάρτητος πίνακας, μπαίνει στο τέλος ίδια
+  // λογική με goalTemplates/calendarEvents παραπάνω. ΜΟΝΑΔΙΚΗ εξαίρεση: το δικό του primary key
+  // ΔΕΝ είναι αυτόματο (βλ. db.js) — deterministic string id, ΙΔΙΟ σε legacy ΚΑΙ _v2.
+  'notificationState'
 ]
 
 // domainTemplates είναι η ΜΟΝΑΔΙΚΗ εξαίρεση όπου το legacy primary key ΔΕΝ είναι `id` — είναι το

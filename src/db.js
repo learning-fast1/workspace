@@ -12,6 +12,7 @@ import { validateCriterionConfig, generateCriterionText } from './utils/measurem
 import { activeTable, withNewRowId, getCachedGeneration, currentUserIdOrNull } from './migration/activeGeneration.js'
 import { deterministicId } from './migration/deterministicId.js'
 import { readSyncAuthorizationHint, computeUnsyncedTables } from './migration/syncAuthorizationHint.js'
+import { NOTIFICATION_STATE_SCHEMA_VERSION } from './utils/notificationEngine.js'
 
 // Sprint 5A Phase 1 — η ΠΑΡΟΥΣΙΑ του env var είναι το ίδιο το feature flag. Exported ώστε το
 // auth module (src/auth/) να διαβάζει ΤΟ ΙΔΙΟ flag αντί να ξαναδιαβάζει ανεξάρτητα το
@@ -238,6 +239,19 @@ db.version(11).stores({
   goalEvents_v2: 'id, goalId, at',
   goalTemplates_v2: 'id, domain',
   sessionGoalAssessments_v2: 'id, sessionId, studentId, goalId, &[sessionId+goalId]'
+})
+
+// Smart Notifications (review χρήστη) — ΝΕΟΣ πίνακας ΚΑΙ στις δύο γενιές ΤΑΥΤΟΧΡΟΝΑ, σε αντίθεση
+// με τους υπόλοιπους 17 πίνακες: δεν έχει καμία legacy ιστορία πριν το Phase 2 split, άρα δεν
+// χρειάζεται ξεχωριστό commit legacy-πρώτα/_v2-μετά. id: DETERMINISTIC string (π.χ.
+// `goalStale:42:2026-05-01`, βλ. utils/notificationEngine.js) — ΡΗΤΑ ΟΧΙ withNewRowId()/++id: το
+// ΙΔΙΟ περιεχόμενο πρέπει να παράγει ΤΟ ΙΔΙΟ id, ώστε δύο συσκευές offline να συγχωνευτούν στην
+// ΙΔΙΑ γραμμή αντί να συγκρουστούν. snoozedUntil indexed για μελλοντικό «ποιες αναβολές έληξαν»
+// query. Αποθηκεύει ΑΠΟΚΛΕΙΣΤΙΚΑ dismiss/snooze κατάσταση — severity/label/icon/primaryAction
+// ΠΟΤΕ δεν persistάρονται εδώ, πάντα computed ζωντανά (βλ. utils/notificationEngine.js).
+db.version(12).stores({
+  notificationState: 'id, studentId, snoozedUntil',
+  notificationState_v2: 'id, studentId, snoozedUntil'
 })
 
 // Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables
@@ -1542,6 +1556,52 @@ export async function deleteGoalTemplate(id) {
     throw new Error(`Δεν βρέθηκε πρότυπο με id=${id}`)
   }
   await goalTemplatesTable.delete(id)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Smart Notifications — persisted state (schema v12, βλ. utils/notificationEngine.js/
+// notificationData.js). ΜΟΝΟ dismiss/snooze κατάσταση γράφεται εδώ ΠΟΤΕ — severity/label/icon/
+// primaryAction είναι ΠΑΝΤΑ computed ζωντανά από το notificationEngine.js, ΔΕΝ persistάρονται ποτέ
+// (θα μπορούσαν να ξεσυγχρονιστούν από τα πραγματικά δεδομένα). type/entityType/entityId/
+// studentId αποθηκεύονται ΜΟΝΟ για debugging/cleanup ευκολία — ΠΟΤΕ διαβάζονται για rendering.
+// ---------------------------------------------------------------------------------------------
+
+export async function dismissNotification(id, meta) {
+  const now = new Date().toISOString()
+  await activeTable('notificationState').put({
+    id,
+    ...meta,
+    dismissedAt: now,
+    snoozedUntil: null,
+    schemaVersion: NOTIFICATION_STATE_SCHEMA_VERSION,
+    updatedAt: now
+  })
+}
+
+export async function snoozeNotification(id, snoozedUntil, meta) {
+  const now = new Date().toISOString()
+  await activeTable('notificationState').put({
+    id,
+    ...meta,
+    dismissedAt: null,
+    snoozedUntil,
+    schemaVersion: NOTIFICATION_STATE_SCHEMA_VERSION,
+    updatedAt: now
+  })
+}
+
+// Καθαρίζει ΑΠΟΚΛΕΙΣΤΙΚΑ ό,τι δεν μπορεί πλέον να παραχθεί (resolved/orphan — π.χ. goal
+// διαγράφηκε, μέτρηση καταγράφηκε, report έγινε final). validIds: το ΤΡΕΧΟΝ ζωντανά υπολογισμένο
+// σύνολο ids (utils/notificationData.js). ΠΟΤΕ διαγράφει λόγω ληγμένου snooze (review χρήστη) —
+// μια ληγμένη αναβολή απλά ξαναγίνεται ορατή στο επόμενο computeCandidateNotifications, το row
+// μένει ως έχει μέχρι η ίδια η ειδοποίηση να πάψει να παράγεται.
+export async function cleanupOrphanedNotificationState(validIds) {
+  const table = activeTable('notificationState')
+  const validSet = new Set(validIds)
+  const all = await table.toArray()
+  const orphanIds = all.filter((row) => !validSet.has(row.id)).map((row) => row.id)
+  if (orphanIds.length > 0) await table.bulkDelete(orphanIds)
+  return orphanIds.length
 }
 
 export default db

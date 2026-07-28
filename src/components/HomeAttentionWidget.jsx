@@ -1,42 +1,52 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertTriangle, CalendarClock, PauseCircle, TrendingUp } from 'lucide-react'
-import { loadHomeAttentionItems } from '../utils/homeAttentionData.js'
+import { AlertTriangle, Clock, X } from 'lucide-react'
+import { todayLocalISO, addDays } from '../utils/date.js'
+import { loadNotifications } from '../utils/notificationData.js'
+import { dismissNotification, snoozeNotification, cleanupOrphanedNotificationState } from '../db.js'
 import Button from './ui/Button.jsx'
+import OverflowMenu from './ui/OverflowMenu.jsx'
 import './HomeAttentionWidget.css'
 
 const VISIBLE_LIMIT = 5
 
-// Εικονίδιο ΚΑΙ χρώμα ανά τύπο λόγου (Sprint 7 feedback χρήστη, σημείο 2) — οπτική διαφοροποίηση
-// ώστε να φαίνεται αμέσως ΓΙΑΤΙ ένας στόχος χρειάζεται προσοχή, χωρίς να ανοίξει κανείς τη γραμμή.
-// Το ίδιο το κείμενο (r.label) έρχεται πλέον ΑΠΟΚΛΕΙΣΤΙΚΑ από το goalAttention.js/measurementTypes
-// registry — καμία δεύτερη ερμηνεία/ετικέτα εδώ (μοναδική πηγή αλήθειας, βλ. σχόλιο εκεί).
-const REASON_ICON = { stale: CalendarClock, nearCriterion: TrendingUp, pausedTooLong: PauseCircle }
+const SNOOZE_PRESETS = [
+  { label: 'Αύριο', days: 1 },
+  { label: 'Σε 3 ημέρες', days: 3 },
+  { label: 'Την επόμενη εβδομάδα', days: 7 }
+]
 
-function reasonsText(reasons) {
-  return reasons.map((r) => r.label).join(', ')
-}
-
-// Δευτερεύον widget της Αρχικής (Technical Plan Στάδιο 13) — ΚΑΤΩ από το «Η μέρα μου», ήπιο, ΧΩΡΙΣ
-// hero treatment/κόκκινο banner (σημείο 1). ΜΙΑ γραμμή ανά goal (όχι ανά reason, σημείο 2) —
-// καταναλώνει αυτούσιο το ήδη deterministic-ταξινομημένο αποτέλεσμα του utils/homeAttentionData.js
-// (το οποίο με τη σειρά του απλά καλεί το computeAttentionAcrossStudents, Στάδιο 8 — καμία δεύτερη
-// ταξινόμηση εδώ, σημείο 3).
+// Smart Notifications (review χρήστη) — ΤΟ ΙΔΙΟ widget εξελίσσεται, ΔΕΝ δημιουργείται δεύτερο
+// παράλληλο «χρειάζονται προσοχή». Τροφοδοτείται πλέον από utils/notificationData.js (η
+// goal-level έξοδος του πρώην utils/homeAttentionData.js είναι γνήσιο υποσύνολο αυτής) — draft
+// reports/unresolved sessions/completion candidates εμφανίζονται πλέον ΕΔΩ, ίδια λίστα, καμία
+// δεύτερη. severity/label/icon/primaryAction είναι ΠΑΝΤΑ computed από το notificationEngine.js
+// (βλ. εκεί) — αυτό το component ΔΕΝ αποφασίζει τίποτα, μόνο rendering + dismiss/snooze ενέργειες.
 export default function HomeAttentionWidget() {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
 
   const result = useLiveQuery(async () => {
     try {
-      const items = await loadHomeAttentionItems(new Date())
-      return { status: 'ok', items }
+      const { items, candidateIds } = await loadNotifications(todayLocalISO())
+      return { status: 'ok', items, candidateIds }
     } catch (err) {
       return { status: 'error', message: err?.message || 'Δεν ήταν δυνατή η φόρτωση.' }
     }
   }, [])
 
-  // Loading — ήρεμο, σταθερού ύψους skeleton (σημείο 9, καμία μετατόπιση διάταξης).
+  // Cleanup ΕΚΤΟΣ του read-only useLiveQuery querier (Dexie πετάει ReadOnlyError αλλιώς, ίδιο
+  // idiom με ensureDayGenerated στο TodayQueue.jsx) — καθαρίζει ΜΟΝΟ resolved/orphan state
+  // (goal διαγράφηκε, μέτρηση καταγράφηκε, report έγινε final), ΠΟΤΕ ληγμένα snoozes (review
+  // χρήστη). Ασφαλές να ξανατρέξει σε κάθε ζωντανή ανανέωση — idempotent, μηδενικό-cost όταν δεν
+  // υπάρχει τίποτα ορφανό.
+  useEffect(() => {
+    if (result?.status !== 'ok') return
+    cleanupOrphanedNotificationState(result.candidateIds).catch(() => {})
+  }, [result])
+
+  // Loading — ήρεμο, σταθερού ύψους skeleton (καμία μετατόπιση διάταξης).
   if (result === undefined) {
     return (
       <div className="home-attention-widget home-attention-widget--loading" aria-busy="true" aria-label="Φόρτωση: Χρειάζονται προσοχή">
@@ -57,21 +67,30 @@ export default function HomeAttentionWidget() {
   }
 
   const { items } = result
-  // Μηδέν items → ΚΑΜΙΑ κάρτα καθόλου (σημείο 9 — όχι «Όλα καλά», περιττό οπτικό βάρος).
+  // Μηδέν items → ΚΑΜΙΑ κάρτα καθόλου — όχι «Όλα καλά», περιττό οπτικό βάρος.
   if (items.length === 0) return null
 
   const visible = expanded ? items : items.slice(0, VISIBLE_LIMIT)
   const hasMore = items.length > VISIBLE_LIMIT
 
-  // Κλικ σε γραμμή (σημείο 5) — HashRouter idiom: το URL hash χρησιμοποιείται ήδη ΑΠΟΚΛΕΙΣΤΙΚΑ
-  // από το routing, άρα δεν υπάρχει ελεύθερο native anchor-hash για scroll. Το ΑΣΦΑΛΕΣ fallback
-  // είναι δομικό, όχι τεχνικό: το StudentDashboardPanel (Στάδιο 12) είναι ήδη η ΠΡΩΤΗ ενότητα μετά
-  // το Hero στο StudentProfile — έτσι, ακόμα κι αν χαθεί το location.state (π.χ. refresh), ο
-  // μαθητής βρίσκεται σωστά και το panel είναι ήδη ορατό χωρίς κύλιση. Το location.state.focusGoalId
-  // είναι η ΕΝΙΣΧΥΣΗ πάνω σε αυτό το fallback — όταν επιβιώνει (κανονική in-app πλοήγηση), το
-  // StudentDashboardPanel κάνει scroll/focus ΚΑΙ επισημαίνει προσωρινά τη συγκεκριμένη γραμμή.
-  function goToStudent(item) {
-    navigate(`/students/${item.studentId}`, { state: { focusGoalId: item.goalId } })
+  function goToNotification(n) {
+    if (n.primaryAction.type === 'openGoal') {
+      navigate(`/students/${n.primaryAction.studentId}/goals/${n.primaryAction.goalId}`)
+    } else if (n.primaryAction.type === 'openStudent') {
+      navigate(`/students/${n.primaryAction.studentId}`, n.primaryAction.activeTab ? { state: { activeTab: n.primaryAction.activeTab } } : undefined)
+    }
+  }
+
+  function notificationMeta(n) {
+    return { type: n.type, entityType: n.entityType, entityId: n.entityId, studentId: n.studentId }
+  }
+
+  async function handleDismiss(n) {
+    await dismissNotification(n.id, notificationMeta(n))
+  }
+
+  async function handleSnooze(n, days) {
+    await snoozeNotification(n.id, addDays(todayLocalISO(), days), notificationMeta(n))
   }
 
   return (
@@ -80,30 +99,30 @@ export default function HomeAttentionWidget() {
         Χρειάζονται προσοχή{items.length > VISIBLE_LIMIT ? ` (${items.length})` : ''}
       </h2>
       <ul className="home-attention-widget__list">
-        {visible.map((item) => {
-          const studentLabel = item.student ? `${item.student.code}${item.student.nickname ? ` — ${item.student.nickname}` : ''}` : '—'
-          const goalTitle = item.goal?.title || '—'
+        {visible.map((n) => {
+          const Icon = n.icon
+          const studentLabel = n.student ? `${n.student.code}${n.student.nickname ? ` — ${n.student.nickname}` : ''}` : '—'
+          const menuItems = [
+            ...SNOOZE_PRESETS.map((preset) => ({
+              label: `Αναβολή: ${preset.label}`,
+              icon: Clock,
+              onClick: () => handleSnooze(n, preset.days)
+            })),
+            { label: 'Απόρριψη', icon: X, onClick: () => handleDismiss(n), variant: 'danger' }
+          ]
           return (
-            <li key={item.goalId}>
+            <li key={n.id} className={`home-attention-widget__row home-attention-widget__row--${n.severity}`}>
               <button
                 type="button"
-                className="home-attention-widget__row"
-                onClick={() => goToStudent(item)}
-                aria-label={`${studentLabel} — ${goalTitle} — ${reasonsText(item.reasons)}`}
+                className="home-attention-widget__open"
+                onClick={() => goToNotification(n)}
+                aria-label={`${studentLabel} — ${n.label}`}
               >
+                {Icon && <Icon size={14} aria-hidden="true" className="home-attention-widget__icon" />}
                 <span className="home-attention-widget__student">{studentLabel}</span>
-                <span className="home-attention-widget__goal-title">{goalTitle}</span>
-                <span className="home-attention-widget__reasons">
-                  {item.reasons.map((r) => {
-                    const Icon = REASON_ICON[r.type]
-                    return (
-                      <span key={r.type} className={`home-attention-widget__reason home-attention-widget__reason--${r.type}`}>
-                        {Icon && <Icon size={12} aria-hidden="true" />} {r.label}
-                      </span>
-                    )
-                  })}
-                </span>
+                <span className="home-attention-widget__label">{n.label}</span>
               </button>
+              <OverflowMenu ariaLabel={`Ενέργειες για ειδοποίηση: ${studentLabel} — ${n.label}`} items={menuItems} />
             </li>
           )
         })}

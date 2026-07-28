@@ -42,6 +42,9 @@ async function seedAllTables() {
   await db.sessionGoalAssessments.add({ sessionId, studentId, goalId, rating: 'improved', note: '' })
   await db.goalTemplates.add({ domain: 'reading', title: 'Πρότυπο', criterion: 'x', measurementType: 'successRatio' })
   await db.calendarEvents.add({ date: '2026-03-17', title: 'Αργία', category: 'holiday' })
+  // Smart Notifications — ΜΟΝΑΔΙΚΟΣ πίνακας με ΜΗ-αυτόματο (string, deterministic) legacy primary
+  // key· επιβεβαιώνει ότι η γενική migration μηχανή δεν υποθέτει numeric ++id οπουδήποτε.
+  await db.notificationState.add({ id: `goalStale:${goalId}:2026-01-01`, studentId, snoozedUntil: null, dismissedAt: null, schemaVersion: 1, updatedAt: '2026-01-01T00:00:00.000Z' })
 
   return { studentId, yearId, goalId, sessionId, slotId }
 }
@@ -103,7 +106,7 @@ describe('runMigration — ιδιοκτησία τοπικών δεδομένω�
 })
 
 describe('runMigration — καθαρό migration (χωρίς προηγούμενη κατάσταση, όλοι οι πίνακες)', () => {
-  it('μεταφέρει και τους 16 πίνακες, σημειώνει complete, verification passed, appMeta persisted', async () => {
+  it('μεταφέρει και τους 17 πίνακες, σημειώνει complete, verification passed, appMeta persisted', async () => {
     const ids = await seedAllTables()
     await claimLegacyDataOwnership(ALICE, withAlice)
 

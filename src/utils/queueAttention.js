@@ -83,7 +83,11 @@ export function unresolvedSessionReason(entriesForStudent, sessionsByDate, today
   const label = unresolved.length === 1
     ? `Εκκρεμεί συνεδρία από ${formatDateEl(unresolved[0].date)}`
     : `${unresolved.length} εκκρεμείς προηγούμενες συνεδρίες`
-  return { type: 'unresolvedSession', count: unresolved.length, label }
+  // latestDate (Smart Notifications, review χρήστη): η πιο πρόσφατη εκκρεμής ημερομηνία — άγκυρα
+  // για deterministic notification id (utils/notificationEngine.js). Αν εμφανιστεί ΝΕΟΤΕΡΗ
+  // εκκρεμότητα, το id αλλάζει, ώστε ένα παλιό dismiss να μην κρύβει σιωπηλά τη νέα επιδείνωση.
+  const latestDate = unresolved.reduce((max, e) => (e.date > max ? e.date : max), unresolved[0].date)
+  return { type: 'unresolvedSession', count: unresolved.length, label, latestDate }
 }
 
 // «Πρόχειρη ή μη ολοκληρωμένη αναφορά»: reports.status === 'draft' (ήδη υπάρχον, αξιόπιστο πεδίο —

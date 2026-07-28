@@ -16,6 +16,7 @@ import YearTransitionWizard from './components/YearTransitionWizard.jsx'
 import SchedulePage from './components/SchedulePage.jsx'
 import MonthlyCalendarPage from './components/MonthlyCalendarPage.jsx'
 import DayDetailPage from './components/DayDetailPage.jsx'
+import NotificationsInbox from './components/NotificationsInbox.jsx'
 
 // HashRouter: απαραίτητο για GitHub Pages ώστε refresh/deep links να δουλεύουν χωρίς server routing.
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/notifications" element={<NotificationsInbox />} />
         <Route path="/settings/school-year-transition" element={<YearTransitionWizard />} />
         <Route path="/students" element={<StudentList />} />
         <Route path="/students/new" element={<StudentForm mode="create" />} />

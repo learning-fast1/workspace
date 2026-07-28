@@ -128,6 +128,48 @@
   flex: 1;
 }
 
+/* Κουδούνι ειδοποιήσεων (Notifications Inbox) — ίδιο tap-target μέγεθος με το menu button
+   (44x44), σχετική θέση για το badge να τοποθετηθεί απόλυτα πάνω στην πάνω-δεξιά γωνία. */
+.app-shell-notifications-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  margin-right: var(--space-2);
+}
+
+.app-shell-notifications-btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.app-shell-notifications-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.app-shell-notifications-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .app-shell-user-menu {
   display: inline-flex;
   align-items: center;

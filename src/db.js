@@ -1590,6 +1590,24 @@ export async function snoozeNotification(id, snoozedUntil, meta) {
   })
 }
 
+// Άρση αναβολής (Notifications Inbox, review χρήστη σημείο 2) — καθαρίζει ΜΟΝΟ το snoozedUntil,
+// ΔΕΝ διαγράφει τυφλά ολόκληρο το row: αν το row έχει ΚΑΙ dismissedAt (θεωρητικά δεν θα έπρεπε να
+// συμβεί ταυτόχρονα σήμερα, βλ. dismissNotification/snoozeNotification παραπάνω που το ένα πεδίο
+// πάντα μηδενίζει το άλλο — αλλά ελέγχεται ρητά, ΟΧΙ υποτίθεται), αυτό παραμένει ουσιαστική
+// κατάσταση και το row ΜΕΝΕΙ (μόνο το snoozedUntil καθαρίζεται). Μόνο όταν ΔΕΝ απομένει κανένα
+// άλλο ουσιαστικό πεδίο διαγράφεται το row εντελώς (επιστροφή στο «καμία κατάσταση» default).
+// Idempotent — καμία ενέργεια αν το row δεν υπάρχει καν.
+export async function unsnoozeNotification(id) {
+  const table = activeTable('notificationState')
+  const existing = await table.get(id)
+  if (!existing) return
+  if (existing.dismissedAt) {
+    await table.update(id, { snoozedUntil: null, updatedAt: new Date().toISOString() })
+  } else {
+    await table.delete(id)
+  }
+}
+
 // Καθαρίζει ΑΠΟΚΛΕΙΣΤΙΚΑ ό,τι δεν μπορεί πλέον να παραχθεί (resolved/orphan — π.χ. goal
 // διαγράφηκε, μέτρηση καταγράφηκε, report έγινε final). validIds: το ΤΡΕΧΟΝ ζωντανά υπολογισμένο
 // σύνολο ids (utils/notificationData.js). ΠΟΤΕ διαγράφει λόγω ληγμένου snooze (review χρήστη) —

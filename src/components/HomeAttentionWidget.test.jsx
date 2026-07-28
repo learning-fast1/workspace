@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useParams } from 'react-router-dom'
 import db from '../db.js'
+import { NotificationsProvider } from './shell/NotificationsProvider.jsx'
 import HomeAttentionWidget from './HomeAttentionWidget.jsx'
 
 // Regression: τα utility tests (notificationEngine.test.js/notificationData.test.js) αποδεικνύουν
@@ -21,14 +22,19 @@ function StudentProfileStub() {
   return <div>PROFILE-{id}</div>
 }
 
+// Το widget πλέον καταναλώνει useNotifications() (βλ. shell/NotificationsProvider.jsx) — δεν
+// φορτώνει πια δικά του δεδομένα. Σε πραγματική χρήση το AppShell το τυλίγει ήδη (βλ. AppShell.jsx)·
+// εδώ το κάνουμε ρητά ώστε το test να μη χρειάζεται ολόκληρο το AppShell.
 function renderWidget() {
   return render(
     <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="/" element={<HomeAttentionWidget />} />
-        <Route path="/students/:id/goals/:goalId" element={<GoalDetailStub />} />
-        <Route path="/students/:id" element={<StudentProfileStub />} />
-      </Routes>
+      <NotificationsProvider>
+        <Routes>
+          <Route path="/" element={<HomeAttentionWidget />} />
+          <Route path="/students/:id/goals/:goalId" element={<GoalDetailStub />} />
+          <Route path="/students/:id" element={<StudentProfileStub />} />
+        </Routes>
+      </NotificationsProvider>
     </MemoryRouter>
   )
 }

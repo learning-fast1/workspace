@@ -9,7 +9,7 @@ import db, {
   createSchoolYear, getActiveSchoolYear, setActiveSchoolYear, listSchoolYears,
   recordSchoolYearParticipation, setStudentActive, applySchoolYearTransition,
   updateGoalCriterion, deleteStudent, deleteSession, migrateGoalDomainsToBroaderDomains,
-  dismissNotification, snoozeNotification, cleanupOrphanedNotificationState,
+  dismissNotification, snoozeNotification, unsnoozeNotification, cleanupOrphanedNotificationState,
   DATA_TABLE_NAMES
 } from './db.js'
 import { restoreFromBackup } from './utils/backup.js'
@@ -1958,5 +1958,39 @@ describe('Smart Notifications — dismissNotification/snoozeNotification/cleanup
     await cleanupOrphanedNotificationState(['goalStale:1:2020-01-01'])
 
     expect(await db.notificationState.get('goalStale:1:2020-01-01')).toBeTruthy()
+  })
+
+  // Notifications Inbox (review χρήστη, σημείο 2) — unsnooze καθαρίζει snoozedUntil, ΔΕΝ διαγράφει
+  // τυφλά· το row διαγράφεται ΜΟΝΟ όταν δεν απομένει κανένα άλλο ουσιαστικό πεδίο.
+  describe('unsnoozeNotification', () => {
+    it('χωρίς dismissedAt → διαγράφει ολόκληρο το row (καμία άλλη ουσιαστική κατάσταση απομένει)', async () => {
+      await snoozeNotification('goalStale:1:2020-01-01', '2026-08-01', { type: 'goalStale', studentId: 1 })
+
+      await unsnoozeNotification('goalStale:1:2020-01-01')
+
+      expect(await db.notificationState.get('goalStale:1:2020-01-01')).toBeUndefined()
+    })
+
+    it('ΜΕ dismissedAt (defensive — δεν πρέπει να συμβαίνει κανονικά ταυτόχρονα) → ΔΕΝ χάνει το dismissedAt, μόνο καθαρίζει snoozedUntil', async () => {
+      const now = new Date().toISOString()
+      // Χειροκίνητη εγγραφή με ΚΑΙ τα δύο πεδία ταυτόχρονα — ΕΠΙΤΗΔΕΣ μη-φυσιολογική κατάσταση,
+      // για να αποδειχθεί ότι το unsnooze δεν βασίζεται τυφλά στο «snoozed άρα delete».
+      await db.notificationState.put({
+        id: 'goalStale:1:2020-01-01', type: 'goalStale', studentId: 1,
+        dismissedAt: now, snoozedUntil: '2026-08-01', schemaVersion: 1, updatedAt: now
+      })
+
+      await unsnoozeNotification('goalStale:1:2020-01-01')
+
+      const row = await db.notificationState.get('goalStale:1:2020-01-01')
+      expect(row).toBeTruthy()
+      expect(row.dismissedAt).toBe(now)
+      expect(row.snoozedUntil).toBeNull()
+    })
+
+    it('idempotent — καμία ενέργεια/σφάλμα όταν το row δεν υπάρχει καν', async () => {
+      await expect(unsnoozeNotification('does-not-exist')).resolves.toBeUndefined()
+      expect(await db.notificationState.get('does-not-exist')).toBeUndefined()
+    })
   })
 })

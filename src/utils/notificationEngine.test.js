@@ -4,7 +4,10 @@ import {
   computeCandidateNotifications,
   isSuppressed,
   filterVisibleNotifications,
-  sortNotifications
+  categorizeNotifications,
+  sortNotifications,
+  sortSnoozedNotifications,
+  resolveNotificationRoute
 } from './notificationEngine.js'
 
 const today = '2026-07-28'
@@ -178,5 +181,74 @@ describe('sortNotifications', () => {
     ]
     const sorted = sortNotifications(notifications)
     expect(sorted.map((n) => n.id)).toEqual(['b', 'a', 'm', 'z'])
+  })
+})
+
+describe('sortSnoozedNotifications (Notifications Inbox, review χρήστη σημείο 4)', () => {
+  it('ταξινομεί ΠΡΩΤΑ βάσει snoozedUntil αύξουσα, ΟΧΙ severity', () => {
+    const notifications = [
+      { id: 'late', severity: 'warning', studentId: 1, snoozedUntil: '2026-08-10' },
+      { id: 'soon', severity: 'positive', studentId: 1, snoozedUntil: '2026-08-01' }
+    ]
+    const sorted = sortSnoozedNotifications(notifications)
+    expect(sorted.map((n) => n.id)).toEqual(['soon', 'late'])
+  })
+
+  it('ίδιο snoozedUntil → tie-break κατά severity/studentId/id, ίδιο με sortNotifications', () => {
+    const notifications = [
+      { id: 'z', severity: 'positive', studentId: 1, snoozedUntil: '2026-08-01' },
+      { id: 'a', severity: 'warning', studentId: 1, snoozedUntil: '2026-08-01' }
+    ]
+    const sorted = sortSnoozedNotifications(notifications)
+    expect(sorted.map((n) => n.id)).toEqual(['a', 'z'])
+  })
+})
+
+describe('categorizeNotifications (Notifications Inbox)', () => {
+  it('χωρίζει σε visible/snoozed, αποκλείει εντελώς τα dismissed (καμία ιστορία)', () => {
+    const candidates = [
+      { id: 'a', studentId: 1, severity: 'warning' },
+      { id: 'b', studentId: 1, severity: 'info' },
+      { id: 'c', studentId: 1, severity: 'positive' }
+    ]
+    const stateById = {
+      a: { dismissedAt: '2026-07-01T00:00:00.000Z', schemaVersion: NOTIFICATION_STATE_SCHEMA_VERSION },
+      b: { snoozedUntil: '2026-08-01', schemaVersion: NOTIFICATION_STATE_SCHEMA_VERSION }
+    }
+    const { visible, snoozed } = categorizeNotifications(candidates, stateById, today)
+    expect(visible.map((n) => n.id)).toEqual(['c'])
+    expect(snoozed.map((n) => n.id)).toEqual(['b'])
+  })
+
+  it('snoozed items κουβαλάνε το snoozedUntil για εμφάνιση στο Inbox', () => {
+    const candidates = [{ id: 'a', studentId: 1, severity: 'warning' }]
+    const stateById = { a: { snoozedUntil: '2026-08-01', schemaVersion: NOTIFICATION_STATE_SCHEMA_VERSION } }
+    const { snoozed } = categorizeNotifications(candidates, stateById, today)
+    expect(snoozed[0].snoozedUntil).toBe('2026-08-01')
+  })
+
+  it('ληγμένο snooze → visible (ΟΧΙ snoozed), ίδια σημασιολογία με filterVisibleNotifications', () => {
+    const candidates = [{ id: 'a', studentId: 1, severity: 'warning' }]
+    const stateById = { a: { snoozedUntil: '2026-07-01', schemaVersion: NOTIFICATION_STATE_SCHEMA_VERSION } }
+    const { visible, snoozed } = categorizeNotifications(candidates, stateById, today)
+    expect(visible.map((n) => n.id)).toEqual(['a'])
+    expect(snoozed).toEqual([])
+  })
+})
+
+describe('resolveNotificationRoute (κοινό με HomeAttentionWidget/Inbox, review χρήστη σημείο 10)', () => {
+  it('openGoal → /students/:id/goals/:goalId, χωρίς state', () => {
+    const route = resolveNotificationRoute({ type: 'openGoal', studentId: 1, goalId: 2 })
+    expect(route).toEqual({ path: '/students/1/goals/2', state: undefined })
+  })
+
+  it('openStudent χωρίς activeTab → /students/:id, χωρίς state', () => {
+    const route = resolveNotificationRoute({ type: 'openStudent', studentId: 1 })
+    expect(route).toEqual({ path: '/students/1', state: undefined })
+  })
+
+  it('openStudent ΜΕ activeTab → /students/:id με state.activeTab', () => {
+    const route = resolveNotificationRoute({ type: 'openStudent', studentId: 1, activeTab: 'report' })
+    expect(route).toEqual({ path: '/students/1', state: { activeTab: 'report' } })
   })
 })

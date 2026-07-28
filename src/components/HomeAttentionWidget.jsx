@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertTriangle, Clock, X } from 'lucide-react'
 import { todayLocalISO, addDays } from '../utils/date.js'
-import { loadNotifications } from '../utils/notificationData.js'
-import { dismissNotification, snoozeNotification, cleanupOrphanedNotificationState } from '../db.js'
+import { resolveNotificationRoute } from '../utils/notificationEngine.js'
+import { dismissNotification, snoozeNotification } from '../db.js'
+import { useNotifications } from './shell/NotificationsProvider.jsx'
 import Button from './ui/Button.jsx'
 import OverflowMenu from './ui/OverflowMenu.jsx'
 import './HomeAttentionWidget.css'
@@ -18,36 +18,20 @@ const SNOOZE_PRESETS = [
 ]
 
 // Smart Notifications (review χρήστη) — ΤΟ ΙΔΙΟ widget εξελίσσεται, ΔΕΝ δημιουργείται δεύτερο
-// παράλληλο «χρειάζονται προσοχή». Τροφοδοτείται πλέον από utils/notificationData.js (η
-// goal-level έξοδος του πρώην utils/homeAttentionData.js είναι γνήσιο υποσύνολο αυτής) — draft
-// reports/unresolved sessions/completion candidates εμφανίζονται πλέον ΕΔΩ, ίδια λίστα, καμία
-// δεύτερη. severity/label/icon/primaryAction είναι ΠΑΝΤΑ computed από το notificationEngine.js
-// (βλ. εκεί) — αυτό το component ΔΕΝ αποφασίζει τίποτα, μόνο rendering + dismiss/snooze ενέργειες.
+// παράλληλο «χρειάζονται προσοχή». Notifications Inbox stage (review χρήστη, σημείο 1): το
+// dataset ΔΕΝ φορτώνεται πια εδώ μέσα (useLiveQuery) — έρχεται από το κοινό NotificationsProvider
+// (βλ. shell/AppShell.jsx), το ΙΔΙΟ που τροφοδοτεί και το κουδούνι στο Header και το μελλοντικό
+// Inbox· καμία ξεχωριστή φόρτωση, καμία ξεχωριστή cleanup εδώ (μετακινήθηκε στον provider). Το
+// primaryAction→route μοιράζεται με το Inbox μέσω resolveNotificationRoute (notificationEngine.js).
+// severity/label/icon/primaryAction είναι ΠΑΝΤΑ computed από το notificationEngine.js — αυτό το
+// component ΔΕΝ αποφασίζει τίποτα, μόνο rendering + dismiss/snooze ενέργειες.
 export default function HomeAttentionWidget() {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
-
-  const result = useLiveQuery(async () => {
-    try {
-      const { items, candidateIds } = await loadNotifications(todayLocalISO())
-      return { status: 'ok', items, candidateIds }
-    } catch (err) {
-      return { status: 'error', message: err?.message || 'Δεν ήταν δυνατή η φόρτωση.' }
-    }
-  }, [])
-
-  // Cleanup ΕΚΤΟΣ του read-only useLiveQuery querier (Dexie πετάει ReadOnlyError αλλιώς, ίδιο
-  // idiom με ensureDayGenerated στο TodayQueue.jsx) — καθαρίζει ΜΟΝΟ resolved/orphan state
-  // (goal διαγράφηκε, μέτρηση καταγράφηκε, report έγινε final), ΠΟΤΕ ληγμένα snoozes (review
-  // χρήστη). Ασφαλές να ξανατρέξει σε κάθε ζωντανή ανανέωση — idempotent, μηδενικό-cost όταν δεν
-  // υπάρχει τίποτα ορφανό.
-  useEffect(() => {
-    if (result?.status !== 'ok') return
-    cleanupOrphanedNotificationState(result.candidateIds).catch(() => {})
-  }, [result])
+  const result = useNotifications()
 
   // Loading — ήρεμο, σταθερού ύψους skeleton (καμία μετατόπιση διάταξης).
-  if (result === undefined) {
+  if (result.status === 'loading') {
     return (
       <div className="home-attention-widget home-attention-widget--loading" aria-busy="true" aria-label="Φόρτωση: Χρειάζονται προσοχή">
         <div className="home-attention-widget__skeleton-line" />
@@ -66,7 +50,7 @@ export default function HomeAttentionWidget() {
     )
   }
 
-  const { items } = result
+  const { visible: items } = result
   // Μηδέν items → ΚΑΜΙΑ κάρτα καθόλου — όχι «Όλα καλά», περιττό οπτικό βάρος.
   if (items.length === 0) return null
 
@@ -74,11 +58,8 @@ export default function HomeAttentionWidget() {
   const hasMore = items.length > VISIBLE_LIMIT
 
   function goToNotification(n) {
-    if (n.primaryAction.type === 'openGoal') {
-      navigate(`/students/${n.primaryAction.studentId}/goals/${n.primaryAction.goalId}`)
-    } else if (n.primaryAction.type === 'openStudent') {
-      navigate(`/students/${n.primaryAction.studentId}`, n.primaryAction.activeTab ? { state: { activeTab: n.primaryAction.activeTab } } : undefined)
-    }
+    const route = resolveNotificationRoute(n.primaryAction)
+    if (route) navigate(route.path, route.state ? { state: route.state } : undefined)
   }
 
   function notificationMeta(n) {

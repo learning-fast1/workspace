@@ -171,22 +171,48 @@ export function computeCandidateNotifications(entries, { sessionsByDate, today }
   return results
 }
 
-// Ληγμένο snooze (review χρήστη, σημείο 1) ΔΕΝ κρύβει πια — ξαναγίνεται ορατό, το state row ΔΕΝ
-// διαγράφεται εδώ (βλ. cleanupOrphanedNotificationState στο db.js για το πότε ΠΡΑΓΜΑΤΙΚΑ διαγράφεται).
-// Rows με παλιό/άγνωστο schemaVersion αγνοούνται σιωπηλά — ασφαλές fallback αντί να υποτεθεί ότι
-// ένα fingerprint που υπολογίστηκε με παλιούς κανόνες εξακολουθεί να είναι έγκυρο.
+// Μοναδική πηγή αλήθειας για το πώς «διαβάζεται» ένα state row (Notifications Inbox review,
+// σημείο 1) — isSuppressed/categorizeNotifications παρακάτω ΚΑΝΕΝΑ δεν ξαναγράφει αυτή τη λογική.
+// Ληγμένο snooze ΔΕΝ κρύβει πια (review χρήστη) — ξαναγίνεται ορατό ('none'), το state row ΔΕΝ
+// διαγράφεται εδώ (βλ. cleanupOrphanedNotificationState στο db.js για το πότε ΠΡΑΓΜΑΤΙΚΑ
+// διαγράφεται). Rows με παλιό/άγνωστο schemaVersion αγνοούνται σιωπηλά ('none') — ασφαλές
+// fallback αντί να υποτεθεί ότι ένα fingerprint που υπολογίστηκε με παλιούς κανόνες εξακολουθεί
+// να έχει νόημα.
+function stateStatus(state, today) {
+  if (!state || state.schemaVersion !== NOTIFICATION_STATE_SCHEMA_VERSION) return 'none'
+  if (state.dismissedAt) return 'dismissed'
+  if (state.snoozedUntil && state.snoozedUntil > today) return 'snoozed'
+  return 'none'
+}
+
 export function isSuppressed(state, today) {
-  if (!state) return false
-  if (state.schemaVersion !== NOTIFICATION_STATE_SCHEMA_VERSION) return false
-  if (state.dismissedAt) return true
-  if (state.snoozedUntil && state.snoozedUntil > today) return true
-  return false
+  const status = stateStatus(state, today)
+  return status === 'dismissed' || status === 'snoozed'
 }
 
 // notificationStateById: {[id]: stateRow} — ήδη φορτωμένο ΜΙΑ φορά από τον caller (batched read),
 // καμία query ανά notification εδώ.
 export function filterVisibleNotifications(candidates, notificationStateById, today) {
   return candidates.filter((n) => !isSuppressed(notificationStateById[n.id], today))
+}
+
+// Notifications Inbox (review χρήστη) — ΞΕΧΩΡΙΖΕΙ dismissed (αποκλείεται εντελώς, καμία «ιστορία»
+// — ρητή απόφαση χρήστη, όχι εδώ) από snoozed (δική του ενότητα, με ημερομηνία λήξης) από visible.
+// ΙΔΙΟ stateStatus με το isSuppressed παραπάνω — καμία δεύτερη ερμηνεία του state row.
+export function categorizeNotifications(candidates, notificationStateById, today) {
+  const visible = []
+  const snoozed = []
+  for (const n of candidates) {
+    const state = notificationStateById[n.id]
+    const status = stateStatus(state, today)
+    if (status === 'dismissed') continue
+    if (status === 'snoozed') {
+      snoozed.push({ ...n, snoozedUntil: state.snoozedUntil })
+      continue
+    }
+    visible.push(n)
+  }
+  return { visible: sortNotifications(visible), snoozed: sortSnoozedNotifications(snoozed) }
 }
 
 // Deterministic ταξινόμηση: severity (warning πρώτα, positive τελευταία — ίδιο σκεπτικό με
@@ -197,4 +223,32 @@ export function sortNotifications(notifications) {
     a.studentId - b.studentId ||
     a.id.localeCompare(b.id)
   )
+}
+
+// Snoozed (review χρήστη, σημείο 4): ΠΡΩΤΑ η πιο κοντινή λήξη αναβολής (αύξουσα σειρά — αυτό που
+// θα ξαναφανεί πρώτο βρίσκεται πρώτο), μετά ΙΔΙΟ tie-break με το sortNotifications.
+export function sortSnoozedNotifications(notifications) {
+  return [...notifications].sort((a, b) =>
+    a.snoozedUntil.localeCompare(b.snoozedUntil) ||
+    (SEVERITY_RANK[a.severity] ?? 99) - (SEVERITY_RANK[b.severity] ?? 99) ||
+    a.studentId - b.studentId ||
+    a.id.localeCompare(b.id)
+  )
+}
+
+// Notifications Inbox (review χρήστη, σημείο 10) — η ΙΔΙΑ μετάφραση primaryAction→route που ζούσε
+// inline μέσα στο HomeAttentionWidget.jsx, εξαγμένη εδώ ώστε το Inbox να ΜΗΝ την αντιγράψει.
+// Καθαρή συνάρτηση — ΔΕΝ καλεί το ίδιο navigate(), μόνο υπολογίζει {path, state}· ο caller
+// αποφασίζει πώς να πλοηγηθεί (π.χ. react-router useNavigate).
+export function resolveNotificationRoute(primaryAction) {
+  if (primaryAction.type === 'openGoal') {
+    return { path: `/students/${primaryAction.studentId}/goals/${primaryAction.goalId}`, state: undefined }
+  }
+  if (primaryAction.type === 'openStudent') {
+    return {
+      path: `/students/${primaryAction.studentId}`,
+      state: primaryAction.activeTab ? { activeTab: primaryAction.activeTab } : undefined
+    }
+  }
+  return null
 }

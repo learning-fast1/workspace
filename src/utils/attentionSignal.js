@@ -49,10 +49,10 @@ function detectMoodPattern(studentId, sessions) {
   return null
 }
 
-// Ίδιο κριτήριο «χωρίς μέτρηση» με το Home.jsx (findStaleGoals) — reference date = τελευταία
-// μέτρηση, αλλιώς ημερομηνία έναρξης. Σκόπιμα ξεχωριστός, μικρός υπολογισμός εδώ (όχι import από
-// το Home.jsx) — το Home.jsx κάνει global σάρωση για όλους τους μαθητές (διαφορετική ανάγκη), ενώ
-// εδώ χρειαζόμαστε μόνο τον χειρότερο ενεργό στόχο ΕΝΟΣ μαθητή.
+// Ίδιο κριτήριο «χωρίς μέτρηση» με το utils/goalAttention.js/homeAttentionData.js (Στάδια 8/13) —
+// reference date = τελευταία μέτρηση, αλλιώς ημερομηνία έναρξης. Σκόπιμα ξεχωριστός, μικρός
+// υπολογισμός εδώ (όχι import από εκείνα) — αυτά κάνουν global σάρωση για όλο το caseload
+// (διαφορετική ανάγκη), ενώ εδώ χρειαζόμαστε μόνο τον χειρότερο ενεργό στόχο ΕΝΟΣ μαθητή.
 function detectStaleGoal(studentId, goals, sessions, measurements) {
   const sessionDateById = sessionDateMap(sessions)
   const activeGoals = goals.filter((g) => g.studentId === studentId && g.status === 'active')

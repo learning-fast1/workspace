@@ -24,13 +24,14 @@
   margin: var(--space-1) 0 0;
 }
 
-/* Διακριτικό notification banner — για ήπιες υπενθυμίσεις (backup). Πιο «βαριά» ειδοποίηση με
-   λίστα (στόχοι χωρίς μέτρηση) παραμένει στο .dashboard-notice παρακάτω. */
+/* Διακριτικό notification banner — για ήπιες υπενθυμίσεις (backup). Product polish (feedback
+   χρήστη): απαλό πορτοκαλί φόντο αντί για λευκό+έντονη αριστερή γραμμή — εμφανίζεται μόνιμα μέχρι
+   να γίνει το πρώτο backup, δεν έπρεπε να ανταγωνίζεται οπτικά την ενότητα «Η μέρα μου» από κάτω. */
 .dashboard-banner {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  background: var(--color-surface);
+  background: var(--color-warning-soft);
   border: 1px solid var(--color-border);
   border-left: 3px solid var(--color-warning);
   border-radius: var(--shell-radius);
@@ -46,18 +47,54 @@
 
 .dashboard-banner-text {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   color: var(--color-text-secondary);
 }
 
+/* Μόνιμο status backup (feedback χρήστη — δεν εξαφανίζεται ποτέ, ΟΧΙ πια μόνο υπενθύμιση για
+   καθυστερημένο backup) — ίδιο σχήμα με το .dashboard-banner, πράσινη αριστερή γραμμή αντί για
+   κίτρινη/warning. */
+.dashboard-banner--ok {
+  background: var(--color-surface);
+  border-left-color: var(--color-success);
+}
+
+.dashboard-banner--ok .dashboard-banner-icon {
+  color: var(--color-success);
+}
+
+.dashboard-banner-text-title {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.dashboard-banner-text-detail {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+/* Χρησιμοποιείται ΤΟΣΟ σε <Link> (πλοήγηση στις Ρυθμίσεις) ΟΣΟ ΚΑΙ σε <button> (άμεση δημιουργία
+   backup εδώ) — τα resets border/background/font/cursor χρειάζονται μόνο για το δεύτερο (το <Link>
+   δεν έχει ποτέ default button chrome), αλλά είναι αβλαβή και για τα δύο. */
 .dashboard-banner-link {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   padding: 0 var(--space-2);
+  border: none;
+  background: none;
   color: var(--color-primary);
+  font: inherit;
   font-weight: 500;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.dashboard-banner-link:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
 }
 
 .dashboard-banner-link:focus-visible {
@@ -66,51 +103,10 @@
   border-radius: 4px;
 }
 
-.dashboard-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning);
-  border-radius: var(--shell-radius);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.dashboard-notice-icon {
-  flex-shrink: 0;
-  color: var(--color-warning);
-}
-
-.dashboard-notice-title {
-  font-weight: 600;
+.dashboard-banner-error {
+  color: var(--color-danger);
   font-size: var(--font-sm);
-  margin: 0 0 var(--space-1);
-}
-
-.dashboard-notice ul {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-5);
-  font-size: var(--font-sm);
-}
-
-.dashboard-notice li {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-}
-
-.dashboard-notice a {
-  display: inline-flex;
-  align-items: center;
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.dashboard-notice a:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-  border-radius: 4px;
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
 }
 
 .dashboard-section-title {
@@ -263,8 +259,7 @@
 }
 
 .dashboard-action-link:focus-visible,
-.dashboard-action-sublink:focus-visible,
-.dashboard-empty-action:focus-visible {
+.dashboard-action-sublink:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
@@ -341,25 +336,23 @@
   margin: 0;
 }
 
-.dashboard-empty-action {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 44px;
-  padding: 0 var(--space-4);
-  margin-top: var(--space-2);
-  border-radius: var(--shell-radius);
-  background: var(--color-primary);
-  color: #fff;
-  text-decoration: none;
-  font-size: var(--font-sm);
-  font-weight: 600;
-}
-
 /* ---------- Mobile "Νέα συνεδρία" FAB ---------- */
 /* Ίδιο σχήμα/θέση με το .teaching-mode__fab (TeachingMode.css) — συνειδητή μικρή επανάληψη ενός
    καθιερωμένου μικρο-pattern (συμπαγές FAB κάτω-δεξιά), όχι νέο οπτικό ύφος. Ορατό ΜΟΝΟ σε mobile
-   πλάτη — σε tablet/desktop η κάρτα «Νέα συνεδρία» είναι ήδη άμεσα ορατή χωρίς scroll. */
+   πλάτη — σε tablet/desktop η κάρτα «Νέα συνεδρία» είναι ήδη άμεσα ορατή χωρίς scroll.
+
+   Κανόνες εμφάνισης FAB (mobile review — ισχύουν για ΚΑΘΕ μελλοντικό FAB σε αυτή την εφαρμογή, όχι
+   μόνο εδώ):
+   1. Ένα FAB ΜΟΝΟ όταν η σελίδα δεν έχει ήδη ισοδύναμο primary action άμεσα ορατό χωρίς scroll
+      (π.χ. στο Home tablet/desktop η κάρτα «Νέα συνεδρία» είναι ήδη εκεί — το FAB κρύβεται).
+      Στο Student Profile ΔΕΝ υπάρχει FAB για τον ίδιο λόγο — κάθε ενότητα έχει ήδη το δικό της
+      header action (π.χ. «Νέος στόχος» στο GoalsList).
+   2. Ποτέ πάνω από ένα FAB ταυτόχρονα στην οθόνη.
+   3. Πάντα πάνω από το bottom nav (bottom: nav-height + space-4, βλ. παρακάτω) — ΠΟΤΕ να καλύπτει
+      το bottom nav ούτε να καλύπτεται από αυτό.
+   4. Πάνω από modal: αυτόματα εξασφαλισμένο από το z-index — το modal-backdrop (Modal.css, z-index
+      50, inset:0) είναι ήδη ψηλότερα από κάθε FAB (z-index 20) και καλύπτει όλη την οθόνη, άρα ένα
+      ανοιχτό modal κρύβει οπτικά κάθε FAB από μόνο του, χωρίς να χρειάζεται ξεχωριστός χειρισμός. */
 .dashboard-new-session-fab {
   display: none;
 }
@@ -372,9 +365,11 @@
     z-index: 20;
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
+    /* Product polish (feedback χρήστη): ~10-15% στενότερο πλάτος απ' ό,τι πριν (μικρότερο gap +
+       padding + εικονίδιο) — το ύψος (min-height 48px) ΔΕΝ αλλάζει, παραμένει άνετο touch target. */
+    gap: 6px;
     min-height: 48px;
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-3);
     border-radius: 999px;
     background: var(--color-primary);
     color: #fff;
@@ -387,5 +382,15 @@
   .dashboard-new-session-fab:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+  }
+
+  /* Bug report (mobile review): το .app-shell-main padding-bottom (bottom-nav + space-5, βλ.
+     AppShell.css) καλύπτει μόνο μέχρι το ΚΑΤΩ άκρο του bottom nav — το FAB όμως αιωρείται ΠΑΝΩ από
+     αυτό (bottom: nav-height + space-4, ύψος 48px), άρα φτάνει μέχρι ~44px πιο ψηλά από όσο
+     καλύπτει το padding. Χωρίς αυτό, η τελευταία γραμμή της «Πρόσφατης δραστηριότητας» κρυβόταν
+     πίσω από το FAB. Το επιπλέον margin ζει ΕΔΩ (στο τελευταίο section της σελίδας, όχι στο κοινό
+     .app-shell-main) ώστε να ΜΗΝ προστεθεί άσκοπος κενός χώρος σε σελίδες που δεν έχουν αυτό το FAB. */
+  .dashboard-activity {
+    margin-bottom: calc(var(--space-12) + var(--space-2));
   }
 }

@@ -1,20 +1,23 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   AlertTriangle,
   CalendarDays,
   CalendarPlus,
+  CircleCheck,
   ClipboardList,
   FileText,
-  PlayCircle,
   Sparkles,
   Target,
   Upload,
   UserPlus,
+  UserRoundPlus,
   Users
 } from 'lucide-react'
 import { getLastBackupAt } from '../db.js'
 import { activeTable } from '../migration/activeGeneration.js'
+import { exportBackupFile } from '../utils/backup.js'
 import { formatDateEl, todayLocalISO } from '../utils/date.js'
 import AppShell from './shell/AppShell.jsx'
 import TodayQueue from './TodayQueue.jsx'
@@ -24,12 +27,21 @@ import './Home.css'
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const BACKUP_REMINDER_AFTER_DAYS = 7
 
-// ΑΜΕΤΑΒΛΗΤΗ business logic — ίδιες συναρτήσεις με πριν, μόνο η παρουσίαση αλλάζει παρακάτω.
+// ΑΜΕΤΑΒΛΗΤΗ business logic — ίδιες συναρτήσεις με πριν, μόνο η παρουσίαση αλλάζει παρακάτω. Feedback
+// χρήστη: το banner δεν πρέπει να εξαφανίζεται εντελώς μόλις γίνει το πρώτο backup — γίνεται πλέον
+// ενημερωτικό status (βλ. render παρακάτω), άρα χρειάζεται και το ίδιο το lastBackupAt, όχι μόνο το
+// «needed»/«days».
 async function checkBackupReminder() {
   const lastBackupAt = await getLastBackupAt()
-  if (!lastBackupAt) return { needed: true, days: null }
+  if (!lastBackupAt) return { needed: true, days: null, lastBackupAt: null }
   const days = Math.floor((new Date() - new Date(lastBackupAt)) / MS_PER_DAY)
-  return { needed: days > BACKUP_REMINDER_AFTER_DAYS, days }
+  return { needed: days > BACKUP_REMINDER_AFTER_DAYS, days, lastBackupAt }
+}
+
+// Ελληνική ώρα (π.χ. «09:30») — συμπληρώνει το ήδη υπάρχον formatDateEl για το «Χ • ΩΩ:ΛΛ» status
+// του backup banner. Τοπικό εδώ (όχι utils/date.js) — καθαρά παρουσιαστικό, μοναδική χρήση.
+function formatTimeEl(isoString) {
+  return new Date(isoString).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })
 }
 
 // Νέα, καθαρά αναγνωστικά queries (τίποτα δεν γράφεται/αλλάζει) — τροφοδοτούν μόνο τα Stat Cards
@@ -93,11 +105,28 @@ export default function Home() {
   const backupReminder = useLiveQuery(checkBackupReminder, [])
   const stats = useLiveQuery(loadDashboardStats, [])
   const recentActivity = useLiveQuery(loadRecentActivity, [])
+  const [creatingBackup, setCreatingBackup] = useState(false)
+  const [backupError, setBackupError] = useState(null)
+
+  // exportBackupFile() ήδη καταγράφει το lastBackupAt (utils/backup.js) — το useLiveQuery παραπάνω
+  // ξαναδιαβάζει αυτόματα το appMeta μετά, άρα το status ενημερώνεται μόνο του, χωρίς δικό μας
+  // re-fetch εδώ.
+  async function handleCreateBackup() {
+    setCreatingBackup(true)
+    setBackupError(null)
+    try {
+      await exportBackupFile()
+    } catch (err) {
+      setBackupError(err?.message || 'Η δημιουργία αντιγράφου απέτυχε. Δοκίμασε ξανά.')
+    } finally {
+      setCreatingBackup(false)
+    }
+  }
 
   return (
     <AppShell>
       <div className="dashboard-header">
-        <h1 className="dashboard-greeting">Καλημέρα, Βικτώρια 👋</h1>
+        <h1 className="dashboard-greeting">Καλημέρα, Βικτώρια</h1>
         <p className="dashboard-date">{formatDateEl(todayLocalISO())}</p>
         <p className="dashboard-subtitle">Ορίστε μια γρήγορη εικόνα της ημέρας σου.</p>
       </div>
@@ -112,6 +141,27 @@ export default function Home() {
           </span>
           <Link to="/settings" className="dashboard-banner-link">Λήψη →</Link>
         </div>
+      )}
+
+      {/* Feedback χρήστη: το banner ΔΕΝ πρέπει να εξαφανίζεται μόλις γίνει το πρώτο backup —
+          μετατρέπεται σε μόνιμο, ήρεμο status ώστε η κατάσταση να παραμένει πάντα ορατή, με
+          δυνατότητα νέου backup με ένα tap, χωρίς να χρειάζεται να πάει στις Ρυθμίσεις. */}
+      {backupReminder && !backupReminder.needed && (
+        <div className="dashboard-banner dashboard-banner--ok">
+          <CircleCheck size={16} className="dashboard-banner-icon" />
+          <span className="dashboard-banner-text">
+            <span className="dashboard-banner-text-title">Τελευταίο αντίγραφο ασφαλείας</span>
+            <span className="dashboard-banner-text-detail">
+              {formatDateEl(backupReminder.lastBackupAt)} • {formatTimeEl(backupReminder.lastBackupAt)}
+            </span>
+          </span>
+          <button type="button" className="dashboard-banner-link" onClick={handleCreateBackup} disabled={creatingBackup}>
+            {creatingBackup ? 'Δημιουργία…' : 'Δημιουργία νέου backup'}
+          </button>
+        </div>
+      )}
+      {backupError && (
+        <p role="alert" className="dashboard-banner-error">{backupError}</p>
       )}
 
       <TodayQueue />
@@ -150,6 +200,24 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Product Design (feedback χρήστη): μετακινήθηκε ΕΚΤΟΣ της κάρτας «Η μέρα μου»
+            (TodayQueue.jsx) — εκείνη η κάρτα δείχνει πλέον ΜΟΝΟ πληροφορία (τι έχω σήμερα), καμία
+            ενέργεια μέσα της. Ξεχωριστή κάρτα από το «Νέα συνεδρία» παραπάνω — διαφορετική ενέργεια
+            (προσθήκη στη σημερινή σειρά για αργότερα, ΟΧΙ άμεση έναρξη Teaching Mode). */}
+        <div className="dashboard-action-card">
+          <span className="dashboard-action-link">
+            <span className="dashboard-action-icon">
+              <UserRoundPlus size={20} />
+            </span>
+            Πρόσθεσε στη μέρα μου
+          </span>
+          <p className="dashboard-action-desc">Έκτακτη εμφάνιση στη σημερινή σειρά, για αργότερα.</p>
+          <div className="dashboard-action-subrow">
+            <Link to="/today/add-individual" className="dashboard-action-sublink">Ατομικό</Link>
+            <Link to="/today/add-group" className="dashboard-action-sublink">Ομαδικό</Link>
+          </div>
+        </div>
+
         <div className="dashboard-action-card">
           <Link to="/students/new" className="dashboard-action-link">
             <span className="dashboard-action-icon">
@@ -185,21 +253,20 @@ export default function Home() {
           scroll μέχρι τις γρήγορες ενέργειες. Κρυφό σε tablet/desktop (βλ. Home.css) όπου η κάρτα
           παραπάνω είναι ήδη άμεσα ορατή. Ίδιο οπτικό pattern με το teaching-mode__fab. */}
       <Link to="/teaching/individual" className="dashboard-new-session-fab" aria-label="Νέα συνεδρία">
-        <CalendarPlus size={20} aria-hidden="true" />
+        <CalendarPlus size={18} aria-hidden="true" />
         Νέα συνεδρία
       </Link>
 
       <h2 className="dashboard-section-title">Πρόσφατη δραστηριότητα</h2>
       <div className="dashboard-activity">
+        {/* Mobile review (product polish): ΧΩΡΙΣ δικό του CTA — η κάρτα «Νέα συνεδρία» παραπάνω
+            (Γρήγορες ενέργειες) ΚΑΙ το mobile FAB καλύπτουν ήδη αυτή την ενέργεια σε κάθε πλάτος
+            οθόνης· ένα τρίτο «Νέα συνεδρία» εδώ ήταν απλή επανάληψη. */}
         {!recentActivity || recentActivity.length === 0 ? (
           <div className="dashboard-empty">
             <Sparkles size={28} />
             <p className="dashboard-empty-title">Δεν υπάρχει ακόμα δραστηριότητα</p>
             <p className="dashboard-empty-description">Ξεκίνα μια συνεδρία για να εμφανιστεί εδώ.</p>
-            <Link to="/teaching/individual" className="dashboard-empty-action">
-              <PlayCircle size={16} />
-              Νέα συνεδρία
-            </Link>
           </div>
         ) : (
           recentActivity.map((a) => (

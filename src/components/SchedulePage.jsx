@@ -12,7 +12,15 @@ import Modal from './ui/Modal.jsx'
 import Tabs from './ui/Tabs.jsx'
 import ScheduleSlotRow from './ScheduleSlotRow.jsx'
 import ScheduleSlotForm from './ScheduleSlotForm.jsx'
+import WeeklyScheduleGrid from './WeeklyScheduleGrid.jsx'
 import './SchedulePage.css'
+
+// Weekly Grid (Phase 2) — δεύτερη όψη ΜΕΣΑ σε αυτή τη σελίδα, ΟΧΙ ξεχωριστό route (review χρήστη:
+// καμία πραγματική αρχιτεκτονική ανάγκη για δικό του URL). Ίδιο ΑΚΡΙΒΩΣ dataset (currentSlots/
+// studentById) με τη λίστα — καμία νέα query, καμία ανάγνωση scheduleExceptions, κανένας
+// occurrence resolver (βλ. utils/scheduleGridLayout.js). Προεπιλογή ΠΑΝΤΑ «Λίστα» — η επιλογή ΔΕΝ
+// αποθηκεύεται (καμία αλλαγή σε preferences/localStorage/database σε αυτό το stage).
+const VIEW_MODE_TABS = [{ id: 'list', label: 'Λίστα' }, { id: 'grid', label: 'Πλέγμα' }]
 
 // «Πρόγραμμα» ανοίγει κατευθείαν στο εβδομαδιαίο πρότυπο — όχι στο μηνιαίο ημερολόγιο (Product
 // Design, τελευταία αναθεώρηση): το πρότυπο είναι ο πραγματικός πυρήνας (ρύθμιση, σπάνια
@@ -49,6 +57,7 @@ function nextSmartStartTime(daySlots) {
 export default function SchedulePage() {
   const data = useLiveQuery(loadScheduleData, [])
   const [selectedDay, setSelectedDay] = useState(1) // Δευτέρα — προεπιλογή σε tablet/mobile
+  const [viewMode, setViewMode] = useState('list') // 'list' | 'grid' — πάντα «Λίστα» στην εκκίνηση
   const [formState, setFormState] = useState(null) // { mode, slot?, initialDayOfWeek?, defaultStartTime? }
   const [copyFromDay, setCopyFromDay] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -89,6 +98,10 @@ export default function SchedulePage() {
         secondaryActions={[{ label: 'Μηνιαίο ημερολόγιο', icon: CalendarDays, to: '/schedule/calendar' }]}
       />
 
+      <div className="schedule-page__view-tabs">
+        <Tabs tabs={VIEW_MODE_TABS} activeId={viewMode} onChange={setViewMode} />
+      </div>
+
       <div className="schedule-page__day-tabs">
         <Tabs
           tabs={WEEKDAYS_MON_FRI.map((d) => ({ id: String(d.value), label: d.short }))}
@@ -97,54 +110,65 @@ export default function SchedulePage() {
         />
       </div>
 
-      <div className="schedule-page__days">
-        {WEEKDAYS_MON_FRI.map((day) => {
-          const daySlots = slotsForDay(day.value)
-          return (
-            <div
-              key={day.value}
-              className={`schedule-page__day ${day.value !== selectedDay ? 'schedule-page__day--inactive' : ''}`}
-            >
-              <div className="schedule-page__day-header">
-                <h2 className="schedule-page__day-title">{day.label}</h2>
-                <div className="schedule-page__day-actions">
-                  {daySlots.length > 0 && (
-                    <Button variant="ghost" icon={Copy} onClick={() => setCopyFromDay(day.value)} ariaLabel={`Αντιγραφή προγράμματος ${day.label}`}>
-                      Αντιγραφή
+      {viewMode === 'list' && (
+        <div className="schedule-page__days">
+          {WEEKDAYS_MON_FRI.map((day) => {
+            const daySlots = slotsForDay(day.value)
+            return (
+              <div
+                key={day.value}
+                className={`schedule-page__day ${day.value !== selectedDay ? 'schedule-page__day--inactive' : ''}`}
+              >
+                <div className="schedule-page__day-header">
+                  <h2 className="schedule-page__day-title">{day.label}</h2>
+                  <div className="schedule-page__day-actions">
+                    {daySlots.length > 0 && (
+                      <Button variant="ghost" icon={Copy} onClick={() => setCopyFromDay(day.value)} ariaLabel={`Αντιγραφή προγράμματος ${day.label}`}>
+                        Αντιγραφή
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      icon={Plus}
+                      onClick={() =>
+                        setFormState({ mode: 'create', initialDayOfWeek: day.value, defaultStartTime: nextSmartStartTime(daySlots) })
+                      }
+                    >
+                      Πρόσθεσε
                     </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    icon={Plus}
-                    onClick={() =>
-                      setFormState({ mode: 'create', initialDayOfWeek: day.value, defaultStartTime: nextSmartStartTime(daySlots) })
-                    }
-                  >
-                    Πρόσθεσε
-                  </Button>
+                  </div>
                 </div>
-              </div>
 
-              {daySlots.length === 0 ? (
-                <p className="schedule-page__day-empty">Κανένα σταθερό ραντεβού ακόμα.</p>
-              ) : (
-                <div className="schedule-page__day-list">
-                  {daySlots.map((slot) => (
-                    <ScheduleSlotRow
-                      key={slot.id}
-                      slot={slot}
-                      namesLabel={namesFor(slot)}
-                      onEdit={() => setFormState({ mode: 'edit', slot })}
-                      onTogglePause={() => handleTogglePause(slot)}
-                      onDelete={() => setDeleteTarget(slot)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+                {daySlots.length === 0 ? (
+                  <p className="schedule-page__day-empty">Κανένα σταθερό ραντεβού ακόμα.</p>
+                ) : (
+                  <div className="schedule-page__day-list">
+                    {daySlots.map((slot) => (
+                      <ScheduleSlotRow
+                        key={slot.id}
+                        slot={slot}
+                        namesLabel={namesFor(slot)}
+                        onEdit={() => setFormState({ mode: 'edit', slot })}
+                        onTogglePause={() => handleTogglePause(slot)}
+                        onDelete={() => setDeleteTarget(slot)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {viewMode === 'grid' && (
+        <WeeklyScheduleGrid
+          slots={currentSlots}
+          studentById={studentById}
+          selectedDay={selectedDay}
+          onEditSlot={(slot) => setFormState({ mode: 'edit', slot })}
+        />
+      )}
 
       {formState && (
         <ScheduleSlotForm

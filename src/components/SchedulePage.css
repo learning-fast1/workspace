@@ -4,6 +4,12 @@
    .schedule-page__day--inactive, ελέγχεται εδώ με media query, όχι με ξεχωριστό JS breakpoint
    hook — ίδιο πνεύμα με Sidebar/BottomNav). */
 
+/* Weekly Grid (Phase 2) — εναλλαγή Λίστα/Πλέγμα, πάντα ορατή (ΚΑΙ desktop ΚΑΙ tablet/mobile), σε
+   αντίθεση με το day-tabs παρακάτω που είναι μόνο <1024px. */
+.schedule-page__view-tabs {
+  margin-bottom: var(--space-3);
+}
+
 .schedule-page__day-tabs {
   display: none;
   margin-bottom: var(--space-4);

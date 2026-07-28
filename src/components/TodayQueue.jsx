@@ -4,9 +4,19 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Sparkles } from 'lucide-react'
 import { ensureDayGenerated, recordSessionNotHeld, restoreDailyQueueEntry, applyScheduleException } from '../db.js'
 import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
-import { todayLocalISO, weekdayOf, formatDateEl } from '../utils/date.js'
+import { todayLocalISO, weekdayOf, formatDateEl, addDays } from '../utils/date.js'
 import { matchedSession, unplannedSessionsToday } from '../utils/dailyQueue.js'
 import { attentionSignalForStudent } from '../utils/attentionSignal.js'
+import { computeAttentionForStudent } from '../utils/goalAttention.js'
+import {
+  UNRESOLVED_ENTRY_LOOKBACK_DAYS,
+  groupByStudentIdField,
+  groupEntriesByStudentId,
+  groupSessionsByDate,
+  computeQueueRowAttention,
+  mergeQueueRowAttention
+} from '../utils/queueAttention.js'
+import { sessionDateMap } from '../utils/sessions.js'
 import { colorForIdentity } from '../utils/scheduleColor.js'
 import { timeAwareness } from '../utils/timeAwareness.js'
 import Card from './ui/Card.jsx'
@@ -25,18 +35,60 @@ const WEEKDAY_GENITIVE = ['Κυριακής', 'Δευτέρας', 'Τρίτης'
 // Καθαρά αναγνωστική — ΚΑΜΙΑ εγγραφή εδώ μέσα. Το useLiveQuery απαιτεί αυστηρά read-only querier
 // (το Dexie πετάει ReadOnlyError αλλιώς) — η αυτόματη παραγωγή (write) γίνεται ξεχωριστά, σε
 // useEffect, ΠΡΙΝ τρέξει αυτό το query (βλ. TodayQueue παρακάτω).
+//
+// Phase 2 Stage A (εμπλουτισμός Daily Queue) — 3 επιπλέον batched queries πάνω στα ήδη υπάρχοντα:
+// goalEvents/reports (whole-table, ίδιο idiom με goals/measurements/observations παραπάνω — βλ.
+// και utils/homeAttentionData.js για το ίδιο idiom στο caseload-wide widget) και ένα bounded
+// `dailyQueue` query για το παρελθόν (ΜΟΝΟ το lookback window, όχι ολόκληρος ο πίνακας — μεγαλώνει
+// επ' αόριστον, σε αντίθεση με τους παραπάνω). Όλα ΜΕΣΑ στο ίδιο Promise.all, καμία νέα query ανά
+// γραμμή/μαθητή (utils/queueAttention.js computeQueueRowAttention παίρνει ήδη ομαδοποιημένα
+// δεδομένα μία φορά εδώ, όχι ανά κλήση).
 async function loadQueueData(date) {
   const today = todayLocalISO()
-  const [entries, sessionsToday, students, goals, measurements, observations] = await Promise.all([
+  const lookbackStart = addDays(date, -UNRESOLVED_ENTRY_LOOKBACK_DAYS)
+  const [entries, allSessions, students, goals, measurements, observations, goalEvents, reports, pastEntries] = await Promise.all([
     activeTable('dailyQueue').where('date').equals(date).toArray(),
-    activeTable('sessions').where('date').equals(date).toArray(),
+    activeTable('sessions').toArray(),
     activeTable('students').toArray(),
     activeTable('goals').toArray(),
     activeTable('measurements').toArray(),
-    activeTable('observations').toArray()
+    activeTable('observations').toArray(),
+    activeTable('goalEvents').toArray(),
+    activeTable('reports').toArray(),
+    activeTable('dailyQueue').where('date').between(lookbackStart, date, true, false).toArray()
   ])
   entries.sort((a, b) => a.order - b.order)
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
+  const sessionsToday = allSessions.filter((s) => s.date === date)
+
+  // Stage A — προϋπολογισμός ΜΙΑ φορά ανά φόρτωση (όχι ανά γραμμή): goalAttention.js ανά μαθητή
+  // (reuse, αναλλοίωτο import), ομαδοποιημένα past entries/sessions/reports για το
+  // computeQueueRowAttention παρακάτω.
+  const sessionDateById = sessionDateMap(allSessions)
+  const datedMeasurements = measurements.map((m) => ({ ...m, date: sessionDateById[m.sessionId] }))
+  const goalsByStudentId = groupByStudentIdField(goals)
+  const reportsByStudentId = groupByStudentIdField(reports)
+  const pastEntriesByStudentId = groupEntriesByStudentId(pastEntries)
+  const sessionsByDate = groupSessionsByDate(allSessions)
+
+  const goalAttentionByStudentId = {}
+  for (const studentId of new Set(entries.flatMap((e) => e.studentIds))) {
+    const studentGoals = goalsByStudentId[studentId] || []
+    const goalIds = new Set(studentGoals.map((g) => g.id))
+    const studentMeasurements = datedMeasurements.filter((m) => goalIds.has(m.goalId))
+    const studentGoalEvents = goalEvents.filter((e) => goalIds.has(e.goalId))
+    // goalAttention.js περιμένει `today` ως Date object (βλ. daysBetween's today.getTime()) — ΟΧΙ
+    // το ISO string `today` που χρησιμοποιείται αλλού σε αυτό το αρχείο (ίδια σύμβαση με
+    // HomeAttentionWidget.jsx: loadHomeAttentionItems(new Date())).
+    goalAttentionByStudentId[studentId] = computeAttentionForStudent(studentGoals, studentMeasurements, studentGoalEvents, new Date())
+  }
+
+  // ΣΗΜΕΙΩΣΗ: εδώ `today: date` (η ΠΡΟΒΑΛΛΟΜΕΝΗ ημερομηνία, όχι απαραίτητα η πραγματική σημερινή) —
+  // το «μη ολοκληρωμένη προηγούμενη συνεδρία» αφορά «πριν από ΑΥΤΗ τη γραμμή», ίδια λογική με τη
+  // γενίκευση «Η μέρα μου» → λεπτομέρεια οποιασδήποτε ημέρας (βλ. σχόλιο TodayQueue παρακάτω). Το
+  // goalAttentionByStudentId παραπάνω χρησιμοποιεί ΗΔΗ το πραγματικό `today` (todayLocalISO()) για
+  // stale/pausedTooLong — αυτό ΔΕΝ αλλάζει, αφορά πραγματικό, όχι προβαλλόμενο, πέρασμα χρόνου.
+  const queueAttentionContext = { goalAttentionByStudentId, pastEntriesByStudentId, sessionsByDate, reportsByStudentId, today: date }
 
   // Πρόταση επανάχρησης — μόνο για ΣΗΜΕΡΑ, όταν η σειρά είναι ακόμα άδεια (δεν έχει νόημα για
   // οποιαδήποτε άλλη ημερομηνία μέσα από τη λεπτομέρεια ημέρας του ημερολογίου).
@@ -55,7 +107,7 @@ async function loadQueueData(date) {
     }
   }
 
-  return { date, entries, sessionsToday, studentById, goals, measurements, observations, suggestion, suggestionWeekday }
+  return { date, entries, sessionsToday, studentById, goals, measurements, observations, suggestion, suggestionWeekday, queueAttentionContext }
 }
 
 // «Η μέρα μου» (Sprint 5) γενικευμένη σε οποιαδήποτε ημερομηνία (Sprint 6, Technical Plan §12 —
@@ -112,7 +164,7 @@ export default function TodayQueue({ date: dateProp }) {
     )
   }
 
-  const { entries, sessionsToday, studentById, goals, measurements, observations, suggestion, suggestionWeekday } = data
+  const { entries, sessionsToday, studentById, goals, measurements, observations, suggestion, suggestionWeekday, queueAttentionContext } = data
   const unplanned = unplannedSessionsToday(entries, sessionsToday)
   const showSuggestion = isToday && entries.length === 0 && suggestion.length > 0 && !suggestionDismissed
 
@@ -221,9 +273,17 @@ export default function TodayQueue({ date: dateProp }) {
             const done = session !== null
             const notHeld = session?.status === 'notHeld'
             const isGroup = entry.studentIds.length > 1
-            const attention = !done && !isGroup
-              ? attentionSignalForStudent(entry.studentIds[0], { goals, sessions: sessionsToday, measurements, observations })
+            // attentionSignal.js: ΑΝΑΛΛΟΙΩΤΟ, ΜΟΝΟ ατομικές γραμμές (ίδιο πεδίο εφαρμογής με πριν
+            // το Stage A). Stage A (goal attention/unresolved session/draft report): ΚΑΙ ατομικές
+            // ΚΑΙ ομαδικές γραμμές, ένα reason ανά μαθητή-μέλος. Ενοποίηση ΜΟΝΟ στην παρουσίαση
+            // (mergeQueueRowAttention) — τα δύο υπολογισμοί παραμένουν ξεχωριστοί, βλ.
+            // utils/queueAttention.js.
+            const signal = !done && !isGroup
+              ? { studentId: entry.studentIds[0], ...attentionSignalForStudent(entry.studentIds[0], { goals, sessions: sessionsToday, measurements, observations }) }
               : null
+            const rowReasons = !done ? computeQueueRowAttention(entry.studentIds, queueAttentionContext) : []
+            const attentionReasons = mergeQueueRowAttention(rowReasons, signal?.type ? signal : null)
+              .map((r) => ({ ...r, studentCode: studentById[r.studentId]?.code }))
             const { state: timeState, label: timeLabel } = isToday
               ? timeAwareness(entry.plannedTime, entry.plannedDuration, new Date())
               : { state: null, label: null }
@@ -236,7 +296,7 @@ export default function TodayQueue({ date: dateProp }) {
                 done={done}
                 notHeld={notHeld}
                 mood={done ? session.moods?.[entry.studentIds[0]] : undefined}
-                attention={attention}
+                attentionReasons={attentionReasons}
                 skipped={entry.status === 'skipped'}
                 plannedTime={entry.plannedTime}
                 timeState={done ? null : timeState}

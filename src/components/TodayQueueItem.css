@@ -2,11 +2,20 @@
 
 .today-queue-item {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-4);
   position: relative;
   overflow: hidden;
+}
+
+/* Phase 2 Stage A — η κύρια γραμμή έγινε εσωτερικό flex row (ήταν ο ίδιος ο .today-queue-item πριν)
+   ώστε να χωράει από κάτω, ως αδελφό block, το expandable attention-details panel χωρίς να σπάσει
+   το layout μιας οριζόντιας γραμμής. */
+.today-queue-item__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 /* Θέση/z-index/focus: βλ. .stretched-link στο ui/Card.css. */
@@ -90,14 +99,67 @@
   flex-shrink: 0;
 }
 
-.today-queue-item__attention {
+/* Phase 2 Stage A — compact badge (ο σημαντικότερος λόγος + «+N»), βλ. utils/queueAttention.js
+   για την προτεραιότητα/dedup λογική πίσω από ΠΟΙΟΣ λόγος εμφανίζεται εδώ. `position:relative`
+   + z-index ώστε το κλικ να «νικά» το .stretched-link της κάρτας (ίδιο idiom με .overflow-menu,
+   βλ. σχόλιο στο ui/Card.css) — ανοίγει τη λεπτομέρεια, ΔΕΝ ξεκινά συνεδρία. */
+.today-queue-item__attention-badge {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   flex: 1;
   min-width: 0;
+  max-width: fit-content;
+  padding: 2px var(--space-2);
+  border: none;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
   color: var(--color-warning);
-  font-size: var(--font-sm);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.today-queue-item__attention-badge:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.today-queue-item__attention-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.today-queue-item__attention-count {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* Ίδιο z-index escape με το badge — ΔΕΝ πρέπει το κλικ πάνω σε ήδη-διαβασμένη λεπτομέρεια να
+   ξεκινήσει κατά λάθος συνεδρία (η ίδια η κάρτα είναι stretched-link). */
+.today-queue-item__attention-details {
+  position: relative;
+  z-index: 2;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--color-surface-soft);
+  border-radius: var(--shell-radius);
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.today-queue-item__attention-details li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .today-queue-item__status {

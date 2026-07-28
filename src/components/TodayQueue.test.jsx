@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import db, { createScheduleSlot, ensureDayGenerated } from '../db.js'
-import { todayLocalISO, weekdayOf } from '../utils/date.js'
+import { todayLocalISO, weekdayOf, addDays } from '../utils/date.js'
 import TodayQueue from './TodayQueue.jsx'
 
 beforeEach(async () => {
@@ -89,6 +89,94 @@ describe('TodayQueue — «Αλλαγή ώρας» (Phase 2 Stage B)', () => {
 
     const sessionsToday = await db.sessions.where('date').equals(today).toArray()
     expect(sessionsToday).toHaveLength(0) // καμία notHeld — η συνεδρία συνεχίζει να πραγματοποιείται
+  })
+})
+
+// Phase 2 Stage A — εμπλουτισμός της Daily Queue (utils/queueAttention.js): goal attention
+// (goalAttention.js, reuse), «μη ολοκληρωμένη προηγούμενη συνεδρία» (νέο) και «πρόχειρη αναφορά»
+// (reports.status==='draft', νέο). Component-level, από το πραγματικό UI — τα καθαρά unit tests
+// των υπολογισμών ζουν στο utils/queueAttention.test.js.
+describe('TodayQueue — Stage A: εμπλουτισμός με goal attention / unresolved session / draft report', () => {
+  it('goal attention (goalAttention.js reuse) — stale goal εμφανίζεται ως compact badge, κλικ ανοίγει τη λεπτομέρεια', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    await db.goals.add({ studentId, domain: 'communication', title: 'Στόχος Α', status: 'active', priority: 'high', startDate: '2020-01-01' })
+    await db.dailyQueue.add({ date: today, studentIds: [studentId], order: 0, status: 'pending' })
+
+    const user = userEvent.setup()
+    renderQueue({ date: today })
+
+    const badge = await screen.findByRole('button', { name: /Χωρίς μέτρηση/ })
+    expect(badge).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(badge)
+    expect(badge).toHaveAttribute('aria-expanded', 'true')
+    expect(await screen.findByRole('list')).toBeInTheDocument()
+  })
+
+  it('«μη ολοκληρωμένη προηγούμενη συνεδρία» — συνοπτική ένδειξη με ΠΛΗΘΟΣ, όχι μία ανά παλιά εγγραφή', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Γ1', active: true })
+    await db.dailyQueue.add({ date: addDays(today, -3), studentIds: [studentId], order: 0, status: 'pending' })
+    await db.dailyQueue.add({ date: addDays(today, -6), studentIds: [studentId], order: 0, status: 'pending' })
+    await db.dailyQueue.add({ date: today, studentIds: [studentId], order: 0, status: 'pending' })
+
+    renderQueue({ date: today })
+
+    expect(await screen.findByRole('button', { name: /2 εκκρεμείς προηγούμενες συνεδρίες/ })).toBeInTheDocument()
+  })
+
+  it('παλιά εγγραφή που είναι ρητά «Παράλειψη σήμερα» (status: skipped) ΔΕΝ μετράει ως εκκρεμότητα', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Ζ1', active: true })
+    await db.dailyQueue.add({ date: addDays(today, -3), studentIds: [studentId], order: 0, status: 'skipped' })
+    await db.dailyQueue.add({ date: today, studentIds: [studentId], order: 0, status: 'pending' })
+
+    renderQueue({ date: today })
+
+    await screen.findByText('Ζ1')
+    expect(screen.queryByRole('button', { name: /εκκρεμ/i })).not.toBeInTheDocument()
+  })
+
+  it('ομαδική γραμμή — aggregation ΑΝΑ μαθητή, κάθε reason στη λεπτομέρεια αναφέρει καθαρά τον μαθητή του', async () => {
+    const today = todayLocalISO()
+    const studentA = await db.students.add({ code: 'Α1', active: true })
+    const studentB = await db.students.add({ code: 'Β1', active: true })
+    await db.goals.add({ studentId: studentA, domain: 'communication', title: 'Στόχος Α', status: 'active', priority: 'high', startDate: '2020-01-01' })
+    await db.reports.add({ studentId: studentB, type: 'progress', dateFrom: '2026-01-01', dateTo: today, generatedAt: new Date().toISOString(), editedText: '', status: 'draft', exportedAt: null })
+    await db.dailyQueue.add({ date: today, studentIds: [studentA, studentB], order: 0, status: 'pending' })
+
+    const user = userEvent.setup()
+    renderQueue({ date: today })
+
+    const badge = await screen.findByRole('button', { name: /Χωρίς μέτρηση|Πρόχειρη αναφορά/ })
+    await user.click(badge)
+
+    const list = await screen.findByRole('list')
+    expect(within(list).getByText(/Α1:.*Χωρίς μέτρηση/)).toBeInTheDocument()
+    expect(within(list).getByText(/Β1:.*Πρόχειρη αναφορά/)).toBeInTheDocument()
+  })
+
+  it('καμία ένδειξη badge όταν δεν υπάρχει κανένας λόγος', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Δ1', active: true })
+    await db.dailyQueue.add({ date: today, studentIds: [studentId], order: 0, status: 'pending' })
+
+    renderQueue({ date: today })
+
+    await screen.findByText('Δ1')
+    expect(screen.queryByRole('button', { name: /Χωρίς μέτρηση|Πρόχειρη αναφορά|Εκκρεμ|Σε παύση/ })).not.toBeInTheDocument()
+  })
+
+  it('η βασική ροή έναρξης συνεδρίας ΔΕΝ αλλάζει όταν υπάρχει attention badge στη γραμμή', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Ε1', active: true })
+    await db.goals.add({ studentId, domain: 'communication', title: 'Στόχος', status: 'active', priority: 'high', startDate: '2020-01-01' })
+    await db.dailyQueue.add({ date: today, studentIds: [studentId], order: 0, status: 'pending' })
+
+    renderQueue({ date: today })
+
+    expect(await screen.findByRole('button', { name: /Ξεκίνα συνεδρία — Ε1/ })).toBeInTheDocument()
   })
 })
 

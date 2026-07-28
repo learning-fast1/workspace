@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, UserRoundPlus, Users } from 'lucide-react'
 import { activeTable } from '../migration/activeGeneration.js'
 import { addDays, formatDateEl, todayLocalISO } from '../utils/date.js'
+import { addToQueueLinks } from '../utils/dailyQueue.js'
 import { eventCategoryLabel } from '../config/scheduleOptions.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
@@ -25,6 +26,7 @@ export default function DayDetailPage() {
 
   const events = useLiveQuery(() => activeTable('calendarEvents').where('date').equals(date).toArray(), [date])
   const isToday = date === todayLocalISO()
+  const queueLinks = addToQueueLinks(date, todayLocalISO())
 
   return (
     <AppShell>
@@ -63,6 +65,14 @@ export default function DayDetailPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Product Design (feedback χρήστη): μετακινήθηκε ΕΚΤΟΣ της κάρτας TodayQueue — εκείνη δείχνει
+          πλέον ΜΟΝΟ πληροφορία (τι υπάρχει αυτή τη μέρα), καμία ενέργεια μέσα της. Ίδιο URL scheme
+          με πριν (addToQueueLinks, utils/dailyQueue.js), τώρα αποδίδεται εδώ αντί μέσα στο component. */}
+      <div className="day-detail__queue-actions">
+        <Button variant="secondary" icon={UserRoundPlus} to={queueLinks.individual}>Έκτακτη ατομική</Button>
+        <Button variant="secondary" icon={Users} to={queueLinks.group}>Έκτακτη ομαδική</Button>
       </div>
 
       <TodayQueue date={date} />

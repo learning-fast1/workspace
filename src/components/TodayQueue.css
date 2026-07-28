@@ -5,24 +5,16 @@
   margin-bottom: var(--space-6);
 }
 
+/* Product Design (feedback χρήστη): η κάρτα δείχνει πλέον ΜΟΝΟ πληροφορία — το header είναι απλά
+   ο τίτλος, καμία ενέργεια μέσα του (βλ. σχόλιο στο TodayQueue.jsx). */
 .today-queue__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
   margin-bottom: var(--space-4);
-  flex-wrap: wrap;
 }
 
 .today-queue__title {
   font-size: var(--font-xl);
   font-weight: 700;
   margin: 0;
-}
-
-.today-queue__add-actions {
-  display: flex;
-  gap: var(--space-2);
 }
 
 .today-queue__suggestion {
@@ -43,9 +35,13 @@
   font-weight: 500;
 }
 
+/* Responsive QA pass — «Όχι, θα τη φτιάξω τώρα» είναι αρκετά μεγάλο κείμενο ώστε, μαζί με το
+   «Ναι», να ρισκάρει οριζόντιο overflow σε στενές οθόνες χωρίς flex-wrap (ίδιο root cause με το
+   παλιότερο bug report στο .today-queue__add-actions). */
 .today-queue__suggestion-actions {
   display: flex;
   gap: var(--space-2);
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
@@ -56,11 +52,6 @@
 }
 
 @media (max-width: 767px) {
-  .today-queue__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .today-queue-item {
     flex-wrap: wrap;
   }
@@ -68,5 +59,11 @@
   .today-queue-item__attention {
     flex-basis: 100%;
     order: 3;
+  }
+
+  /* Mobile review (product polish, σημείο 6) — λίγο περισσότερος αέρας ανάμεσα στις γραμμές της
+     «Η μέρα μου» σε στενές οθόνες. */
+  .today-queue__list {
+    gap: var(--space-4);
   }
 }

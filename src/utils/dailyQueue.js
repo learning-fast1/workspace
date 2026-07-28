@@ -60,4 +60,18 @@ export function existingEntryStatusLabel(status) {
   }
 }
 
+// Product Design (feedback χρήστη): «Η μέρα μου» έδειχνε ΚΑΙ πληροφορία (τι έχω σήμερα) ΚΑΙ
+// ενέργειες (κουμπιά «Έκτακτη ατομική/ομαδική» μέσα στην ίδια κάρτα) — δύο ξεχωριστοί ρόλοι στο
+// ίδιο στοιχείο. Οι ενέργειες μετακινήθηκαν ΕΚΤΟΣ του TodayQueue.jsx (Home.jsx/DayDetailPage.jsx
+// τις αποδίδουν πλέον οι ίδιοι, ως global actions) — αυτό εδώ είναι η ΜΙΑ πηγή αλήθειας για τα δύο
+// URLs (ίδια λογική date-query-param με πριν), ώστε οι δύο callers να μη γράψουν ο καθένας τη δική
+// του, πιθανόν αποκλίνουσα εκδοχή.
+export function addToQueueLinks(date, today) {
+  const isToday = date === today
+  return {
+    individual: isToday ? '/today/add-individual' : `/today/add-individual?date=${date}`,
+    group: isToday ? '/today/add-group' : `/today/add-group?date=${date}`
+  }
+}
+
 export { sameStudentSet }

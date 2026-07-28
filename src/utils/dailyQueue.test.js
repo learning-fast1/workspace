@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findExistingEntryStatus, existingEntryStatusLabel } from './dailyQueue.js'
+import { findExistingEntryStatus, existingEntryStatusLabel, addToQueueLinks } from './dailyQueue.js'
 
 // Regression tests για το bug (Sprint 6, δεύτερος γύρος διορθώσεων): «Έκτακτη ατομική/ομαδική»
 // επέτρεπε σιωπηλά δεύτερη γραμμή για μαθητή/ομάδα που ήδη είχε σημερινή εμφάνιση. Το
@@ -59,5 +59,25 @@ describe('findExistingEntryStatus', () => {
     const entries = [{ id: 1, studentIds: [1], status: 'pending' }]
     const result = findExistingEntryStatus([2], entries, [])
     expect(result).toBeNull()
+  })
+})
+
+// Product Design (feedback χρήστη): «Η μέρα μου» έδειχνε ΤΑΥΤΟΧΡΟΝΑ πληροφορία ΚΑΙ ενέργειες
+// («Έκτακτη ατομική/ομαδική» μέσα στην ίδια κάρτα) — οι ενέργειες μετακινήθηκαν εκτός του
+// TodayQueue.jsx (Home.jsx/DayDetailPage.jsx τις αποδίδουν πλέον οι ίδιοι). Αυτό εδώ είναι η ΜΙΑ
+// πηγή αλήθειας για τα δύο URLs, ώστε οι δύο callers να μη γράψουν αποκλίνουσες εκδοχές.
+describe('addToQueueLinks', () => {
+  it('σήμερα (date === today) → καθαρά URLs, χωρίς query param', () => {
+    expect(addToQueueLinks('2026-07-21', '2026-07-21')).toEqual({
+      individual: '/today/add-individual',
+      group: '/today/add-group'
+    })
+  })
+
+  it('άλλη μέρα (date !== today) → URLs με ?date=', () => {
+    expect(addToQueueLinks('2026-07-25', '2026-07-21')).toEqual({
+      individual: '/today/add-individual?date=2026-07-25',
+      group: '/today/add-group?date=2026-07-25'
+    })
   })
 })

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Sparkles, UserRoundPlus, Users } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { ensureDayGenerated, recordSessionNotHeld, restoreDailyQueueEntry, applyScheduleException } from '../db.js'
 import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { todayLocalISO, weekdayOf, formatDateEl } from '../utils/date.js'
@@ -60,6 +60,11 @@ async function loadQueueData(date) {
 // «η λεπτομέρεια ημέρας είναι γενίκευση της Η μέρα μου, όχι νέο ξεχωριστό component»). Χωρίς
 // `date` prop συμπεριφέρεται ΑΚΡΙΒΩΣ όπως πριν (Αρχική, date=σήμερα) — μηδενική οπτική/λειτουργική
 // αλλαγή σε εκείνη τη χρήση.
+//
+// Product Design (feedback χρήστη) — ΜΟΝΟ πληροφορία πλέον («τι έχω σήμερα»), ΚΑΜΙΑ ενέργεια μέσα
+// στην κάρτα· τα «Έκτακτη ατομική/ομαδική» (προσθήκη στη σειρά) μετακινήθηκαν στους callers
+// (Home.jsx/DayDetailPage.jsx, βλ. utils/dailyQueue.js addToQueueLinks) ως δικές τους, ξεχωριστές
+// ενέργειες — ίδια αρχή με «όχι δύο CTA για την ίδια ενέργεια στην ίδια οθόνη» (mobile review).
 export default function TodayQueue({ date: dateProp }) {
   const navigate = useNavigate()
   const date = dateProp || todayLocalISO()
@@ -165,17 +170,10 @@ export default function TodayQueue({ date: dateProp }) {
     return studentIds.map((id) => studentById[id]).filter(Boolean)
   }
 
-  const addIndividualTo = isToday ? '/today/add-individual' : `/today/add-individual?date=${date}`
-  const addGroupTo = isToday ? '/today/add-group' : `/today/add-group?date=${date}`
-
   return (
     <Card className="today-queue">
       <div className="today-queue__header">
         <h2 className="today-queue__title">{isToday ? 'Η μέρα μου' : formatDateEl(date)}</h2>
-        <div className="today-queue__add-actions">
-          <Button variant="secondary" icon={UserRoundPlus} to={addIndividualTo}>Έκτακτη ατομική</Button>
-          <Button variant="secondary" icon={Users} to={addGroupTo}>Έκτακτη ομαδική</Button>
-        </div>
       </div>
 
       {showSuggestion && (

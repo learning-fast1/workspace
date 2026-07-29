@@ -139,10 +139,10 @@
         οδικός χάρτης. Καμία αλλαγή κώδικα δεν συνοδεύει αυτό το έγγραφο.
       </p>
       <div class="cover__meta">
-        <div><strong>Commit</strong>87a1b8c (main)</div>
-        <div><strong>Deploy</strong>learning-fast1.github.io/workspace — live, GitHub Actions run #19 πράσινο</div>
+        <div><strong>Commit</strong>5cd3d28 (main)</div>
+        <div><strong>Deploy</strong>learning-fast1.github.io/workspace — live, GitHub Actions run <a href="https://github.com/learning-fast1/workspace/actions/runs/30446839236">#30446839236</a> πράσινο (build/deploy/smoke-post-deploy, μηδέν retries)</div>
         <div><strong>Schema</strong>Dexie <code>db.version(13)</code>, 18 migrated πίνακες</div>
-        <div><strong>Tests</strong>79 vitest αρχεία / 1111 tests, 5 Playwright smoke tests (pre + post deploy)</div>
+        <div><strong>Tests</strong>82 vitest αρχεία / 1136 tests, 5 Playwright smoke tests (pre + post deploy)</div>
       </div>
 
       <section id="summary">
@@ -152,23 +152,19 @@
           Timeline → προσχέδιο έκθεσης), εννέα επιπλέον sprints πάνω σε αυτά (Session History, «Η
           μέρα μου», Πρόγραμμα/ημερολόγιο, σχολικά έτη, lifecycle στόχων, κλινική εκτίμηση), μια
           πλήρη προαιρετική στρώση cloud-account/sync (Sprint 5A Phase 1–2), Smart Notifications
-          engine + Notifications Inbox, και πέντε release-readiness blockers με πλήρες CI hardening.
-          Το πρώτο πραγματικό production deploy μετά από όλα τα παραπάνω (GitHub Actions run #19)
-          ολοκληρώθηκε πράσινο σε build, deploy, και post-deploy smoke.</p>
+          engine + Notifications Inbox, πέντε release-readiness blockers με πλήρες CI hardening, και
+          — το τελευταίο μεγάλο module πριν χαρακτηριστεί το v1.0 πλήρες — το ενιαίο Teacher
+          Profile + Settings module (§coverage). Η πιο πρόσφατη production deploy (GitHub Actions run
+          <a href="https://github.com/learning-fast1/workspace/actions/runs/30446839236">#30446839236</a>,
+          commit <code>5cd3d28</code>) ολοκληρώθηκε πράσινο σε build, deploy, και post-deploy smoke —
+          μηδέν αποτυχίες, μηδέν retries σε κανένα από τα 3 jobs.</p>
         <div class="callout callout--safeguard">
           <p class="callout__label">Τι σημαίνει «freeze» εδώ</p>
           <p>Καμία νέα λειτουργικότητα δεν ξεκινά μέχρι ρητή νέα έγκριση. Αυτό το έγγραφο είναι
             τεκμηρίωση only — καταγράφει την ΠΡΑΓΜΑΤΙΚΗ σημερινή κατάσταση του κώδικα, δεν αλλάζει
-            τίποτα σε αυτόν.</p>
-        </div>
-        <div class="callout callout--risk">
-          <p class="callout__label">Ιστορικό εύρημα — SPEC.md ήδη διορθώθηκε</p>
-          <p>Κατά τη σύνταξη αυτού του report εντοπίστηκε ότι το <code>SPEC.md</code> περιέγραφε
-            ρητά «Τι ΔΕΝ φτιάχνουμε στο MVP»: «Λογαριασμοί χρηστών, login, server, συγχρονισμός
-            συσκευών» — κάτι που δεν ίσχυε πια, αφού η εφαρμογή έχει ήδη πλήρη, λειτουργική
-            (προαιρετική) στρώση account/cloud-sync. Το εύρημα διορθώθηκε πριν από το τελικό v1.0
-            documentation commit: το <code>SPEC.md</code> ενημερώθηκε πλήρως, και το παλιό sprint
-            log μεταφέρθηκε στο <code>docs/history.md</code>.</p>
+            τίποτα σε αυτόν. Το Teacher Profile + Settings module θεωρείται πλέον επίσης κλειδωμένο
+            — καμία περαιτέρω αλλαγή/micropolishing σε αυτό εκτός αν προκύψει πραγματικό bug στη
+            χρήση.</p>
         </div>
       </section>
 
@@ -237,8 +233,8 @@
 
       <section id="modules">
         <div class="section__head"><p class="section__eyebrow">Απογραφή</p><h2>Όλα τα modules</h2></div>
-        <p>66 top-level components, 25 κοινά UI primitives, 7 shell modules, 12 migration modules,
-          26 utils (+10 measurement-type modules), 13 config modules, 5 auth modules — 154 πηγαία
+        <p>68 top-level components, 25 κοινά UI primitives, 7 shell modules, 12 migration modules,
+          26 utils (+10 measurement-type modules), 13 config modules, 5 auth modules — 156 πηγαία
           αρχεία JS/JSX εκτός tests.</p>
 
         <h4>src/components/shell — εφαρμογή-shell</h4>
@@ -246,7 +242,7 @@
 Sidebar.jsx            — desktop/tablet πλοήγηση + mobile drawer
 SidebarQuickSchedule.jsx
 BottomNav.jsx          — mobile (&lt;768px) πλοήγηση, ίδια NAV_ITEMS με το Sidebar
-Header.jsx             — κουδούνι ειδοποιήσεων (bell), user menu
+Header.jsx             — κουδούνι ειδοποιήσεων (bell), real user menu → /settings (displayName/email + chevron)
 NotificationsProvider.jsx — κοινό live-query context (visible/snoozed/candidateIds)
 navItems.js            — ΜΟΝΑΔΙΚΗ πηγή αλήθειας πλοήγησης (Αρχική/Πρόγραμμα/Συνεδρίες/Μαθητές/Ρυθμίσεις)</div>
 
@@ -291,7 +287,7 @@ ToggleRow, DurationChips, MoodPicker, SearchBar — φόρμες/είσοδος
 Card, StatCard, Badge, ProgressBar, ActivityItem, MeasurementTypeCard, SectionHeader,
 PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσίαση/layout</div>
 
-        <h4>src/components — 66 top-level (ενδεικτικά, ανά περιοχή)</h4>
+        <h4>src/components — 68 top-level (ενδεικτικά, ανά περιοχή)</h4>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Περιοχή</th><th>Components</th></tr></thead>
@@ -303,7 +299,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
               <tr><td>Πρόγραμμα/Ημερολόγιο</td><td><code>SchedulePage</code>, <code>ScheduleSlotForm</code>, <code>ScheduleSlotRow</code>, <code>WeeklyScheduleGrid</code>, <code>MonthlyCalendarPage</code>, <code>DayDetailPage</code>, <code>CalendarEventForm</code></td></tr>
               <tr><td>Εκθέσεις</td><td><code>ReportTab</code>, <code>ReportPreview</code></td></tr>
               <tr><td>Ειδοποιήσεις</td><td><code>NotificationsInbox</code></td></tr>
-              <tr><td>Ρυθμίσεις / λογαριασμός</td><td><code>Settings</code>, <code>DisplayNameSection</code>, <code>StorageSafetySection</code>, <code>AccountSection</code>, <code>EnableSyncSection</code>, <code>LegacyDataMigrationSection</code>, <code>GenerationSwitchoverSection</code>, <code>SyncDiagnosticsPanel</code>, <code>YearTransitionWizard</code></td></tr>
+              <tr><td>Teacher Profile / Ρυθμίσεις</td><td><code>Settings</code> (AppShell + tabbed IA), <code>TeacherProfileCard</code>, <code>TeacherProfileSection</code>, <code>ApplicationSection</code>, <code>StorageSafetySection</code>, <code>AccountSection</code>, <code>EnableSyncSection</code>, <code>LegacyDataMigrationSection</code>, <code>GenerationSwitchoverSection</code>, <code>SyncDiagnosticsPanel</code>, <code>YearTransitionWizard</code></td></tr>
               <tr><td>Μικρά κοινά</td><td><code>ChipListEditor</code>, <code>ErrorBoundary</code>, <code>RecoveryFailedScreen</code></td></tr>
             </tbody>
           </table>
@@ -334,7 +330,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <li><strong>Backup/Restore</strong> — πλήρες export/import JSON, generation-aware, ownership-safe restore με auto pre-restore safety snapshot.</li>
           <li><strong>Cloud account (προαιρετικό)</strong> — email+OTP login, ξεχωριστό από ενεργοποίηση sync, πλήρης migration πριν την ενεργοποίηση, ρητή ενημέρωση+επιβεβαίωση εξουσιοδότησης πριν το sync ενεργοποιηθεί.</li>
           <li><strong>Storage Safety</strong> — <code>navigator.storage.persist()</code> flow με σαφή κατάσταση και μόνιμη υπενθύμιση backup.</li>
-          <li><strong>Εμφανιζόμενο όνομα</strong> — ρυθμιζόμενο displayName, σωστό σε τοπική &amp; synced χρήση.</li>
+          <li><strong>Teacher Profile + Settings</strong> — ενιαίο module (όχι πια δύο άσχετες οθόνες): <code>Settings</code> πλέον μέσα σε <code>&lt;AppShell&gt;</code> με tabbed IA (Προφίλ εκπαιδευτικού / Λογαριασμός &amp; Sync [μόνο όταν CLOUD_ENABLED] / Backup &amp; Αποθήκευση / Σχολικό έτος / Εφαρμογή), compact <code>TeacherProfileCard</code> σύνοψη πάνω από τα tabs, ρυθμιζόμενο displayName + προαιρετικά schoolName/specialty (ίδιο <code>userSettings</code> table, σωστό σε τοπική &amp; synced χρήση), disabled-until-dirty Save button, πραγματικός σύνδεσμος Header→Settings αντί για το παλιό στατικό «Εκπαιδευτικός».</li>
           <li><strong>PWA</strong> — offline-capable, εγκαταστάσιμο, service worker με auto-update.</li>
         </ul>
       </section>
@@ -345,7 +341,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <li>End-to-end κρυπτογράφηση zero-knowledge για το cloud sync (ρητά σχεδιασμένο ως μελλοντικό βήμα στο SPEC.md — σήμερα ο συγχρονισμός είναι απλός, όχι κρυπτογραφημένος στη συσκευή πριν φύγει).</li>
           <li>Portal γονέων/θεραπευτών, βιβλιοθήκη δραστηριοτήτων/Teacher Bible, AI λειτουργίες, πολλαπλές γλώσσες — ρητά εκτός MVP από το SPEC.md, παραμένουν εκτός.</li>
           <li>Αυτόματη εισαγωγή επίσημων αργιών Κύπρου, εξωτερικός συγχρονισμός ημερολογίων (Google Calendar κ.λπ.), πολύπλοκα recurrence patterns.</li>
-          <li>Πλήρες προφίλ χρήστη — το displayName είναι σκόπιμα το μοναδικό πεδίο ταυτότητας, καμία φωτογραφία/ρόλος/οργανισμός.</li>
+          <li>Πλήρες προφίλ χρήστη — το Teacher Profile καλύπτει πλέον displayName + email (read-only) + schoolName/specialty (προαιρετικά, δεν καταναλώνονται ακόμα πουθενά αλλού) — σκόπιμα ΧΩΡΙΣ φωτογραφία, ρόλο/permissions, ή πολλαπλά σχολεία/οργανισμούς.</li>
           <li>Bulk actions στο Notifications Inbox, dismissed-history, pagination/virtualization — ρητές αποφάσεις v1 σε ολόκληρο το app (καμία λίστα κάνει pagination/virtualization πουθενά).</li>
           <li>Πραγματική two-device / offline↔online conflict δοκιμή για το Dexie Cloud sync — μόνο single-device συμπεριφορά έχει πραγματικά επαληθευτεί ζωντανά.</li>
           <li>Πλήρες, μόνιμο browser-level (Playwright) test suite πέρα από το νέο 5-test production smoke — καμία end-to-end κάλυψη flows όπως Teaching Mode ή backup/restore σε πραγματικό browser.</li>
@@ -360,13 +356,12 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <table>
             <thead><tr><th>Περιοχή</th><th>Περιορισμός</th></tr></thead>
             <tbody>
-              <tr><td>Navigation consistency</td><td><code>Settings.jsx</code> (ΚΑΙ το <code>ErrorBoundary</code> fallback) δεν χρησιμοποιούν <code>&lt;AppShell&gt;</code> — μοναδικό πραγματικό destination-route χωρίς Header/BottomNav/κουδούνι ειδοποιήσεων· η επιστροφή σε άλλη ενότητα από τις Ρυθμίσεις απαιτεί πρώτα «← Αρχική».</td></tr>
-              <tr><td>Bundle size</td><td>~1.6MB minified / ~477KB gzip, ένα chunk, καμία code-splitting.</td></tr>
-              <tr><td>Storage eviction</td><td>Το Storage Safety flow (v1.0) ζητά persistence, αλλά ο browser μπορεί να αρνηθεί (Firefox prompt) ή να μην υποστηρίζει (παλαιότερο Safari) — η μόνη πλήρης άμυνα παραμένει χειροκίνητο backup.</td></tr>
-              <tr><td>Displayname scope</td><td>Το <code>userSettings</code> table υποστηρίζει ένα key/value ανά ρύθμιση, αλλά μόνο το <code>displayName</code> χρησιμοποιείται σήμερα — καμία άλλη ρύθμιση χρήστη ακόμα.</td></tr>
+              <tr><td>ErrorBoundary fallback shell</td><td>Το <code>ErrorBoundary</code> fallback screen (όχι πια το <code>Settings.jsx</code>, βλ. §checklist) παραμένει έξω από το <code>&lt;AppShell&gt;</code> — αποδεκτό, καθαρά «δίχτυ ασφαλείας» οθόνη, όχι κανονικό destination-route.</td></tr>
+              <tr><td>Bundle size</td><td>~1.6MB minified / ~478KB gzip, ένα chunk, καμία code-splitting.</td></tr>
+              <tr><td>Storage eviction</td><td>Το Storage Safety flow ζητά persistence, αλλά ο browser μπορεί να αρνηθεί (Firefox prompt) ή να μην υποστηρίζει (παλαιότερο Safari) — η μόνη πλήρης άμυνα παραμένει χειροκίνητο backup.</td></tr>
+              <tr><td>Teacher Profile πεδία χωρίς καταναλωτή</td><td><code>schoolName</code>/<code>specialty</code> αποθηκεύονται/επανεμφανίζονται σωστά αλλά δεν διαβάζονται ακόμα πουθενά αλλού (π.χ. σε reports) — ρητή, εγκεκριμένη απόφαση, ΟΧΙ παράλειψη.</td></tr>
               <tr><td>Global error granularity</td><td>Ένα μοναδικό, top-level <code>ErrorBoundary</code> γύρω από όλη την εφαρμογή — ένα unhandled render error σε οποιοδήποτε σημείο ρίχνει ΟΛΟΚΛΗΡΗ την οθόνη, όχι μόνο το section που έσπασε.</td></tr>
               <tr><td>Screen reader coverage</td><td>Καλή structural accessibility (focus trap, aria-pressed, semantic headings) αλλά χωρίς πλήρες NVDA/VoiceOver pass.</td></tr>
-              <tr><td>SPEC.md drift</td><td>Δεν αντικατοπτρίζει Sprint 7/8, Sprint 5A Phase 1–2, Smart Notifications, Notifications Inbox, ή τα 5 readiness blockers — βλ. §Σύνοψη.</td></tr>
             </tbody>
           </table>
         </div>
@@ -383,6 +378,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
               <tr><td>Δύο key/value πίνακες</td><td><code>appMeta</code> (μόνιμα per-device: backup timestamps, generation markers, migration state) και <code>userSettings</code>/<code>_v2</code> (synced: displayName) — σωστά διαχωρισμένα σκόπιμα, αλλά ένα μελλοντικό «ποια νέα ρύθμιση πάει πού» απαιτεί να θυμάται κανείς αυτή τη διάκριση.</td></tr>
               <tr><td>notificationState id remapping στο migration</td><td>Το <code>notificationState</code> έχει deterministic content-fingerprint id (π.χ. <code>goalStale:42:2026-01-01</code>) που ΤΟ ΙΔΙΟ generic migration engine ξαναχαρτογραφεί σε ένα SHA-256 hash κατά τη legacy→v2 μεταφορά — θεωρητική πιθανότητα μια ήδη-dismissed/snoozed ειδοποίηση να «ξαναφανεί» ως νέα μετά από ενεργοποίηση sync σε συσκευή με προϋπάρχον dismiss/snooze state. Δεν έχει επιβεβαιωθεί ζωντανά ως πραγματικό πρόβλημα (η ειδοποίηση θα υπολογιζόταν εκ νέου έτσι κι αλλιώς)· καταγράφεται για μελλοντική επιβεβαίωση.</td></tr>
               <tr><td>GoalWizardForm.test.jsx διάρκεια</td><td>~33s για 35 tests (μεγαλύτερο μεμονωμένο test αρχείο του suite) — λειτουργικά σωστό, απλά αργό σε τοπική εκτέλεση.</td></tr>
+              <tr><td>Dexie Cloud native login dialog</td><td>Εντοπίστηκε κατά το browser QA του Teacher Profile + Settings (όχι προκαλούμενο από αυτό — <code>AuthProvider.jsx</code>/<code>AccountSection.jsx</code> παρέμειναν αναλλοίωτα): κλικ στο «Σύνδεση» εμφανίζει ένα native, μη-στυλαρισμένο dexie-cloud-addon dialog ΠΑΝΩ από το custom login form της εφαρμογής· ακύρωσή του αφήνει ένα ανεπιτήρητο <code>DexieError2</code> στο console (η ίδια η εφαρμογή δεν καταρρέει). Ξεχωριστό, καταγεγραμμένο follow-up — εκτός scope αυτού του release.</td></tr>
             </tbody>
           </table>
         </div>
@@ -390,7 +386,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
 
       <section id="checklist">
         <div class="section__head"><p class="section__eyebrow">Ολοκληρώθηκε</p><h2>Production checklist</h2></div>
-        <p>Πέντε release-readiness blockers, εγκεκριμένα και επιβεβαιωμένα σε πραγματικό production deploy (GitHub Actions run #19, commit <code>87a1b8c</code>):</p>
+        <p>Πέντε release-readiness blockers, εγκεκριμένα και επιβεβαιωμένα σε πραγματικό production deploy (commit <code>87a1b8c</code>):</p>
         <div class="checklist">
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Ρυθμιζόμενο εμφανιζόμενο όνομα αντί για hardcoded «Βικτώρια» — <code>userSettings</code>/<code>_v2</code>, backup/restore-aware, ταξιδεύει σε δεύτερη συσκευή.</span></div>
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Πλήρες Storage Safety flow (<code>navigator.storage.persisted()</code>/<code>persist()</code>, 5 καταστάσεις, καμία ψευδής υπόσχεση, μόνιμη σύνδεση με ανάγκη backup).</span></div>
@@ -400,6 +396,13 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>CI hardening: το pre-deploy smoke build τρέχει με cloud sync απενεργοποιημένο (ξεχωριστό build), το πραγματικό production build χρησιμοποιεί το πραγματικό repository variable.</span></div>
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Regression fix: <code>NotificationsInbox</code> crash σε κάθε φόρτωση/refresh του <code>/notifications</code> (provider-wiring bug, εντοπίστηκε από το νέο smoke suite) — διορθώθηκε, καλύπτεται από αποκλειστικό regression test.</span></div>
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Πραγματικό production deploy επιβεβαιωμένο πράσινο: build, deploy, ΚΑΙ post-deploy smoke πάνω στο ζωντανό site με πραγματική Dexie Cloud configuration.</span></div>
+        </div>
+        <p>Έκτο, τελευταίο κομμάτι πριν χαρακτηριστεί το v1.0 πλήρες (commit <code>5cd3d28</code>,
+          run <a href="https://github.com/learning-fast1/workspace/actions/runs/30446839236">#30446839236</a>):</p>
+        <div class="checklist">
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Teacher Profile + Settings redesign: <code>Settings</code> μέσα σε <code>&lt;AppShell&gt;</code> με tabbed IA, <code>TeacherProfileCard</code>, <code>TeacherProfileSection</code> (+schoolName/specialty), <code>ApplicationSection</code>, Header user-menu συνδεδεμένο στο <code>/settings</code>.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Browser-verified (όχι μόνο tests/build): desktop/tablet/mobile, cloud-enabled ΚΑΙ cloud-disabled builds, live production smoke πάνω στο πραγματικό deployed URL μετά το deploy.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Milestone κλειδωμένο — καμία περαιτέρω αλλαγή/micropolishing στο module εκτός αν προκύψει πραγματικό bug στη χρήση.</span></div>
         </div>
       </section>
 
@@ -427,8 +430,8 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
       <section id="tests">
         <div class="section__head"><p class="section__eyebrow">Ποιότητα</p><h2>Test coverage summary</h2></div>
         <div class="stat-grid">
-          <div class="stat-card"><p class="stat-card__value">79</p><p class="stat-card__label">Vitest αρχεία</p></div>
-          <div class="stat-card"><p class="stat-card__value">1111</p><p class="stat-card__label">Vitest tests</p></div>
+          <div class="stat-card"><p class="stat-card__value">82</p><p class="stat-card__label">Vitest αρχεία</p></div>
+          <div class="stat-card"><p class="stat-card__value">1136</p><p class="stat-card__label">Vitest tests</p></div>
           <div class="stat-card"><p class="stat-card__value">5</p><p class="stat-card__label">Playwright smoke tests</p></div>
           <div class="stat-card"><p class="stat-card__value">2×</p><p class="stat-card__label">smoke πέρασμα ανά deploy (pre + post)</p></div>
         </div>
@@ -452,8 +455,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
 
         <h3><span class="pill pill--new">v1.1</span> Στοχευμένη σκλήρυνση</h3>
         <ul>
-          <li>Ενημέρωση <code>SPEC.md</code> ώστε να αντικατοπτρίζει την πραγματική σημερινή κατάσταση (auth/sync, notifications, readiness blockers).</li>
-          <li>Μετάβαση <code>Settings.jsx</code> σε <code>&lt;AppShell&gt;</code> — σταθερή πλοήγηση παντού.</li>
+          <li>Διόρθωση του Dexie Cloud native login dialog / ανεπιτήρητου <code>DexieError2</code> στο login-cancel (§technical debt) — προσθήκη <code>.catch()</code> στο <code>db.cloud.login()</code>, διερεύνηση γιατί εμφανίζεται το native dialog πάνω από το custom login form.</li>
           <li>Αφαίρεση <code>SyncDiagnosticsPanel</code> μετά την ολοκλήρωση real-device sync validation.</li>
           <li>ESLint config + lint step στο CI.</li>
           <li>Επιβεβαίωση/διόρθωση του <code>notificationState</code> migration-id ερωτήματος (§technical debt).</li>
@@ -481,9 +483,10 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
       <div class="closing">
         <h2>Κλείσιμο</h2>
         <p>Το Workspace v1.0 είναι ένα πλήρες, λειτουργικό, local-first PWA για ειδικούς
-          παιδαγωγούς, με μια ώριμη, καλά δοκιμασμένη προαιρετική στρώση cloud sync και μια πλήρη
-          production-readiness πύλη (test → build → smoke → deploy → smoke). Development freeze σε
-          ισχύ — καμία νέα λειτουργικότητα μέχρι ρητή νέα έγκριση.</p>
+          παιδαγωγούς, με μια ώριμη, καλά δοκιμασμένη προαιρετική στρώση cloud sync, ένα ενιαίο
+          Teacher Profile + Settings module, και μια πλήρη production-readiness πύλη (test → build →
+          smoke → deploy → smoke). Development freeze σε ισχύ σε ολόκληρη την εφαρμογή — καμία νέα
+          λειτουργικότητα μέχρι ρητή νέα έγκριση.</p>
       </div>
     </main>
   </div>

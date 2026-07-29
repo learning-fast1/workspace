@@ -4,11 +4,15 @@
 // React component ώστε να είναι μονάδο-δοκιμάσιμα χωρίς DOM/React, και ώστε το review step να
 // υπολογίζει τα σύνολα ΑΠΟ ΤΑ ΙΔΙΑ δεδομένα που στέλνονται στο submit — καμία ξεχωριστή, δυνητικά
 // ασύμφωνη μέτρηση.
+import { resolveEntityId } from '../migration/activeGeneration.js'
 
-// participation: { [studentId]: 'continued' | 'departed' }
+// participation: { [studentId]: 'continued' | 'departed' } — τα keys είναι ΠΑΝΤΑ string (object
+// keys), resolveEntityId αντί για Number() ώστε ένα v2 UUID studentId να ΜΗΝ γίνει σιωπηλά NaN (βλ.
+// Technical Fix Plan — το applySchoolYearTransition θα πετούσε "Δεν βρέθηκε μαθητής" και θα έκανε
+// πλήρες rollback, αλλά μόνο ΑΦΟΥ φτάσει ως εκεί· καλύτερα το λάθος id να μην παραχθεί καθόλου εδώ).
 export function buildParticipationDecisions(participation) {
   return Object.entries(participation).map(([studentId, status]) => ({
-    studentId: Number(studentId), status, reason: ''
+    studentId: resolveEntityId(studentId), status, reason: ''
   }))
 }
 

@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import db from '../db.js'
 import TeachingMode from './TeachingMode.jsx'
+import { claimLegacyDataOwnership } from '../migration/legacyOwnership.js'
+import { runMigration, resetMigrationForTests } from '../migration/migrationEngine.js'
+import { activateV2Generation, resetActiveGenerationForTests, activeTable } from '../migration/activeGeneration.js'
 
 // UX improvement — accordion στόχων στο Teaching Mode: αρχικά όλοι συμπτυγμένοι, κλικ ανοίγει ΕΝΑΝ
 // στόχο τη φορά (κλείνει τον προηγούμενο αυτόματα), ξανά κλικ στον ίδιο τον κλείνει. Καμία σελιδοποίηση
@@ -15,6 +18,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   cleanup()
+  await resetActiveGenerationForTests()
+  await resetMigrationForTests()
   await Promise.all(db.tables.map((t) => t.clear()))
   db.close()
 })
@@ -228,5 +233,121 @@ describe('TeachingMode — κλινική εκτίμηση στόχου ανά �
     expect(teachingModeEvent).toBeTruthy()
     expect(teachingModeEvent.type).toBe('statusChanged')
     expect(teachingModeEvent.toStatus).toBe('achieved')
+  })
+})
+
+// Critical hotfix regression (Technical Fix Plan) — πριν το resolveEntityId, το session-save block
+// (measurementsTable.bulkAdd/sessionGoalAssessmentsTable.bulkAdd/transitionGoalStatus) έγραφε
+// goalId: Number(goalId) — πάντα NaN σε v2 (goalId εδώ είναι object key, άρα πάντα string), ΧΩΡΙΣ
+// κανέναν έλεγχο ύπαρξης στο bulkAdd· η μέτρηση γραφόταν σιωπηλά ορφανή, ΧΩΡΙΣ κανένα σφάλμα. Το
+// tab-switch (Number(id)) και το Observation dropdown (Number(e.target.value)) είχαν το ίδιο πρόβλημα.
+describe('TeachingMode — v2 γενιά (κρίσιμο hotfix regression)', () => {
+  const ALICE = 'alice@example.com'
+  const asAlice = { getAuthenticatedUserId: () => ALICE }
+
+  async function activateV2ForAlice() {
+    await claimLegacyDataOwnership(ALICE, asAlice)
+    const state = await runMigration(asAlice)
+    expect(state.status).toBe('complete')
+    await activateV2Generation(ALICE, asAlice)
+  }
+
+  async function seedV2Goal(studentId, { title }) {
+    const goalId = crypto.randomUUID()
+    await activeTable('goals').add({
+      id: goalId, studentId, domain: 'reading', title, description: '', baseline: '',
+      measurementType: 'successRatio', criterionConfig: { targetSuccesses: 4, targetAttempts: 5 },
+      criterion: '4 από 5 προσπάθειες', supportLevel: '', priority: 'medium', startDate: '2026-01-01',
+      status: 'active', statusChangedAt: '2026-01-01'
+    })
+    return goalId
+  }
+
+  it('μέτρηση + αποθήκευση συνεδρίας γράφει το ΣΩΣΤΟ (string) goalId/studentId, ΟΧΙ NaN', async () => {
+    await activateV2ForAlice()
+    const user = userEvent.setup()
+    const studentId = crypto.randomUUID()
+    await activeTable('students').add({ id: studentId, code: 'Μ1', active: true })
+    const goalId = await seedV2Goal(studentId, { title: 'Στόχος Α' })
+
+    renderTeachingMode([studentId])
+    await waitFor(() => expect(screen.getByText('Στόχος Α')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Στόχος Α/ }))
+    await user.click(screen.getAllByRole('button', { name: /Επιτυχία/ })[0])
+    await endSession(user)
+
+    await waitFor(async () => {
+      expect(await activeTable('sessions').count()).toBe(1)
+    })
+    const measurements = await activeTable('measurements').where('goalId').equals(goalId).toArray()
+    expect(measurements).toHaveLength(1)
+    expect(measurements[0].studentId).toBe(studentId)
+    expect(measurements[0].goalId).toBe(goalId)
+    expect(Number.isNaN(measurements[0].goalId)).toBe(false)
+  })
+
+  it('«Κατακτήθηκε» σε v2 goal → transitionGoalStatus πετυχαίνει με το σωστό (string) goalId', async () => {
+    await activateV2ForAlice()
+    const user = userEvent.setup()
+    const studentId = crypto.randomUUID()
+    await activeTable('students').add({ id: studentId, code: 'Μ1', active: true })
+    const goalId = await seedV2Goal(studentId, { title: 'Στόχος Α' })
+
+    renderTeachingMode([studentId])
+    await waitFor(() => expect(screen.getByText('Στόχος Α')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Στόχος Α/ }))
+    await user.click(screen.getByRole('button', { name: 'Κατακτήθηκε' }))
+    await user.click(screen.getByRole('button', { name: 'Επιβεβαίωση' }))
+    await endSession(user)
+
+    await waitFor(async () => {
+      const goal = await activeTable('goals').get(goalId)
+      expect(goal.status).toBe('achieved')
+    })
+    const events = await activeTable('goalEvents').where('goalId').equals(goalId).toArray()
+    expect(events.some((e) => e.trigger === 'teachingMode')).toBe(true)
+  })
+
+  it('ομαδική συνεδρία v2: εναλλαγή μαθητή μέσω tab δουλεύει (UUID ids)', async () => {
+    await activateV2ForAlice()
+    const user = userEvent.setup()
+    const studentA = crypto.randomUUID()
+    const studentB = crypto.randomUUID()
+    await activeTable('students').add({ id: studentA, code: 'Μ1', active: true })
+    await activeTable('students').add({ id: studentB, code: 'Μ2', active: true })
+    await seedV2Goal(studentA, { title: 'Στόχος Α' })
+    await seedV2Goal(studentB, { title: 'Στόχος Γ' })
+
+    renderTeachingMode([studentA, studentB])
+    await waitFor(() => expect(screen.getByText('Στόχος Α')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('tab', { name: 'Μ2' }))
+    await waitFor(() => expect(screen.getByText('Στόχος Γ')).toBeInTheDocument())
+  })
+
+  it('Παρατήρηση σε ομαδική v2 συνεδρία: αλλαγή μαθητή στο dropdown γράφει το ΣΩΣΤΟ studentId', async () => {
+    await activateV2ForAlice()
+    const user = userEvent.setup()
+    const studentA = crypto.randomUUID()
+    const studentB = crypto.randomUUID()
+    await activeTable('students').add({ id: studentA, code: 'Μ1', active: true })
+    await activeTable('students').add({ id: studentB, code: 'Μ2', active: true })
+    await seedV2Goal(studentA, { title: 'Στόχος Α' })
+
+    renderTeachingMode([studentA, studentB])
+    await waitFor(() => expect(screen.getByText('Στόχος Α')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Παρατήρηση' }))
+    await user.selectOptions(screen.getByLabelText('Μαθητής'), studentB)
+    await user.type(screen.getByLabelText('Τι παρατήρησες;'), 'Καλή μέρα')
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(async () => {
+      expect(await activeTable('observations').count()).toBe(1)
+    })
+    const [obs] = await activeTable('observations').toArray()
+    expect(obs.studentId).toBe(studentB)
   })
 })

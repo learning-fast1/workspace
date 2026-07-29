@@ -167,6 +167,40 @@ export function withNewRowId(fields) {
   return { ...rest, id: crypto.randomUUID() }
 }
 
+// Critical hotfix (βλ. Technical Fix Plan, entity-ID γενιά) — κεντρικός helper για ΚΑΘΕ σημείο που
+// μετατρέπει ένα ωμό, εξωτερικό id (route param, object key από Object.entries, τιμή <select>) σε
+// key κατάλληλο για activeTable(...).get()/.where(...).equals(...)/.update(...). ΑΝΤΙΚΑΘΙΣΤΑ κάθε
+// σκόρπιο Number(id)/Number(studentId)/Number(goalId) σε components — εκείνα υπέθεταν σιωπηλά ότι
+// τα ids είναι ΠΑΝΤΑ αριθμητικά legacy ++id, παραδοχή που έσπαγε ολοκληρωτικά στη v2 γενιά (UUID/
+// SHA-256 hex string ids, βλ. withNewRowId/deterministicId) — Number(realV2Id) === NaN, και ένα
+// .get(NaN) στην IndexedDB δεν επιστρέφει «δεν βρέθηκε», πετάει invalid-key σφάλμα.
+//
+// Επιστρέφει null για ΚΑΘΕ μη-επιλύσιμο input (ΠΟΤΕ NaN προς τα έξω) — οι καλούντες πρέπει να
+// ελέγχουν ρητά `=== null` ΠΡΙΝ καλέσουν οποιαδήποτε .get()/.where(), ίδιο σημείο με τα ήδη υπάρχοντα
+// «δεν βρέθηκε» branches (StudentProfile.jsx/StudentForm.jsx) — αυτά ήταν πάντα σωστά γραμμένα, απλά
+// ποτέ δεν πρόλαβαιναν να εκτελεστούν επειδή το reject συνέβαινε νωρίτερα.
+//
+// legacy: τα πραγματικά primary keys είναι ΠΑΝΤΑ θετικοί ακέραιοι (Dexie '++id' auto-increment,
+// ξεκινάει από 1) — άρα η επικύρωση εδώ είναι σκόπιμα αυστηρή (Number.isSafeInteger + > 0), ΟΧΙ απλά
+// Number.isNaN. Ένα δεκαδικό/αρνητικό/0/Infinity δεν είναι ΠΟΤΕ έγκυρο legacy id σήμερα — αν
+// χρειαστεί ποτέ νόμιμο 0/αρνητικό legacy id, αυτό θα ήταν σκόπιμη, τεκμηριωμένη αλλαγή σχήματος,
+// όχι κάτι που πρέπει να περάσει σιωπηλά από εδώ.
+// v2: το id παραμένει string, ΑΜΕΤΑΒΛΗΤΟ — ούτε trim του περιεχομένου, μόνο του εξωτερικού whitespace
+// από π.χ. ένα route param.
+export function resolveEntityId(rawId) {
+  if (rawId === null || rawId === undefined) return null
+
+  const value = String(rawId).trim()
+  if (value === '') return null
+
+  if (cachedGeneration === 'v2') {
+    return value
+  }
+
+  const numericId = Number(value)
+  return Number.isSafeInteger(numericId) && numericId > 0 ? numericId : null
+}
+
 // Sprint 5A Phase 2, Commit 5 — καλείται ΑΠΟΚΛΕΙΣΤΙΚΑ από το restore ενός v2 backup
 // (utils/backup.js). Σε αντίθεση με το activateV2Generation, ΔΕΝ ελέγχει migration state — δεν
 // υπάρχει καμία μετάβαση να ολοκληρωθεί, τα δεδομένα έφτασαν ήδη migrated μέσα από το ίδιο το

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Library } from 'lucide-react'
 import { createGoal } from '../db.js'
-import { activeTable } from '../migration/activeGeneration.js'
+import { activeTable, resolveEntityId } from '../migration/activeGeneration.js'
 import { DOMAINS } from '../config/domains.js'
 import { PRIORITIES } from '../config/goalOptions.js'
 import { isRecommendedMeasurementType } from '../config/measurementRecommendations.js'
@@ -67,7 +67,10 @@ export default function GoalWizardForm({ mode }) {
   const { id, goalId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const studentId = Number(id)
+  // resolveEntityId: null όταν το route param δεν αντιστοιχεί σε έγκυρο id για την ενεργή γενιά
+  // (βλ. Technical Fix Plan — ΠΑΛΙΑ Number(id) μετέτρεπε σιωπηλά ένα v2 UUID id σε NaN, το οποίο
+  // ΤΟΤΕ γραφόταν αθόρυβα ως goals.studentId=NaN στο createGoal, χωρίς κανέναν έλεγχο ύπαρξης).
+  const studentId = resolveEntityId(id)
 
   // Προσυμπλήρωση από «Αντιγραφή σε άλλον μαθητή» (CopyGoalToStudentModal.jsx) — περνιέται μέσω
   // react-router state, ΟΧΙ μέσω δημιουργίας οτιδήποτε στη βάση πριν ολοκληρωθεί ο Wizard
@@ -122,12 +125,17 @@ export default function GoalWizardForm({ mode }) {
 
   useEffect(() => {
     if (mode !== 'edit') return
+    const resolvedGoalId = resolveEntityId(goalId)
+    if (resolvedGoalId === null) {
+      setLoading(false)
+      return
+    }
     // ΔΥΟ ξεχωριστά queries, ένα ανά πίνακα (goals/measurements) — ίδιο idiom με το υπόλοιπο
     // codebase, καμία μεταλλαγμένη λογική πάνω στο goal.criterion για να «μαντέψει» criterionConfig
     // (Στάδιο 3, σημείο 3: legacy goal χωρίς criterionConfig ανοίγει ΑΚΡΙΒΩΣ όπως είναι στη βάση).
     Promise.all([
-      activeTable('goals').get(Number(goalId)),
-      activeTable('measurements').where('goalId').equals(Number(goalId)).count()
+      activeTable('goals').get(resolvedGoalId),
+      activeTable('measurements').where('goalId').equals(resolvedGoalId).count()
     ]).then(([existing, measurementCount]) => {
       if (existing) {
         setGoal(existing)
@@ -271,13 +279,23 @@ export default function GoalWizardForm({ mode }) {
         : restFields
 
       if (mode === 'edit') {
+        const resolvedGoalId = resolveEntityId(goalId)
+        if (resolvedGoalId === null) {
+          throw new Error(`Δεν βρέθηκε στόχος με id=${goalId}`)
+        }
         // Το `goal` state φορτώθηκε από την πλήρη υπάρχουσα εγγραφή (βλ. useEffect παραπάνω), άρα
         // περιέχει ήδη status/statusChangedAt — αφαιρούνται ρητά εδώ ώστε να είναι ΔΟΜΙΚΑ αδύνατο
         // αυτό το save να αγγίξει ποτέ την κατάσταση ή να δημιουργήσει goalEvent (Technical Plan
         // Στάδιο 3/4 — μοναδικό API για αλλαγή κατάστασης είναι το transitionGoalStatus).
         const { status: _status, statusChangedAt: _statusChangedAt, ...editableFields } = fieldsToSave
-        await activeTable('goals').update(Number(goalId), editableFields)
+        await activeTable('goals').update(resolvedGoalId, editableFields)
       } else {
+        // studentId===null εδώ θα σήμαινε κατεστραμμένο route (π.χ. /goals/new/xyz) — ΠΟΤΕ να μη
+        // γραφτεί goals.studentId=null/NaN σιωπηλά (βλ. Technical Fix Plan, createGoalCore δεν κάνει
+        // κανέναν έλεγχο ύπαρξης foreign key).
+        if (studentId === null) {
+          throw new Error(`Μη έγκυρο id μαθητή στη διεύθυνση: ${id}`)
+        }
         // createGoal (Στάδιο 2) — ατομικό goal+'created' goalEvent, επιβάλλει πάντα status:'active'.
         await createGoal({ ...fieldsToSave, studentId })
       }

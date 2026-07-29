@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine
 } from 'recharts'
 import { LineChart as LineChartIcon, MessageSquareText, UserX } from 'lucide-react'
-import { activeTable } from '../migration/activeGeneration.js'
+import { activeTable, resolveEntityId } from '../migration/activeGeneration.js'
 import { domainName } from '../config/domains.js'
 import { getMeasurementType, formatRecordedValue } from '../utils/measurementTypes/index.js'
 import { priorityLabel, statusLabel, PRIORITY_BADGE_VARIANT, STATUS_BADGE_VARIANT } from '../config/goalOptions.js'
@@ -71,28 +71,37 @@ function ClickableDot({ cx, cy, payload, onSelect }) {
 export default function GoalDetail() {
   const { id, goalId } = useParams()
   const navigate = useNavigate()
-  const studentId = Number(id)
+  // resolveEntityId: null όταν το route param δεν αντιστοιχεί σε έγκυρο id για την ενεργή γενιά
+  // (βλ. Technical Fix Plan — ΠΑΛΙΑ Number(id)/Number(goalId) μετέτρεπαν σιωπηλά ένα v2 UUID/SHA id
+  // σε NaN, και ένα .get(NaN)/.equals(NaN) στην IndexedDB πετάει αντί να επιστρέψει «δεν βρέθηκε»).
+  const studentId = resolveEntityId(id)
+  const resolvedGoalId = resolveEntityId(goalId)
   const [viewingSessionId, setViewingSessionId] = useState(null)
 
   // null = «δεν έχει τρέξει ακόμα» — βλ. αντίστοιχο σχόλιο στο StudentProfile.jsx. Χωρίς αυτό, ο
   // στόχος που πραγματικά δεν υπάρχει (π.χ. διαγράφηκε ο μαθητής του) δεν θα ξεχώριζε από «φορτώνει ακόμα».
-  const goal = useLiveQuery(() => activeTable('goals').get(Number(goalId)), [goalId], null)
+  // resolvedGoalId === null → απευθείας undefined (not-found), ΠΟΤΕ κλήση .get()/.equals() με μη έγκυρο key.
+  const goal = useLiveQuery(
+    () => (resolvedGoalId === null ? undefined : activeTable('goals').get(resolvedGoalId)),
+    [resolvedGoalId],
+    null
+  )
   const measurements = useLiveQuery(
-    () => activeTable('measurements').where('goalId').equals(Number(goalId)).toArray(),
-    [goalId]
+    () => (resolvedGoalId === null ? [] : activeTable('measurements').where('goalId').equals(resolvedGoalId).toArray()),
+    [resolvedGoalId]
   )
   const sessions = useLiveQuery(() => activeTable('sessions').toArray(), [])
   // Ένα μόνο, φθηνό query — ήδη scoped σε ΕΝΑΝ στόχο (goalId indexed), όχι σε όλους τους στόχους
   // του μαθητή, άρα δεν υπάρχει θέμα N+1 εδώ (Technical Plan Στάδιο 5, σημείο 6).
   const goalEvents = useLiveQuery(
-    () => activeTable('goalEvents').where('goalId').equals(Number(goalId)).toArray(),
-    [goalId]
+    () => (resolvedGoalId === null ? [] : activeTable('goalEvents').where('goalId').equals(resolvedGoalId).toArray()),
+    [resolvedGoalId]
   )
   // Κλινικές εκτιμήσεις (Teaching Mode) — συμπληρωματικές του measurement, μέχρι πρότινος αόρατες
   // εκτός βάσης· τώρα τροφοδοτούν το ενοποιημένο ιστορικό παρακάτω (utils/goalHistory.js).
   const assessments = useLiveQuery(
-    () => activeTable('sessionGoalAssessments').where('goalId').equals(Number(goalId)).toArray(),
-    [goalId]
+    () => (resolvedGoalId === null ? [] : activeTable('sessionGoalAssessments').where('goalId').equals(resolvedGoalId).toArray()),
+    [resolvedGoalId]
   )
 
   if (goal === null || !measurements || !sessions || !goalEvents || !assessments) {

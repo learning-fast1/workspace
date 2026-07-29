@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { UserX } from 'lucide-react'
 import { deleteStudent, setStudentActive } from '../db.js'
-import { activeTable } from '../migration/activeGeneration.js'
+import { activeTable, resolveEntityId } from '../migration/activeGeneration.js'
 import AppShell from './shell/AppShell.jsx'
 import EmptyState from './ui/EmptyState.jsx'
 import Tabs from './ui/Tabs.jsx'
@@ -31,7 +31,11 @@ export default function StudentProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const studentId = Number(id)
+  // resolveEntityId: null όταν το route param δεν αντιστοιχεί σε έγκυρο id για την ενεργή γενιά
+  // (π.χ. κατεστραμμένο URL, ή ένα v2 UUID/SHA id που ΠΑΛΙΑ μετατρεπόταν σιωπηλά σε NaN μέσω
+  // Number(id) — βλ. Technical Fix Plan). Η ίδια useLiveQuery παρακάτω αντιμετωπίζει null studentId
+  // σαν άμεσο «δεν βρέθηκε», ΠΟΤΕ δεν καλεί .get() με μη έγκυρο key.
+  const studentId = resolveEntityId(id)
   // Από το HomeAttentionWidget (Technical Plan Στάδιο 13, σημείο 5) — best-effort, ΔΕΝ επιβιώνει
   // σε reload (react-router state). Το StudentDashboardPanel έχει ήδη ασφαλές fallback χωρίς αυτό.
   const focusGoalId = location.state?.focusGoalId ?? null
@@ -43,7 +47,11 @@ export default function StudentProfile() {
 
   // null = «δεν έχει τρέξει ακόμα» (βλ. ίδιο μοτίβο ήδη στην παλιά υλοποίηση) — χωρίς αυτό, ένας
   // μαθητής που πραγματικά δεν υπάρχει δεν θα ξεχώριζε από «φορτώνει ακόμα».
-  const student = useLiveQuery(() => activeTable('students').get(studentId), [studentId], null)
+  const student = useLiveQuery(
+    () => (studentId === null ? undefined : activeTable('students').get(studentId)),
+    [studentId],
+    null
+  )
 
   if (student === null) {
     return (

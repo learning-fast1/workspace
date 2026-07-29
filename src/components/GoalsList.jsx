@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Target } from 'lucide-react'
 import { listSchoolYears } from '../db.js'
-import { activeTable } from '../migration/activeGeneration.js'
+import { activeTable, resolveEntityId } from '../migration/activeGeneration.js'
 import { priorityLabel, statusLabel, sortByPriority } from '../config/goalOptions.js'
 import { domainName } from '../config/domains.js'
 import { latestDatedMeasurement } from '../utils/measurementValue.js'
@@ -110,7 +110,7 @@ export default function GoalsList({ studentId }) {
     return <p>Φόρτωση…</p>
   }
 
-  const selectedYear = selectedYearId ? (schoolYears || []).find((y) => y.id === Number(selectedYearId)) : null
+  const selectedYear = selectedYearId ? (schoolYears || []).find((y) => y.id === resolveEntityId(selectedYearId)) : null
 
   let visible
   if (selectedYear) {

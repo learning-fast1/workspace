@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, UserX } from 'lucide-react'
-import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
+import { activeTable, resolveEntityId, withNewRowId } from '../migration/activeGeneration.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
 import Card from './ui/Card.jsx'
@@ -58,7 +58,16 @@ export default function StudentForm({ mode }) {
     if (mode === 'edit') {
       setNotFound(false)
       setLoading(true)
-      activeTable('students').get(Number(id)).then((student) => {
+      // resolveEntityId: null σημαίνει μη έγκυρο id για την ενεργή γενιά (π.χ. κατεστραμμένο URL,
+      // ή ΠΑΛΙΑ ένα v2 UUID/SHA id μετατρεπόταν σιωπηλά σε NaN μέσω Number(id) — βλ. Technical Fix
+      // Plan). ΠΟΤΕ κλήση .get() με μη έγκυρο key — απευθείας «δεν βρέθηκε».
+      const studentId = resolveEntityId(id)
+      if (studentId === null) {
+        setNotFound(true)
+        setLoading(false)
+        return
+      }
+      activeTable('students').get(studentId).then((student) => {
         if (student) {
           setForm(student)
           initialFormRef.current = student
@@ -116,8 +125,9 @@ export default function StudentForm({ mode }) {
     setSaveError(false)
     try {
       const studentsTable = activeTable('students')
+      const studentId = resolveEntityId(id) // null σε create mode (κανένα id ακόμα) — ok, βλ. παρακάτω
       const existing = await studentsTable.where('code').equals(code).first()
-      if (existing && existing.id !== Number(id)) {
+      if (existing && existing.id !== studentId) {
         setCodeError(`Υπάρχει ήδη μαθητής με κωδικό «${code}».`)
         codeInputRef.current?.focus()
         return
@@ -126,7 +136,9 @@ export default function StudentForm({ mode }) {
         const newId = await studentsTable.add(withNewRowId({ ...emptyStudent, ...form, code }))
         navigate(`/students/${newId}`)
       } else {
-        await studentsTable.update(Number(id), { ...form, code })
+        // studentId εγγυημένα όχι null εδώ — το notFound branch παραπάνω στο render θα είχε ήδη
+        // εμποδίσει να φτάσει η φόρμα (άρα και το submit) σε αυτό το σημείο.
+        await studentsTable.update(studentId, { ...form, code })
         navigate(`/students/${id}`)
       }
     } catch (err) {

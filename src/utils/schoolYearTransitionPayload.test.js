@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { buildParticipationDecisions, buildGoalDecisions, summarizeTransition } from './schoolYearTransitionPayload.js'
+import db, { applySchoolYearTransition } from '../db.js'
+import { claimLegacyDataOwnership } from '../migration/legacyOwnership.js'
+import { runMigration, resetMigrationForTests } from '../migration/migrationEngine.js'
+import { activateV2Generation, resetActiveGenerationForTests, activeTable } from '../migration/activeGeneration.js'
 
 describe('buildParticipationDecisions', () => {
   it('μετατρέπει το map σε array αποφάσεων, studentId ως αριθμό', () => {
@@ -116,5 +120,60 @@ describe('summarizeTransition', () => {
     const built = buildGoalDecisions(goals, goalDecisions, participation, '2026-09-01')
     const summary = summarizeTransition(students, goals, participation, goalDecisions)
     expect(built).toHaveLength(summary.goalContinueCount + summary.goalAchievedCount + summary.goalNewCount)
+  })
+})
+
+// Critical hotfix regression (Technical Fix Plan) — πριν το resolveEntityId, buildParticipationDecisions
+// έκανε Number(studentId) πάνω σε object keys (πάντα string) — σε v2 γενιά αυτό ήταν ΠΑΝΤΑ NaN. Το
+// applySchoolYearTransition (db.js) ΕΙΧΕ ήδη προστασία (studentsTable.get(p.studentId) → throw αν δεν
+// βρεθεί, μέσα σε db.transaction, άρα πλήρες rollback) — άρα ΔΕΝ αλλοίωνε δεδομένα, αλλά έκανε τον
+// wizard ΠΑΝΤΑ αποτυχημένο σε v2. Αυτό το describe block χρειάζεται πραγματικό Dexie+migration setup
+// (η γενιά ζει στο appMeta) — ξεχωριστό beforeEach/afterEach, εφαρμόζεται ΜΟΝΟ σε αυτό το block.
+describe('buildParticipationDecisions — v2 γενιά (κρίσιμο hotfix regression)', () => {
+  const ALICE = 'alice@example.com'
+  const asAlice = { getAuthenticatedUserId: () => ALICE }
+
+  beforeEach(async () => {
+    await db.open()
+  })
+
+  afterEach(async () => {
+    await resetActiveGenerationForTests()
+    await resetMigrationForTests()
+    await Promise.all(db.tables.map((t) => t.clear()))
+    db.close()
+  })
+
+  async function activateV2ForAlice() {
+    await claimLegacyDataOwnership(ALICE, asAlice)
+    const state = await runMigration(asAlice)
+    expect(state.status).toBe('complete')
+    await activateV2Generation(ALICE, asAlice)
+  }
+
+  it('v2 UUID studentId διατηρείται ακριβώς ως string, ΟΧΙ NaN', async () => {
+    await activateV2ForAlice()
+    const studentId = crypto.randomUUID()
+    const result = buildParticipationDecisions({ [studentId]: 'continued' })
+    expect(result).toEqual([{ studentId, status: 'continued', reason: '' }])
+    expect(Number.isNaN(result[0].studentId)).toBe(false)
+  })
+
+  it('end-to-end: applySchoolYearTransition με v2 UUID studentId βρίσκει τον σωστό μαθητή, ΔΕΝ πετάει "δεν βρέθηκε"', async () => {
+    await activateV2ForAlice()
+    const studentId = crypto.randomUUID()
+    await activeTable('students').add({ id: studentId, code: 'Μ1', active: true })
+
+    const participationDecisions = buildParticipationDecisions({ [studentId]: 'continued' })
+    await expect(
+      applySchoolYearTransition(
+        { label: '2026-2027', startDate: '2026-09-01', endDate: '2027-06-30' },
+        { participationDecisions }
+      )
+    ).resolves.toBeTruthy()
+
+    const participation = await activeTable('schoolYearParticipation').where('studentId').equals(studentId).toArray()
+    expect(participation).toHaveLength(1)
+    expect(participation[0].status).toBe('continued')
   })
 })

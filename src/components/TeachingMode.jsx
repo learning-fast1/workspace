@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, CircleCheck, MessageSquarePlus, UserCheck, UserX, X
 } from 'lucide-react'
 import { db, transitionGoalStatus } from '../db.js'
-import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
+import { activeTable, resolveEntityId, withNewRowId } from '../migration/activeGeneration.js'
 import { isEmptyRecordedValue } from '../utils/measurementTypes/index.js'
 import { sortByPriority } from '../config/goalOptions.js'
 import { DURATION_OPTIONS } from '../config/sessionOptions.js'
@@ -38,7 +38,13 @@ import './TeachingMode.css'
 export default function TeachingMode() {
   const { studentIds: studentIdsParam } = useParams()
   const navigate = useNavigate()
-  const studentIds = useMemo(() => studentIdsParam.split(',').map(Number), [studentIdsParam])
+  // resolveEntityId αντί για Number(): σε v2 γενιά τα πραγματικά studentIds είναι UUID strings, ΟΧΙ
+  // αριθμοί (βλ. Technical Fix Plan) — .filter ώστε ένα ενδεχομένως κατεστραμμένο μέλος του route
+  // param να μη γίνει ποτέ null μέσα στη λίστα (bulkGet/anyOf δεν χειρίζονται null keys με χάρη).
+  const studentIds = useMemo(
+    () => studentIdsParam.split(',').map(resolveEntityId).filter((sid) => sid !== null),
+    [studentIdsParam]
+  )
   const isGroup = studentIds.length > 1
 
   const [studentPage, setStudentPage] = useState(0)
@@ -265,14 +271,24 @@ export default function TeachingMode() {
         )
         if (entries.length > 0) {
           await measurementsTable.bulkAdd(
-            entries.map(([goalId, value]) => withNewRowId({
-              sessionId,
-              studentId: goalStudentMap[goalId],
-              goalId: Number(goalId),
-              value,
-              context: isGroup ? 'group' : 'individual',
-              note: ''
-            }))
+            entries.map(([goalId, value]) => {
+              // resolveEntityId αντί για Number(goalId): goalId εδώ είναι object key (πάντα string),
+              // άρα σε v2 γενιά ΠΑΝΤΑ NaN με το παλιό Number() — bulkAdd δεν κάνει ΚΑΝΕΝΑΝ έλεγχο
+              // ύπαρξης, θα έγραφε σιωπηλά ορφανή μέτρηση (βλ. Technical Fix Plan, §4). Throw αντί
+              // για σιωπηλή εγγραφή — μέσα σε db.transaction, άρα πλήρες rollback, καμία αλλοίωση.
+              const resolvedGoalId = resolveEntityId(goalId)
+              if (resolvedGoalId === null) {
+                throw new Error(`Μη έγκυρο goalId σε μέτρηση: ${goalId}`)
+              }
+              return withNewRowId({
+                sessionId,
+                studentId: goalStudentMap[goalId],
+                goalId: resolvedGoalId,
+                value,
+                context: isGroup ? 'group' : 'individual',
+                note: ''
+              })
+            })
           )
         }
 
@@ -282,13 +298,19 @@ export default function TeachingMode() {
         const assessmentEntries = Object.entries(clinicalAssessments)
         if (assessmentEntries.length > 0) {
           await sessionGoalAssessmentsTable.bulkAdd(
-            assessmentEntries.map(([goalId, { rating, note }]) => withNewRowId({
-              sessionId,
-              studentId: goalStudentMap[goalId],
-              goalId: Number(goalId),
-              rating,
-              note: note || ''
-            }))
+            assessmentEntries.map(([goalId, { rating, note }]) => {
+              const resolvedGoalId = resolveEntityId(goalId)
+              if (resolvedGoalId === null) {
+                throw new Error(`Μη έγκυρο goalId σε κλινική εκτίμηση: ${goalId}`)
+              }
+              return withNewRowId({
+                sessionId,
+                studentId: goalStudentMap[goalId],
+                goalId: resolvedGoalId,
+                rating,
+                note: note || ''
+              })
+            })
           )
         }
 
@@ -297,9 +319,13 @@ export default function TeachingMode() {
         // ΟΧΙ στο κλικ επιβεβαίωσης — αν ο δάσκαλος βγει χωρίς αποθήκευση, ο στόχος παραμένει active.
         for (const [goalId, { rating, note }] of assessmentEntries) {
           if (rating !== 'mastered') continue
+          const resolvedGoalId = resolveEntityId(goalId)
+          if (resolvedGoalId === null) {
+            throw new Error(`Μη έγκυρο goalId σε μετάβαση κατάστασης: ${goalId}`)
+          }
           // sessionId εδώ επιτρέπει στο utils/goalHistory.js να συγχωνεύσει αξιόπιστα αυτό το
           // goalEvent με την αντίστοιχη "mastered" εγγραφή sessionGoalAssessments σε μία γραμμή.
-          await transitionGoalStatus(Number(goalId), 'achieved', { note: note || '', trigger: 'teachingMode', sessionId })
+          await transitionGoalStatus(resolvedGoalId, 'achieved', { note: note || '', trigger: 'teachingMode', sessionId })
         }
       })
 
@@ -336,7 +362,7 @@ export default function TeachingMode() {
               )
             }))}
             activeId={String(currentStudent?.id)}
-            onChange={(id) => changeStudentPage(students.findIndex((s) => s.id === Number(id)))}
+            onChange={(id) => changeStudentPage(students.findIndex((s) => s.id === resolveEntityId(id)))}
           />
 
           {currentStudent && (
@@ -504,7 +530,9 @@ function ObservationPanel({ students, defaultStudentId, onClose }) {
 
   async function handleSave() {
     const trimmed = text.trim()
-    if (!trimmed || savingRef.current) return
+    // studentId===null θα σήμαινε ότι το dropdown επέστρεψε μη έγκυρο id (βλ. Technical Fix Plan) —
+    // ΠΟΤΕ σιωπηλή εγγραφή observations.studentId=null, το add() εδώ δεν κάνει κανέναν άλλο έλεγχο.
+    if (!trimmed || studentId === null || savingRef.current) return
     savingRef.current = true
     setSaving(true)
     try {
@@ -540,7 +568,7 @@ function ObservationPanel({ students, defaultStudentId, onClose }) {
           <Select
             id="observationStudent"
             value={studentId}
-            onChange={(e) => setStudentId(Number(e.target.value))}
+            onChange={(e) => setStudentId(resolveEntityId(e.target.value))}
           >
             {students.map((s) => (
               <option key={s.id} value={s.id}>{s.code}{s.nickname ? ` — ${s.nickname}` : ''}</option>

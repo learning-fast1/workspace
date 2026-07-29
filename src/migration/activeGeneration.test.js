@@ -5,7 +5,7 @@ import { claimLegacyDataOwnership } from './legacyOwnership.js'
 import { runMigration, resetMigrationForTests } from './migrationEngine.js'
 import {
   getActiveGeneration, initializeActiveGeneration, activateV2Generation, activeTable,
-  resetActiveGenerationForTests
+  resetActiveGenerationForTests, resolveEntityId
 } from './activeGeneration.js'
 
 const ALICE = 'alice@example.com'
@@ -147,6 +147,88 @@ describe('activateV2Generation — αδύνατη πρόωρη ενεργοπο�
     const first = await activateV2Generation(ALICE, asAlice)
     const second = await activateV2Generation(ALICE, asAlice)
     expect(second.setAt).toBe(first.setAt)
+  })
+})
+
+// Critical hotfix (Technical Fix Plan) — resolveEntityId αντικαθιστά ΚΑΘΕ σκόρπιο Number(id) σε
+// components. Πριν αυτό, ένα v2 UUID/SHA route id γινόταν σιωπηλά NaN, και ένα .get(NaN)/.equals(NaN)
+// στην IndexedDB πετάει invalid-key σφάλμα αντί να επιστρέψει «δεν βρέθηκε» (βλ. StudentProfile.jsx/
+// StudentForm.jsx ErrorBoundary crash, αναπαραχθέν ζωντανά κατά το Real Multi-Device Sync Validation).
+describe('resolveEntityId — κεντρικός helper μετατροπής route/entity id ανά γενιά', () => {
+  it('null/undefined → null', () => {
+    expect(resolveEntityId(null)).toBe(null)
+    expect(resolveEntityId(undefined)).toBe(null)
+  })
+
+  it('κενό string ή μόνο κενά → null', () => {
+    expect(resolveEntityId('')).toBe(null)
+    expect(resolveEntityId(' ')).toBe(null)
+    expect(resolveEntityId('   ')).toBe(null)
+  })
+
+  describe('legacy γενιά — αυστηρή επικύρωση θετικού ακέραιου', () => {
+    it('έγκυρο θετικό ακέραιο string → number', () => {
+      expect(resolveEntityId('42')).toBe(42)
+      expect(resolveEntityId(42)).toBe(42)
+    })
+
+    it('δεκαδικό → null (όχι έγκυρο legacy ++id)', () => {
+      expect(resolveEntityId('4.5')).toBe(null)
+    })
+
+    it('αρνητικό → null', () => {
+      expect(resolveEntityId('-1')).toBe(null)
+    })
+
+    it('μηδέν → null (Dexie ++id ξεκινάει από 1)', () => {
+      expect(resolveEntityId('0')).toBe(null)
+    })
+
+    it('Infinity → null', () => {
+      expect(resolveEntityId('Infinity')).toBe(null)
+      expect(resolveEntityId(Infinity)).toBe(null)
+    })
+
+    it('μη ασφαλής ακέραιος (πέρα από Number.MAX_SAFE_INTEGER) → null', () => {
+      expect(resolveEntityId(String(Number.MAX_SAFE_INTEGER + 10))).toBe(null)
+    })
+
+    it('μη αριθμητικό/κατεστραμμένο string (π.χ. garbage URL) → null, ΠΟΤΕ NaN', () => {
+      expect(resolveEntityId('abc123xyz')).toBe(null)
+      expect(resolveEntityId('f4fff8e7-8da0-4975-8245-4455a7777ef3')).toBe(null) // v2 uuid ζητημένο σε legacy γενιά
+    })
+  })
+
+  describe('v2 γενιά — παραμένει string, ΑΜΕΤΑΒΛΗΤΟ', () => {
+    async function activateV2() {
+      await claimLegacyDataOwnership(ALICE, asAlice)
+      const state = await runMigration(asAlice)
+      expect(state.status).toBe('complete')
+      await activateV2Generation(ALICE, asAlice)
+    }
+
+    it('UUID (crypto.randomUUID σχήμα) διατηρείται ακριβώς', async () => {
+      await activateV2()
+      const uuid = 'f4fff8e7-8da0-4975-8245-4455a7777ef3'
+      expect(resolveEntityId(uuid)).toBe(uuid)
+    })
+
+    it('SHA-256 hex digest (deterministicId σχήμα, migrated εγγραφές) διατηρείται ακριβώς', async () => {
+      await activateV2()
+      const sha = 'a'.repeat(64) // 64-char hex, ίδιο μήκος με πραγματικό SHA-256 digest
+      expect(resolveEntityId(sha)).toBe(sha)
+    })
+
+    it('εξωτερικό whitespace κόβεται, το ίδιο το id ΔΕΝ αλλάζει', async () => {
+      await activateV2()
+      expect(resolveEntityId('  some-v2-id  ')).toBe('some-v2-id')
+    })
+
+    it('ένα «αριθμητικό-looking» v2 id ΔΕΝ μετατρέπεται σε number', async () => {
+      await activateV2()
+      expect(resolveEntityId('42')).toBe('42')
+      expect(typeof resolveEntityId('42')).toBe('string')
+    })
   })
 })
 

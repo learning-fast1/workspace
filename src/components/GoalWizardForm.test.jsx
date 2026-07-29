@@ -10,6 +10,9 @@ import GoalWizardForm from './GoalWizardForm.jsx'
 import { listMeasurementTypes } from '../utils/measurementTypes/index.js'
 import { DOMAINS } from '../config/domains.js'
 import { computeGoalAttention } from '../utils/goalAttention.js'
+import { claimLegacyDataOwnership } from '../migration/legacyOwnership.js'
+import { runMigration, resetMigrationForTests } from '../migration/migrationEngine.js'
+import { activateV2Generation, resetActiveGenerationForTests, activeTable } from '../migration/activeGeneration.js'
 
 // Component tests (Technical Plan Στάδιο 3 — πρώτα *.test.jsx σε αυτό το codebase, βλ. vite.config.js
 // environmentMatchGlobs). Ίδιο DB setup idiom με τα Dexie *.test.js (fake-indexeddb, καθαρισμός
@@ -24,6 +27,8 @@ afterEach(async () => {
   // που δεν έχουμε ενεργό) — χωρίς ρητό cleanup() το DOM από το προηγούμενο test παραμένει, και
   // queries όπως getByRole βρίσκουν διπλότυπα στοιχεία στο επόμενο test.
   cleanup()
+  await resetActiveGenerationForTests() // βλ. describe «v2 γενιά» παρακάτω — καθαρό cache/appMeta ανά test
+  await resetMigrationForTests()
   await Promise.all(db.tables.map((t) => t.clear()))
   db.close()
 })
@@ -694,5 +699,91 @@ describe('GoalWizardForm — 100% ελληνικά (Sprint 8 feedback χρήστ
 
     expect(screen.getByText('Βήμα 2 από 3: Σημείο εκκίνησης')).toBeInTheDocument()
     expect(screen.queryByText(/Baseline/)).not.toBeInTheDocument()
+  })
+})
+
+// Critical hotfix regression (Technical Fix Plan) — πριν το resolveEntityId, Number(id)/Number(goalId)
+// έκαναν το create-path να γράφει σιωπηλά goals.studentId=NaN (createGoalCore δεν κάνει ΚΑΝΕΝΑΝ έλεγχο
+// ύπαρξης foreign key), και το edit-path να γκρεμίζει/κολλάει μόνιμα, ίδιο μοτίβο με StudentForm.jsx.
+const ALICE = 'alice@example.com'
+const asAlice = { getAuthenticatedUserId: () => ALICE }
+
+async function activateV2ForAlice() {
+  await claimLegacyDataOwnership(ALICE, asAlice)
+  const state = await runMigration(asAlice)
+  expect(state.status).toBe('complete')
+  await activateV2Generation(ALICE, asAlice)
+}
+
+describe('GoalWizardForm — v2 γενιά (κρίσιμο hotfix regression)', () => {
+  it('create: νέος στόχος γράφεται με το ΣΩΣΤΟ (string) studentId, ΟΧΙ NaN', async () => {
+    await activateV2ForAlice()
+    const studentId = crypto.randomUUID()
+    await activeTable('students').add({ id: studentId, code: 'Μ1', active: true })
+
+    const user = userEvent.setup()
+    renderWizard('create', { studentId })
+    await goToStep3(user)
+    await user.click(screen.getByText('Ποσοστό επιτυχίας'))
+    await user.type(screen.getByLabelText('Επιτυχίες'), '4')
+    await user.type(screen.getByLabelText('Σύνολο προσπαθειών'), '5')
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση στόχου' }))
+
+    await waitFor(async () => {
+      expect(await activeTable('goals').count()).toBe(1)
+    })
+    const goal = (await activeTable('goals').toArray())[0]
+    expect(goal.studentId).toBe(studentId)
+    expect(Number.isNaN(goal.studentId)).toBe(false)
+  })
+
+  it('edit: υπάρχων v2 στόχος (UUID id) φορτώνει και αποθηκεύει σωστά', async () => {
+    await activateV2ForAlice()
+    const studentId = crypto.randomUUID()
+    const goalId = crypto.randomUUID()
+    await activeTable('students').add({ id: studentId, code: 'Μ2', active: true })
+    // ΟΧΙ seedLegacyGoal (γράφει πάντα στο legacy db.goals) — εδώ χρειάζεται γραμμή στο ΕΝΕΡΓΟ (v2)
+    // routing, άρα απευθείας activeTable('goals'), ίδιο idiom με τα GoalDetail.test.jsx/StudentForm.test.jsx.
+    await activeTable('goals').add({
+      id: goalId,
+      studentId,
+      domain: DOMAINS[0].id,
+      title: 'Παλιός στόχος',
+      description: '',
+      baseline: 'Κάτι',
+      criterion: '8/10',
+      measurementType: 'successRatio',
+      supportLevel: '',
+      priority: 'medium',
+      startDate: '2026-01-01',
+      status: 'active',
+      statusChangedAt: '2026-01-01T00:00:00.000Z'
+    })
+
+    const user = userEvent.setup()
+    renderWizard('edit', { studentId, goalId })
+    await screen.findByDisplayValue('Παλιός στόχος')
+    await user.click(screen.getByRole('button', { name: 'Επόμενο →' }))
+    await user.click(screen.getByRole('button', { name: 'Επόμενο →' }))
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση στόχου' }))
+
+    await waitFor(async () => {
+      const updated = await activeTable('goals').get(goalId)
+      expect(updated).toBeTruthy()
+    })
+    expect(await activeTable('goals').count()).toBe(1) // καμία επιπλέον/ορφανή γραμμή
+  })
+
+  it('ανύπαρκτο v2 goalId στο edit → σφάλμα αποθήκευσης, ΚΑΜΙΑ εγγραφή με NaN/null goalId', async () => {
+    await activateV2ForAlice()
+    const studentId = crypto.randomUUID()
+    await activeTable('students').add({ id: studentId, code: 'Μ3', active: true })
+
+    renderWizard('edit', { studentId, goalId: crypto.randomUUID() })
+    // Καμία υπάρχουσα εγγραφή βρέθηκε — η φόρμα μένει με το κενό αρχικό σχήμα (loading→false, goal
+    // παραμένει createEmptyGoal). Ελέγχουμε ότι δεν δημιουργήθηκε καμία γραμμή στη βάση από μόνο του
+    // το mount/loading, ΟΧΙ το submit flow (που θα απαιτούσε συμπλήρωση όλων των υποχρεωτικών πεδίων).
+    await waitFor(() => expect(screen.queryByText('Φόρτωση…')).not.toBeInTheDocument())
+    expect(await activeTable('goals').count()).toBe(0)
   })
 })

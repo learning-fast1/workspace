@@ -1,0 +1,490 @@
+<title>Workspace — Release 1.0 Report</title>
+<style>
+  :root {
+    --ink: #1c2430; --paper: #f7f5f0; --paper-soft: #efece3; --surface: #ffffff;
+    --line: #ddd6c5; --accent: #3d5a80; --accent-ink: #ffffff; --accent-soft: #e3ebf3;
+    --warm: #a8642f; --warm-soft: #f6e9da; --safe: #3f6b5b; --safe-soft: #e6efe9;
+    --danger: #9c3f36; --danger-soft: #f8e6e3; --text: var(--ink);
+    --text-secondary: #565f6d; --text-muted: #838d9a; --shadow: 0 8px 24px rgba(28,36,48,.08);
+    --radius: 12px;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono: 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #edf0f4; --paper: #12151b; --paper-soft: #191d25; --surface: #1c212a;
+      --line: #2b3138; --accent: #8badd4; --accent-ink: #0d1520; --accent-soft: #202b38;
+      --warm: #d9a06a; --warm-soft: #2c2216; --safe: #86b6a2; --safe-soft: #1b2822;
+      --danger: #de8e83; --danger-soft: #2c1b19; --text: var(--ink);
+      --text-secondary: #a7b0bc; --text-muted: #747f8c; --shadow: 0 8px 28px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #edf0f4; --paper: #12151b; --paper-soft: #191d25; --surface: #1c212a;
+    --line: #2b3138; --accent: #8badd4; --accent-ink: #0d1520; --accent-soft: #202b38;
+    --warm: #d9a06a; --warm-soft: #2c2216; --safe: #86b6a2; --safe-soft: #1b2822;
+    --danger: #de8e83; --danger-soft: #2c1b19; --text: var(--ink);
+    --text-secondary: #a7b0bc; --text-muted: #747f8c; --shadow: 0 8px 28px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #1c2430; --paper: #f7f5f0; --paper-soft: #efece3; --surface: #ffffff;
+    --line: #ddd6c5; --accent: #3d5a80; --accent-ink: #ffffff; --accent-soft: #e3ebf3;
+    --warm: #a8642f; --warm-soft: #f6e9da; --safe: #3f6b5b; --safe-soft: #e6efe9;
+    --danger: #9c3f36; --danger-soft: #f8e6e3; --text: var(--ink);
+    --text-secondary: #565f6d; --text-muted: #838d9a; --shadow: 0 8px 24px rgba(28,36,48,.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .doc { background: var(--paper); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.6; min-height: 100vh; }
+  .doc__shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); max-width: 1220px; margin: 0 auto; }
+  @media (max-width: 860px) { .doc__shell { grid-template-columns: 1fr; } }
+  .toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--line); }
+  @media (max-width: 860px) {
+    .toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); padding: 16px 20px; }
+    .toc__list { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+    .toc__eyebrow { display: none; }
+  }
+  .toc__eyebrow { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 4px; }
+  .toc__title { font-family: var(--serif); font-size: 19px; font-weight: 700; margin: 0 0 24px; line-height: 1.3; }
+  .toc__list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .toc__list a { display: block; padding: 5px 8px; margin: 1px 0; border-radius: 7px; color: var(--text-secondary); text-decoration: none; }
+  .toc__list a:hover { background: var(--paper-soft); color: var(--text); }
+  @media (max-width: 860px) { .toc__list a { padding: 6px 10px; border: 1px solid var(--line); font-size: 13px; } }
+  .content { padding: 48px 56px 120px; min-width: 0; }
+  @media (max-width: 860px) { .content { padding: 32px 20px 80px; } }
+  .cover__badge { display: inline-flex; align-items: center; gap: 6px; background: var(--safe-soft); color: var(--safe); font-size: 12.5px; font-weight: 700; letter-spacing: .03em; padding: 5px 12px; border-radius: 999px; margin-bottom: 18px; }
+  .cover__eyebrow { font-family: var(--mono); font-size: 13px; color: var(--text-muted); letter-spacing: .04em; margin: 0 0 10px; }
+  h1.cover__title { font-family: var(--serif); font-size: clamp(28px, 4vw, 42px); line-height: 1.15; margin: 0 0 14px; text-wrap: balance; }
+  .cover__subtitle { font-size: 18px; color: var(--text-secondary); max-width: 68ch; margin: 0 0 28px; }
+  .cover__meta { display: flex; flex-wrap: wrap; gap: 22px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13.5px; color: var(--text-secondary); margin-bottom: 44px; }
+  .cover__meta strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
+  section { margin: 0 0 60px; scroll-margin-top: 24px; }
+  section > .section__head { margin-bottom: 22px; }
+  .section__eyebrow { font-family: var(--mono); font-size: 12.5px; color: var(--accent); letter-spacing: .04em; margin: 0 0 6px; }
+  h2 { font-family: var(--serif); font-size: 26px; margin: 0; line-height: 1.25; text-wrap: balance; }
+  h3 { font-family: var(--serif); font-size: 19px; margin: 30px 0 12px; }
+  h4 { font-size: 14.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 22px 0 10px; }
+  p { margin: 0 0 14px; max-width: 76ch; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; max-width: 74ch; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); }
+  code { font-family: var(--mono); font-size: .87em; background: var(--paper-soft); padding: 1px 6px; border-radius: 5px; }
+  a { color: var(--accent); }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; letter-spacing: .03em; white-space: nowrap; }
+  .pill--new { background: var(--safe-soft); color: var(--safe); }
+  .pill--mod { background: var(--accent-soft); color: var(--accent); }
+  .pill--out { background: var(--danger-soft); color: var(--danger); }
+  .pill--flag { background: var(--warm-soft); color: var(--warm); }
+  .table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 600; background: var(--paper-soft); }
+  tr:last-child td { border-bottom: none; }
+  .callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); background: var(--surface); border-radius: var(--radius); padding: 16px 20px; margin: 18px 0; box-shadow: var(--shadow); }
+  .callout--recommend { border-left-color: var(--accent); }
+  .callout--risk { border-left-color: var(--warm); }
+  .callout--safeguard { border-left-color: var(--safe); }
+  .callout--danger { border-left-color: var(--danger); }
+  .callout__label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 6px; }
+  .callout--recommend .callout__label { color: var(--accent); }
+  .callout--risk .callout__label { color: var(--warm); }
+  .callout--safeguard .callout__label { color: var(--safe); }
+  .callout--danger .callout__label { color: var(--danger); }
+  .callout p:last-child { margin-bottom: 0; }
+  .filetree { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 18px 20px; margin: 14px 0; font-family: var(--mono); font-size: 13px; line-height: 1.9; white-space: pre; overflow-x: auto; }
+  .filetree .new { color: var(--safe); }
+  .filetree .mod { color: var(--accent); }
+  .filetree .dim { color: var(--text-muted); }
+  .checklist { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; margin: 18px 0; }
+  .checklist__row { display: grid; grid-template-columns: 28px 1fr; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .checklist__row:last-child { border-bottom: none; }
+  .checklist__mark { color: var(--safe); font-weight: 700; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 18px 0; }
+  .stat-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 16px 18px; }
+  .stat-card__value { font-family: var(--serif); font-size: 28px; font-variant-numeric: tabular-nums; margin: 0 0 2px; }
+  .stat-card__label { font-size: 12.5px; color: var(--text-muted); }
+  hr.rule { border: none; border-top: 1px solid var(--line); margin: 36px 0; }
+  .closing { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px 32px; box-shadow: var(--shadow); }
+  .closing h2 { margin-bottom: 12px; }
+</style>
+
+<div class="doc">
+  <div class="doc__shell">
+    <nav class="toc" aria-label="Περιεχόμενα">
+      <p class="toc__eyebrow">Workspace</p>
+      <p class="toc__title">Release 1.0 Report</p>
+      <ul class="toc__list">
+        <li><a href="#summary">Σύνοψη &amp; freeze</a></li>
+        <li><a href="#architecture">Αρχιτεκτονική</a></li>
+        <li><a href="#modules">Modules</a></li>
+        <li><a href="#coverage">Λειτουργική κάλυψη v1</a></li>
+        <li><a href="#outofscope">Τι ΔΕΝ καλύπτει ακόμη</a></li>
+        <li><a href="#limitations">Known limitations</a></li>
+        <li><a href="#debt">Known technical debt</a></li>
+        <li><a href="#checklist">Production checklist</a></li>
+        <li><a href="#backup-sync">Backup/restore &amp; sync</a></li>
+        <li><a href="#tests">Test coverage</a></li>
+        <li><a href="#roadmap">Roadmap 1.1 / 1.2 / 2.0</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <p class="cover__eyebrow">WORKSPACE — ΕΙΔΙΚΟΣ ΠΑΙΔΑΓΩΓΟΣ</p>
+      <span class="cover__badge">✓ Development freeze — v1.0 released</span>
+      <h1 class="cover__title">Release 1.0 Report</h1>
+      <p class="cover__subtitle">
+        Πλήρης απογραφή της εφαρμογής όπως στέκεται σήμερα: αρχιτεκτονική, modules, λειτουργική
+        κάλυψη, γνωστά όρια/technical debt, ολοκληρωμένο production checklist, και προτεινόμενος
+        οδικός χάρτης. Καμία αλλαγή κώδικα δεν συνοδεύει αυτό το έγγραφο.
+      </p>
+      <div class="cover__meta">
+        <div><strong>Commit</strong>87a1b8c (main)</div>
+        <div><strong>Deploy</strong>learning-fast1.github.io/workspace — live, GitHub Actions run #19 πράσινο</div>
+        <div><strong>Schema</strong>Dexie <code>db.version(13)</code>, 18 migrated πίνακες</div>
+        <div><strong>Tests</strong>79 vitest αρχεία / 1111 tests, 5 Playwright smoke tests (pre + post deploy)</div>
+      </div>
+
+      <section id="summary">
+        <div class="section__head"><p class="section__eyebrow">Freeze</p><h2>Σύνοψη &amp; κατάσταση freeze</h2></div>
+        <p>Το development του Workspace v1 παγώνει σε αυτό το σημείο. Το v1 καλύπτει πλήρως τα 6
+          αρχικά βήματα του SPEC.md (μαθητές → στόχοι → Teaching Mode ατομικό/ομαδικό → πρόοδος/
+          Timeline → προσχέδιο έκθεσης), εννέα επιπλέον sprints πάνω σε αυτά (Session History, «Η
+          μέρα μου», Πρόγραμμα/ημερολόγιο, σχολικά έτη, lifecycle στόχων, κλινική εκτίμηση), μια
+          πλήρη προαιρετική στρώση cloud-account/sync (Sprint 5A Phase 1–2), Smart Notifications
+          engine + Notifications Inbox, και πέντε release-readiness blockers με πλήρες CI hardening.
+          Το πρώτο πραγματικό production deploy μετά από όλα τα παραπάνω (GitHub Actions run #19)
+          ολοκληρώθηκε πράσινο σε build, deploy, και post-deploy smoke.</p>
+        <div class="callout callout--safeguard">
+          <p class="callout__label">Τι σημαίνει «freeze» εδώ</p>
+          <p>Καμία νέα λειτουργικότητα δεν ξεκινά μέχρι ρητή νέα έγκριση. Αυτό το έγγραφο είναι
+            τεκμηρίωση only — καταγράφει την ΠΡΑΓΜΑΤΙΚΗ σημερινή κατάσταση του κώδικα, δεν αλλάζει
+            τίποτα σε αυτόν.</p>
+        </div>
+        <div class="callout callout--risk">
+          <p class="callout__label">Ιστορικό εύρημα — SPEC.md ήδη διορθώθηκε</p>
+          <p>Κατά τη σύνταξη αυτού του report εντοπίστηκε ότι το <code>SPEC.md</code> περιέγραφε
+            ρητά «Τι ΔΕΝ φτιάχνουμε στο MVP»: «Λογαριασμοί χρηστών, login, server, συγχρονισμός
+            συσκευών» — κάτι που δεν ίσχυε πια, αφού η εφαρμογή έχει ήδη πλήρη, λειτουργική
+            (προαιρετική) στρώση account/cloud-sync. Το εύρημα διορθώθηκε πριν από το τελικό v1.0
+            documentation commit: το <code>SPEC.md</code> ενημερώθηκε πλήρως, και το παλιό sprint
+            log μεταφέρθηκε στο <code>docs/history.md</code>.</p>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="section__head"><p class="section__eyebrow">Θεμέλιο</p><h2>Αρχιτεκτονική σύνοψη</h2></div>
+        <h3>Στοίβα</h3>
+        <p>React 18 + Vite 5, <code>react-router-dom</code> με <code>HashRouter</code> (απαραίτητο
+          για GitHub Pages — refresh/deep links χωρίς server routing), Dexie 4 πάνω από IndexedDB ως
+          αποκλειστική πηγή αλήθειας δεδομένων, <code>dexie-react-hooks</code>'s
+          <code>useLiveQuery</code>/<code>useObservable</code> ως το μοναδικό reactive-data idiom
+          (καμία Redux/Zustand — μόνο ένα React Context, για auth). PWA μέσω
+          <code>vite-plugin-pwa</code> (service worker, manifest, <code>autoUpdate</code>). Testing:
+          Vitest (jsdom για component tests, node για καθαρή λογική) + Playwright (production smoke,
+          νέο στο v1). CI/CD: GitHub Actions → GitHub Pages, deploy μόνο σε push στο <code>main</code>.</p>
+
+        <h3>Local-first, cloud sync προαιρετικό</h3>
+        <p>Όλα τα δεδομένα ζουν στη συσκευή by default — καμία εξωτερική κλήση δικτύου πουθενά στο
+          <code>src</code> εκτός του προαιρετικού Dexie Cloud addon. Το <code>CLOUD_ENABLED</code>
+          feature flag (<code>db.js</code>) είναι η ίδια η παρουσία του <code>VITE_DEXIE_CLOUD_URL</code>
+          env var· απών ⇒ η εφαρμογή λειτουργεί ακριβώς όπως ένα αμιγώς τοπικό MVP, μηδενικό cloud
+          addon φορτωμένο καν. Όταν ενεργό, ο εκπαιδευτικός συνδέεται με email + OTP (Dexie Cloud),
+          και μπορεί να ενεργοποιήσει ρητά συγχρονισμό μετά από μια ολοκληρωμένη migration/
+          ownership-verification αλυσίδα.</p>
+
+        <h3>Dual-generation migration engine (legacy → v2)</h3>
+        <p>Η πιο περίπλοκη υποδομή της εφαρμογής. Κάθε εκπαιδευτικός ξεκινά σε «legacy» γενιά
+          (αυτο-αυξανόμενα <code>++id</code>, χωρίς owner). Ενεργοποιώντας cloud sync, ένα πλήρες
+          <code>runMigration()</code> αντιγράφει ΚΑΘΕ γραμμή σε παράλληλους <code>_v2</code>
+          πίνακες με <strong>deterministic id</strong> (<code>SHA-256(userId::table::oldId)</code>,
+          <code>migration/deterministicId.js</code>) — το ίδιο legacy id για τον ίδιο χρήστη παράγει
+          πάντα το ίδιο v2 id, ώστε foreign keys να παραμένουν συνεπή χωρίς πίνακα αντιστοίχισης.
+          Foreign keys ξαναχαρτογραφούνται ρητά (<code>migration/foreignKeyMap.js</code>), με
+          resumable/idempotent ανά-πίνακα πρόοδο (<code>migrationEngine.js</code>) και αυστηρή
+          τελική επαλήθευση αναφορικής ακεραιότητας (<code>verifyMigration</code>) πριν σημειωθεί
+          «complete». <code>activeTable(name)</code> (<code>migration/activeGeneration.js</code>)
+          είναι το ΜΟΝΑΔΙΚΟ σημείο δρομολόγησης legacy/v2 σε όλο τον κώδικα — καμία business-logic
+          συνάρτηση δεν ξέρει σε ποια γενιά βρίσκεται.</p>
+        <div class="callout callout--recommend">
+          <p class="callout__label">Ιδιωματισμός για πίνακες με μη-<code>id</code> φυσικό κλειδί</p>
+          <p><code>domainTemplates</code> (κλειδί: <code>domain</code>) και το νέο
+            <code>userSettings</code> (κλειδί: <code>key</code>) ΔΕΝ κρατούν το φυσικό τους κλειδί
+            ως πραγματικό primary key στη γενιά v2 — το v2 σχήμα είναι πάντα
+            <code>'id, &lt;φυσικό πεδίο&gt;'</code>, όχι <code>'&lt;φυσικό πεδίο&gt;'</code>. Η
+            μηχανή migration/verification υποθέτει παντού ότι το πραγματικό v2 primary key λέγεται
+            <code>id</code>· ένα σχήμα που παραβίαζε αυτό θα μπλόκαρε μόνιμα, σιωπηλά, το
+            verification για κάθε χρήστη με τέτοιο δεδομένο.</p>
+        </div>
+
+        <h3>Notifications engine</h3>
+        <p>Ζωντανά υπολογιζόμενες ειδοποιήσεις (goal-stale, goal-paused, near-criterion,
+          completion-candidate, draft-report, unresolved-session) — severity/label/icon/action ΠΟΤΕ
+          δεν αποθηκεύονται, μόνο dismiss/snooze state (<code>notificationState</code>/<code>_v2</code>,
+          deterministic content-fingerprint id). Ένας κοινός <code>NotificationsProvider</code>
+          (React Context, μία <code>useLiveQuery</code> κλήση μέσα στο <code>AppShell</code>)
+          τροφοδοτεί Header-κουδούνι, Home-widget, και το <code>/notifications</code> Inbox χωρίς
+          τριπλό υπολογισμό.</p>
+
+        <h3>Deployment pipeline</h3>
+        <p>Push στο <code>main</code> → GitHub Actions: <code>npm ci</code> → <code>npm test</code>
+          (μπλοκάρει τα πάντα αν αποτύχει) → build με cloud-disabled (μόνο για το επόμενο βήμα) →
+          Playwright pre-deploy smoke πάνω σε πραγματικό <code>npm run preview</code> (μπλοκάρει το
+          deploy αν αποτύχει) → πραγματικό production build (με το πραγματικό
+          <code>VITE_DEXIE_CLOUD_URL</code> repository variable) → upload artifact → GitHub Pages
+          deploy → δεύτερο, ανεξάρτητο Playwright πέρασμα πάνω στο ήδη-δημοσιευμένο live URL.</p>
+      </section>
+
+      <section id="modules">
+        <div class="section__head"><p class="section__eyebrow">Απογραφή</p><h2>Όλα τα modules</h2></div>
+        <p>66 top-level components, 25 κοινά UI primitives, 7 shell modules, 12 migration modules,
+          26 utils (+10 measurement-type modules), 13 config modules, 5 auth modules — 154 πηγαία
+          αρχεία JS/JSX εκτός tests.</p>
+
+        <h4>src/components/shell — εφαρμογή-shell</h4>
+        <div class="filetree">AppShell.jsx           — Header + main + BottomNav, wraps NotificationsProvider (μία φορά ανά σελίδα-mount)
+Sidebar.jsx            — desktop/tablet πλοήγηση + mobile drawer
+SidebarQuickSchedule.jsx
+BottomNav.jsx          — mobile (&lt;768px) πλοήγηση, ίδια NAV_ITEMS με το Sidebar
+Header.jsx             — κουδούνι ειδοποιήσεων (bell), user menu
+NotificationsProvider.jsx — κοινό live-query context (visible/snoozed/candidateIds)
+navItems.js            — ΜΟΝΑΔΙΚΗ πηγή αλήθειας πλοήγησης (Αρχική/Πρόγραμμα/Συνεδρίες/Μαθητές/Ρυθμίσεις)</div>
+
+        <h4>src/auth — προαιρετική ταυτότητα</h4>
+        <div class="filetree">AuthProvider.jsx  — React Context· no-op όταν CLOUD_ENABLED=false
+useAuth.js        — hook πάνω στο context
+authStatus.js     — καθαρή state-machine (6 καταστάσεις), testable χωρίς DOM/δίκτυο
+signOut.js        — ασφαλές logout (αναιρεί destructive πλευρική ενέργεια του db.cloud.logout())
+startupRecovery.js — ανάκτηση ημιτελούς safety-snapshot πριν το πρώτο render</div>
+
+        <h4>src/migration — dual-generation engine</h4>
+        <div class="filetree">migratedTableNames.js   — MIGRATED_TABLE_NAMES (18 πίνακες), LEGACY_PRIMARY_KEY_FIELD εξαιρέσεις
+deterministicId.js      — SHA-256(userId::table::oldId)
+rowMapper.js            — legacy row → v2 row (id + FK remap)
+foreignKeyMap.js        — δηλωμένα FK ανά πίνακα
+migrationEngine.js      — runMigration/verifyMigration, resumable/idempotent
+activeGeneration.js     — activeTable()/withNewRowId(), η ΜΟΝΗ δρομολόγηση legacy/v2
+legacyOwnership.js      — ποιος userId «κατέχει» τα legacy δεδομένα μιας συσκευής
+orphanAllowlist.js      — ρητά ανεκτά «κρεμασμένα» FK (κενό by default)
+syncAuthorization.js / syncAuthorizationHint.js — 4-προϋποθέσεις sync gate + localStorage hint πριν το db.open()
+deviceSnapshot.js       — ασφαλές snapshot γύρω από logout
+syncResponseCapture.js  — προσωρινό diagnostic-only capture (βλ. §technical debt)</div>
+
+        <h4>src/config — «παιδαγωγικό περιεχόμενο»</h4>
+        <div class="filetree">domains.js, functionalProfileDomains.js, domainTemplates.js, profileOptions.js,
+goalOptions.js, promptLevels.js, measurementRecommendations.js, clinicalAssessmentRatings.js,
+preferenceCategories.js, moodOptions.js, scheduleColors.js, scheduleOptions.js, sessionOptions.js</div>
+
+        <h4>src/utils — καθαρή λογική</h4>
+        <div class="filetree">date.js, backup.js, dailyQueue.js, queueAttention.js, attentionSignal.js, goalAttention.js,
+goalEvents.js, goalHistory.js, goalTemplates.js, measurementValue.js, measurementTypeChange.js,
+notificationEngine.js, notificationData.js, storagePersistence.js, reportText.js, reportDocx.js,
+scheduleResolution.js, scheduleGeneration.js, scheduleGridLayout.js, scheduleColor.js,
+schoolYear.js, schoolYearFilter.js, schoolYearTransitionPayload.js, sessions.js,
+studentDashboard.js, timeAwareness.js
+measurementTypes/ — successRatio, promptLevel, duration, frequency, ratingScale, taskAnalysis,
+                    checklist, narrative, _shared, index (registry — 8 τύποι μέτρησης)</div>
+
+        <h4>src/components/ui — 25 κοινά primitives</h4>
+        <div class="filetree">Button, Input, Textarea, Select, DateField, FormField, ChoiceGroup, ListBuilder,
+ToggleRow, DurationChips, MoodPicker, SearchBar — φόρμες/είσοδος
+Card, StatCard, Badge, ProgressBar, ActivityItem, MeasurementTypeCard, SectionHeader,
+PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσίαση/layout</div>
+
+        <h4>src/components — 66 top-level (ενδεικτικά, ανά περιοχή)</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Περιοχή</th><th>Components</th></tr></thead>
+            <tbody>
+              <tr><td>Dashboard/Αρχική</td><td><code>Home</code>, <code>HomeAttentionWidget</code>, <code>TodayQueue</code>, <code>TodayQueueItem</code>, <code>StudentDashboardPanel</code></td></tr>
+              <tr><td>Μαθητές</td><td><code>StudentList</code>, <code>StudentForm</code>, <code>StudentProfile</code>, <code>StudentProfileHero</code>, <code>StudentCard</code>, <code>StudentTimeline</code>, <code>FunctionalProfileEditor</code>, <code>PreferencesEditor</code></td></tr>
+              <tr><td>Στόχοι</td><td><code>GoalWizardForm</code>, <code>GoalDetail</code>, <code>GoalCard</code>, <code>GoalRecorder(Card)</code>, <code>GoalsList</code>, <code>GoalStatusModal</code>, <code>GoalClinicalAssessment</code>, <code>GoalLibraryPicker</code>, <code>CopyGoalToStudentModal</code>, <code>SaveGoalAsTemplateModal</code>, <code>TemplateSuggestions</code>, 8× <code>CriterionPanel*</code> (ανά τύπο μέτρησης)</td></tr>
+              <tr><td>Συνεδρίες / Teaching Mode</td><td><code>TeachingMode</code>, <code>SessionHistory</code>, <code>SessionCard</code>, <code>SessionModal</code>, <code>SelectIndividualStudent</code>, <code>SelectGroupStudents</code>, <code>SelectableStudentRow</code>, <code>AddIndividualToToday</code>, <code>AddGroupToToday</code></td></tr>
+              <tr><td>Πρόγραμμα/Ημερολόγιο</td><td><code>SchedulePage</code>, <code>ScheduleSlotForm</code>, <code>ScheduleSlotRow</code>, <code>WeeklyScheduleGrid</code>, <code>MonthlyCalendarPage</code>, <code>DayDetailPage</code>, <code>CalendarEventForm</code></td></tr>
+              <tr><td>Εκθέσεις</td><td><code>ReportTab</code>, <code>ReportPreview</code></td></tr>
+              <tr><td>Ειδοποιήσεις</td><td><code>NotificationsInbox</code></td></tr>
+              <tr><td>Ρυθμίσεις / λογαριασμός</td><td><code>Settings</code>, <code>DisplayNameSection</code>, <code>StorageSafetySection</code>, <code>AccountSection</code>, <code>EnableSyncSection</code>, <code>LegacyDataMigrationSection</code>, <code>GenerationSwitchoverSection</code>, <code>SyncDiagnosticsPanel</code>, <code>YearTransitionWizard</code></td></tr>
+              <tr><td>Μικρά κοινά</td><td><code>ChipListEditor</code>, <code>ErrorBoundary</code>, <code>RecoveryFailedScreen</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Routes (19)</h4>
+        <div class="filetree">/  /settings  /notifications  /settings/school-year-transition
+/students  /students/new  /students/:id  /students/:id/edit
+/students/:id/goals/new  /students/:id/goals/:goalId  /students/:id/goals/:goalId/edit
+/teaching/individual  /teaching/group  /teaching/session/:studentIds
+/today/add-individual  /today/add-group
+/sessions  /schedule  /schedule/calendar  /schedule/day/:date</div>
+      </section>
+
+      <section id="coverage">
+        <div class="section__head"><p class="section__eyebrow">Λειτουργικότητα</p><h2>Τι καλύπτει το v1</h2></div>
+        <ul>
+          <li><strong>Μαθητές</strong> — προσθήκη/επεξεργασία/αρχειοθέτηση, δομημένο functional profile (με υπο-ομάδες), προφίλ ενισχυτών (preferences), αρχειοθέτηση με σχολικό-έτος-aware participation tracking.</li>
+          <li><strong>Στόχοι</strong> — wizard δημιουργίας, 8 τύποι μέτρησης (successRatio, promptLevel, duration, frequency, ratingScale, taskAnalysis, checklist, narrative) με ειδικό criterion panel ο καθένας, lifecycle (active/achieved/revised/archived) με ιστορικό μεταβάσεων (<code>goalEvents</code>), προσωπική βιβλιοθήκη προτύπων στόχων.</li>
+          <li><strong>Teaching Mode</strong> — ατομικό &amp; ομαδικό, πλήρης οθόνη χωρίς περίσπαση, καταγραφή με ένα tap, ➕ Παρατήρηση πάντα διαθέσιμη, κλινική εκτίμηση ανά στόχο/συνεδρία.</li>
+          <li><strong>Συνεδρίες</strong> — Session History (αναζήτηση/φίλτρα/edit/delete), status completed/interrupted/notHeld, ανά-μαθητή απουσία, απευθείας καταγραφή notHeld χωρίς Teaching Mode.</li>
+          <li><strong>«Η μέρα μου»</strong> — καθημερινή σειρά μαθητών/ομάδων, ζωντανά παραγόμενη ολοκλήρωση (καμία δική της κατάσταση), σήμα προσοχής ανά μαθητή, mood tracking.</li>
+          <li><strong>Πρόγραμμα &amp; ημερολόγιο</strong> — σταθερό εβδομαδιαίο πρόγραμμα με effective-dated εκδόσεις, εξαιρέσεις (ακύρωση/μετακίνηση), μηνιαίο ημερολόγιο, Weekly Grid προβολή, ενοποιημένη τροφοδότηση «Η μέρα μου».</li>
+          <li><strong>Πρόοδος</strong> — γραφήματα ανά στόχο (recharts), σύνδεση σημείου γραφήματος ↔ συνεδρία, Timeline μαθητή (αυτόματη χρονολογική αφήγηση).</li>
+          <li><strong>Εκθέσεις</strong> — persisted προσχέδιο, auto-save, preview/edit toggle, draft/final, ιστορικό ανά μαθητή, export σε .docx.</li>
+          <li><strong>Σχολικά έτη</strong> — δημιουργία/μετάβαση, συμμετοχή ανά μαθητή/έτος, μαζική/ατομική μετάβαση στόχων.</li>
+          <li><strong>Smart Notifications</strong> — 6 τύποι ζωντανά υπολογιζόμενων ειδοποιήσεων, Header-κουδούνι, Home-widget, πλήρες <code>/notifications</code> Inbox με φίλτρα severity/type/student, snooze/dismiss/unsnooze.</li>
+          <li><strong>Backup/Restore</strong> — πλήρες export/import JSON, generation-aware, ownership-safe restore με auto pre-restore safety snapshot.</li>
+          <li><strong>Cloud account (προαιρετικό)</strong> — email+OTP login, ξεχωριστό από ενεργοποίηση sync, πλήρης migration πριν την ενεργοποίηση, ρητή ενημέρωση+επιβεβαίωση εξουσιοδότησης πριν το sync ενεργοποιηθεί.</li>
+          <li><strong>Storage Safety</strong> — <code>navigator.storage.persist()</code> flow με σαφή κατάσταση και μόνιμη υπενθύμιση backup.</li>
+          <li><strong>Εμφανιζόμενο όνομα</strong> — ρυθμιζόμενο displayName, σωστό σε τοπική &amp; synced χρήση.</li>
+          <li><strong>PWA</strong> — offline-capable, εγκαταστάσιμο, service worker με auto-update.</li>
+        </ul>
+      </section>
+
+      <section id="outofscope">
+        <div class="section__head"><p class="section__eyebrow">Όρια</p><h2>Τι ΔΕΝ καλύπτει ακόμη</h2></div>
+        <ul>
+          <li>End-to-end κρυπτογράφηση zero-knowledge για το cloud sync (ρητά σχεδιασμένο ως μελλοντικό βήμα στο SPEC.md — σήμερα ο συγχρονισμός είναι απλός, όχι κρυπτογραφημένος στη συσκευή πριν φύγει).</li>
+          <li>Portal γονέων/θεραπευτών, βιβλιοθήκη δραστηριοτήτων/Teacher Bible, AI λειτουργίες, πολλαπλές γλώσσες — ρητά εκτός MVP από το SPEC.md, παραμένουν εκτός.</li>
+          <li>Αυτόματη εισαγωγή επίσημων αργιών Κύπρου, εξωτερικός συγχρονισμός ημερολογίων (Google Calendar κ.λπ.), πολύπλοκα recurrence patterns.</li>
+          <li>Πλήρες προφίλ χρήστη — το displayName είναι σκόπιμα το μοναδικό πεδίο ταυτότητας, καμία φωτογραφία/ρόλος/οργανισμός.</li>
+          <li>Bulk actions στο Notifications Inbox, dismissed-history, pagination/virtualization — ρητές αποφάσεις v1 σε ολόκληρο το app (καμία λίστα κάνει pagination/virtualization πουθενά).</li>
+          <li>Πραγματική two-device / offline↔online conflict δοκιμή για το Dexie Cloud sync — μόνο single-device συμπεριφορά έχει πραγματικά επαληθευτεί ζωντανά.</li>
+          <li>Πλήρες, μόνιμο browser-level (Playwright) test suite πέρα από το νέο 5-test production smoke — καμία end-to-end κάλυψη flows όπως Teaching Mode ή backup/restore σε πραγματικό browser.</li>
+          <li>Code-splitting/lazy-loading — ένα και μοναδικό JS bundle (~1.6MB minified) για ολόκληρη την εφαρμογή.</li>
+          <li>Student creation batch-flow («Αποθήκευση και νέος μαθητής») — καταγεγραμμένο, αναβεβλημένο ήδη από το SPEC.md.</li>
+        </ul>
+      </section>
+
+      <section id="limitations">
+        <div class="section__head"><p class="section__eyebrow">Παρατηρημένο</p><h2>Known limitations</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Περιοχή</th><th>Περιορισμός</th></tr></thead>
+            <tbody>
+              <tr><td>Navigation consistency</td><td><code>Settings.jsx</code> (ΚΑΙ το <code>ErrorBoundary</code> fallback) δεν χρησιμοποιούν <code>&lt;AppShell&gt;</code> — μοναδικό πραγματικό destination-route χωρίς Header/BottomNav/κουδούνι ειδοποιήσεων· η επιστροφή σε άλλη ενότητα από τις Ρυθμίσεις απαιτεί πρώτα «← Αρχική».</td></tr>
+              <tr><td>Bundle size</td><td>~1.6MB minified / ~477KB gzip, ένα chunk, καμία code-splitting.</td></tr>
+              <tr><td>Storage eviction</td><td>Το Storage Safety flow (v1.0) ζητά persistence, αλλά ο browser μπορεί να αρνηθεί (Firefox prompt) ή να μην υποστηρίζει (παλαιότερο Safari) — η μόνη πλήρης άμυνα παραμένει χειροκίνητο backup.</td></tr>
+              <tr><td>Displayname scope</td><td>Το <code>userSettings</code> table υποστηρίζει ένα key/value ανά ρύθμιση, αλλά μόνο το <code>displayName</code> χρησιμοποιείται σήμερα — καμία άλλη ρύθμιση χρήστη ακόμα.</td></tr>
+              <tr><td>Global error granularity</td><td>Ένα μοναδικό, top-level <code>ErrorBoundary</code> γύρω από όλη την εφαρμογή — ένα unhandled render error σε οποιοδήποτε σημείο ρίχνει ΟΛΟΚΛΗΡΗ την οθόνη, όχι μόνο το section που έσπασε.</td></tr>
+              <tr><td>Screen reader coverage</td><td>Καλή structural accessibility (focus trap, aria-pressed, semantic headings) αλλά χωρίς πλήρες NVDA/VoiceOver pass.</td></tr>
+              <tr><td>SPEC.md drift</td><td>Δεν αντικατοπτρίζει Sprint 7/8, Sprint 5A Phase 1–2, Smart Notifications, Notifications Inbox, ή τα 5 readiness blockers — βλ. §Σύνοψη.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="debt">
+        <div class="section__head"><p class="section__eyebrow">Να παρακολουθείται</p><h2>Known technical debt</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>Λεπτομέρεια</th></tr></thead>
+            <tbody>
+              <tr><td><code>SyncDiagnosticsPanel.jsx</code></td><td>Ρητά αυτο-τεκμηριωμένο ως «ΠΡΟΣΩΡΙΝΟ» (πίσω από <code>?diag=1</code>, read-only) — να αφαιρεθεί μετά την ολοκλήρωση του real-device sync validation.</td></tr>
+              <tr><td>CI χωρίς lint</td><td>Κανένα ESLint config στο repo· η μόνη πύλη ποιότητας πριν το deploy είναι <code>npm test</code> + Playwright smoke, όχι static analysis.</td></tr>
+              <tr><td>Δύο key/value πίνακες</td><td><code>appMeta</code> (μόνιμα per-device: backup timestamps, generation markers, migration state) και <code>userSettings</code>/<code>_v2</code> (synced: displayName) — σωστά διαχωρισμένα σκόπιμα, αλλά ένα μελλοντικό «ποια νέα ρύθμιση πάει πού» απαιτεί να θυμάται κανείς αυτή τη διάκριση.</td></tr>
+              <tr><td>notificationState id remapping στο migration</td><td>Το <code>notificationState</code> έχει deterministic content-fingerprint id (π.χ. <code>goalStale:42:2026-01-01</code>) που ΤΟ ΙΔΙΟ generic migration engine ξαναχαρτογραφεί σε ένα SHA-256 hash κατά τη legacy→v2 μεταφορά — θεωρητική πιθανότητα μια ήδη-dismissed/snoozed ειδοποίηση να «ξαναφανεί» ως νέα μετά από ενεργοποίηση sync σε συσκευή με προϋπάρχον dismiss/snooze state. Δεν έχει επιβεβαιωθεί ζωντανά ως πραγματικό πρόβλημα (η ειδοποίηση θα υπολογιζόταν εκ νέου έτσι κι αλλιώς)· καταγράφεται για μελλοντική επιβεβαίωση.</td></tr>
+              <tr><td>GoalWizardForm.test.jsx διάρκεια</td><td>~33s για 35 tests (μεγαλύτερο μεμονωμένο test αρχείο του suite) — λειτουργικά σωστό, απλά αργό σε τοπική εκτέλεση.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="checklist">
+        <div class="section__head"><p class="section__eyebrow">Ολοκληρώθηκε</p><h2>Production checklist</h2></div>
+        <p>Πέντε release-readiness blockers, εγκεκριμένα και επιβεβαιωμένα σε πραγματικό production deploy (GitHub Actions run #19, commit <code>87a1b8c</code>):</p>
+        <div class="checklist">
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Ρυθμιζόμενο εμφανιζόμενο όνομα αντί για hardcoded «Βικτώρια» — <code>userSettings</code>/<code>_v2</code>, backup/restore-aware, ταξιδεύει σε δεύτερη συσκευή.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Πλήρες Storage Safety flow (<code>navigator.storage.persisted()</code>/<code>persist()</code>, 5 καταστάσεις, καμία ψευδής υπόσχεση, μόνιμη σύνδεση με ανάγκη backup).</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Ενημέρωση + ρητή επιβεβαίωση εξουσιοδότησης πριν ενεργοποιηθεί το cloud sync (ΟΧΙ πλαισιωμένο ως «συγκατάθεση GDPR»).</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Υποχρεωτικό <code>npm test</code> στο deploy workflow, πριν από κάθε build.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Μόνιμο Playwright production-smoke suite — pre-deploy (μπλοκάρει το deploy) ΚΑΙ post-deploy (πραγματικό live URL).</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>CI hardening: το pre-deploy smoke build τρέχει με cloud sync απενεργοποιημένο (ξεχωριστό build), το πραγματικό production build χρησιμοποιεί το πραγματικό repository variable.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Regression fix: <code>NotificationsInbox</code> crash σε κάθε φόρτωση/refresh του <code>/notifications</code> (provider-wiring bug, εντοπίστηκε από το νέο smoke suite) — διορθώθηκε, καλύπτεται από αποκλειστικό regression test.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Πραγματικό production deploy επιβεβαιωμένο πράσινο: build, deploy, ΚΑΙ post-deploy smoke πάνω στο ζωντανό site με πραγματική Dexie Cloud configuration.</span></div>
+        </div>
+      </section>
+
+      <section id="backup-sync">
+        <div class="section__head"><p class="section__eyebrow">Δεδομένα</p><h2>Backup/restore &amp; sync assumptions</h2></div>
+        <h3>Backup/Restore</h3>
+        <p><code>buildBackupPayload()</code> εξάγει ΟΛΟΥΣ τους 18 <code>MIGRATED_TABLE_NAMES</code>
+          πίνακες της τρέχουσας ενεργής γενιάς (legacy ή v2) κάτω από κανονικά ονόματα κλειδιών, με
+          ρητό <code>generation</code> πεδίο. Το <code>userSettings</code> συμπεριλαμβάνεται
+          αυτόματα (γενικός μηχανισμός, καμία ειδική περίπτωση χρειάστηκε). Restore είναι
+          all-or-nothing μέσα σε μία transaction, με ρητό ownership-safety έλεγχο ΠΡΙΝ αγγιχτεί
+          οτιδήποτε (v2 backup χωρίς ownership info δεν αποκαθίσταται ποτέ· backup διαφορετικού
+          λογαριασμού σε ήδη-claimed συσκευή απορρίπτεται), και αυτόματο pre-restore safety snapshot
+          στο <code>appMeta</code> πριν από κάθε καταστροφική ενέργεια.</p>
+        <h3>Sync assumptions</h3>
+        <ul>
+          <li>Το <code>unsyncedTables</code> configure() είναι fail-closed by default — χωρίς ρητό localStorage hint, ΚΥΡΙΟΛΕΚΤΙΚΑ τίποτα δεν συγχρονίζεται, ούτε η υποδομή του ίδιου του addon.</li>
+          <li>Ενεργοποίηση sync απαιτεί: authenticated userId ταιριάζει με το claim, ολοκληρωμένο migration, ΚΑΙ ρητή, μη-persisted επιβεβαίωση εξουσιοδότησης (§checklist) σε κάθε προσπάθεια.</li>
+          <li>Η εναλλαγή γενιάς (legacy↔v2) απαιτεί πάντα πλήρες reload — καμία in-place αντιδραστική εναλλαγή.</li>
+          <li><strong>Ανοιχτό, καταγεγραμμένο κενό:</strong> καμία πραγματική two-device ή offline→online conflict δοκιμή δεν έχει τρέξει ποτέ ζωντανά — μόνο single-device συμπεριφορά (dismiss/snooze/backup/restore/goal-deletion) έχει πλήρως QA-αρισθεί.</li>
+          <li>CI-side: το pre-deploy smoke build τρέχει πάντα με <code>VITE_DEXIE_CLOUD_URL=''</code> — ανεξάρτητο από το αν το πραγματικό repository variable είναι ρυθμισμένο, ώστε να μην εξαρτάται ποτέ από το Dexie Cloud CORS allowlist.</li>
+        </ul>
+      </section>
+
+      <section id="tests">
+        <div class="section__head"><p class="section__eyebrow">Ποιότητα</p><h2>Test coverage summary</h2></div>
+        <div class="stat-grid">
+          <div class="stat-card"><p class="stat-card__value">79</p><p class="stat-card__label">Vitest αρχεία</p></div>
+          <div class="stat-card"><p class="stat-card__value">1111</p><p class="stat-card__label">Vitest tests</p></div>
+          <div class="stat-card"><p class="stat-card__value">5</p><p class="stat-card__label">Playwright smoke tests</p></div>
+          <div class="stat-card"><p class="stat-card__value">2×</p><p class="stat-card__label">smoke πέρασμα ανά deploy (pre + post)</p></div>
+        </div>
+        <p>Vitest καλύπτει: καθαρή λογική (migration engine, notification engine, backup/restore,
+          schedule resolution, measurement types) σε <code>node</code> environment· component
+          behaviour (React Testing Library, πραγματική Dexie μέσω <code>fake-indexeddb</code>) σε
+          <code>jsdom</code>· και πλήρη integration σενάρια (multi-user migration ownership,
+          resumable/interrupted migration, referential-integrity verification, real-device-style
+          activation chains). Καμία mock βάση δεδομένων πουθενά — όλα τα tests τρέχουν πάνω σε
+          πραγματικό Dexie API.</p>
+        <p>Το νέο Playwright suite (<code>e2e/smoke.spec.js</code>) είναι σκόπιμα μικρό και
+          read-only: clean load + μηδέν console/page errors, shell/nav παρόν, <code>/students</code>
+          και <code>/notifications</code> φορτώνουν χωρίς σφάλμα, base path/manifest/service worker
+          σωστά κάτω από <code>/workspace/</code>. Καμία destructive ροή (backup/restore/delete)
+          δοκιμάζεται εκεί — αυτό παραμένει αποκλειστική κάλυψη του Vitest suite. Δεν υπάρχει ακόμα
+          ευρύτερο end-to-end suite πέρα από αυτό το smoke-level πέρασμα.</p>
+      </section>
+
+      <section id="roadmap">
+        <div class="section__head"><p class="section__eyebrow">Επόμενα</p><h2>Προτεινόμενος οδικός χάρτης</h2></div>
+
+        <h3><span class="pill pill--new">v1.1</span> Στοχευμένη σκλήρυνση</h3>
+        <ul>
+          <li>Ενημέρωση <code>SPEC.md</code> ώστε να αντικατοπτρίζει την πραγματική σημερινή κατάσταση (auth/sync, notifications, readiness blockers).</li>
+          <li>Μετάβαση <code>Settings.jsx</code> σε <code>&lt;AppShell&gt;</code> — σταθερή πλοήγηση παντού.</li>
+          <li>Αφαίρεση <code>SyncDiagnosticsPanel</code> μετά την ολοκλήρωση real-device sync validation.</li>
+          <li>ESLint config + lint step στο CI.</li>
+          <li>Επιβεβαίωση/διόρθωση του <code>notificationState</code> migration-id ερωτήματος (§technical debt).</li>
+        </ul>
+
+        <h3><span class="pill pill--mod">v1.2</span> Πραγματικός multi-device sync &amp; performance</h3>
+        <ul>
+          <li>Πραγματικό two-device authenticated sync test + offline→online conflict test (το ανοιχτό κενό του §backup-sync).</li>
+          <li>Code-splitting/lazy-loading ανά route (μείωση του ~1.6MB single bundle).</li>
+          <li>Πλήρες NVDA/VoiceOver accessibility pass.</li>
+          <li>Επέκταση του Playwright suite πέρα από smoke — βασικά end-to-end flows (Teaching Mode, backup/restore) σε πραγματικό browser.</li>
+        </ul>
+
+        <h3><span class="pill pill--out">v2.0</span> Αρχιτεκτονικές επεκτάσεις</h3>
+        <ul>
+          <li>End-to-end zero-knowledge κρυπτογράφηση για το cloud sync (το ρητό «Φάση 2» στόχος του SPEC.md).</li>
+          <li>Σχολικό έτος ως πλήρης οργανωτική αρχή πλοήγησης (ρητά αναβεβλημένο, μεγάλη cross-cutting αλλαγή).</li>
+          <li>Portal γονέων/θεραπευτών (read-only ενημέρωση προόδου).</li>
+          <li>Bulk actions/dismissed-history στο Notifications Inbox, αν πραγματική ανάγκη εμφανιστεί με χρήση.</li>
+          <li>Student creation batch-flow («Αποθήκευση και νέος μαθητής»).</li>
+        </ul>
+      </section>
+
+      <hr class="rule" />
+      <div class="closing">
+        <h2>Κλείσιμο</h2>
+        <p>Το Workspace v1.0 είναι ένα πλήρες, λειτουργικό, local-first PWA για ειδικούς
+          παιδαγωγούς, με μια ώριμη, καλά δοκιμασμένη προαιρετική στρώση cloud sync και μια πλήρη
+          production-readiness πύλη (test → build → smoke → deploy → smoke). Development freeze σε
+          ισχύ — καμία νέα λειτουργικότητα μέχρι ρητή νέα έγκριση.</p>
+      </div>
+    </main>
+  </div>
+</div>

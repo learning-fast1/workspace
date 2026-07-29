@@ -140,7 +140,7 @@ export default function Home() {
               ? 'Δεν έχεις κάνει ποτέ αντίγραφο ασφαλείας.'
               : `${backupReminder.days} μέρες από το τελευταίο αντίγραφο ασφαλείας.`}
           </span>
-          <Link to="/settings" className="dashboard-banner-link">Λήψη →</Link>
+          <Link to="/settings" state={{ activeTab: 'backup' }} className="dashboard-banner-link">Λήψη →</Link>
         </div>
       )}
 
@@ -240,7 +240,7 @@ export default function Home() {
         </div>
 
         <div className="dashboard-action-card">
-          <Link to="/settings" className="dashboard-action-link">
+          <Link to="/settings" state={{ activeTab: 'backup' }} className="dashboard-action-link">
             <span className="dashboard-action-icon">
               <Upload size={20} />
             </span>

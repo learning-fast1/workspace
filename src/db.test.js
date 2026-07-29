@@ -10,7 +10,7 @@ import db, {
   recordSchoolYearParticipation, setStudentActive, applySchoolYearTransition,
   updateGoalCriterion, deleteStudent, deleteSession, migrateGoalDomainsToBroaderDomains,
   dismissNotification, snoozeNotification, unsnoozeNotification, cleanupOrphanedNotificationState,
-  getDisplayName, setDisplayName,
+  getDisplayName, setDisplayName, getSchoolName, setSchoolName, getSpecialty, setSpecialty,
   DATA_TABLE_NAMES
 } from './db.js'
 import { restoreFromBackup } from './utils/backup.js'
@@ -2024,5 +2024,33 @@ describe('getDisplayName / setDisplayName', () => {
     const row = await db.userSettings.get('displayName')
     expect(row).toMatchObject({ key: 'displayName', value: 'Όλγα' })
     expect(row.updatedAt).toBeTruthy()
+  })
+})
+
+// Teacher Profile + Settings (review χρήστη) — ίδιο ζεύγος idiom/κάλυψης με το displayName
+// παραπάνω, ξεχωριστά keys στον ίδιο πίνακα.
+describe('getSchoolName / setSchoolName', () => {
+  it('χωρίς καμία ρύθμιση ακόμα → null', async () => {
+    expect(await getSchoolName()).toBeNull()
+  })
+
+  it('μετά το setSchoolName → getSchoolName επιστρέφει την ίδια τιμή, ΔΕΝ επηρεάζει το displayName', async () => {
+    await setDisplayName('Όλγα')
+    await setSchoolName('3ο Δημοτικό Λευκωσίας')
+
+    expect(await getSchoolName()).toBe('3ο Δημοτικό Λευκωσίας')
+    expect(await getDisplayName()).toBe('Όλγα')
+    expect(await db.userSettings.count()).toBe(2)
+  })
+})
+
+describe('getSpecialty / setSpecialty', () => {
+  it('χωρίς καμία ρύθμιση ακόμα → null', async () => {
+    expect(await getSpecialty()).toBeNull()
+  })
+
+  it('μετά το setSpecialty → getSpecialty επιστρέφει την ίδια τιμή', async () => {
+    await setSpecialty('Λογοθεραπεύτρια')
+    expect(await getSpecialty()).toBe('Λογοθεραπεύτρια')
   })
 })

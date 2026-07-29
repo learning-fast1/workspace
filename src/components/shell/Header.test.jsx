@@ -3,6 +3,7 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import db, { dismissNotification } from '../../db.js'
 import { todayLocalISO, addDays } from '../../utils/date.js'
+import AuthProvider from '../../auth/AuthProvider.jsx'
 import { NotificationsProvider } from './NotificationsProvider.jsx'
 import Header from './Header.jsx'
 
@@ -16,12 +17,17 @@ afterEach(async () => {
   db.close()
 })
 
+// Header χρησιμοποιεί πλέον useAuth() για το user-menu (Teacher Profile + Settings, review χρήστη)
+// — το πραγματικό AuthProvider αρκεί (CLOUD_ENABLED=false στο test env, βλ. .env.test.local·
+// επιστρέφει συγχρονικά το static DISABLED_VALUE, καμία πραγματική κλήση δικτύου/db.cloud).
 function renderHeader() {
   return render(
     <MemoryRouter>
-      <NotificationsProvider>
-        <Header onMenuClick={() => {}} />
-      </NotificationsProvider>
+      <AuthProvider>
+        <NotificationsProvider>
+          <Header onMenuClick={() => {}} />
+        </NotificationsProvider>
+      </AuthProvider>
     </MemoryRouter>
   )
 }
@@ -59,5 +65,23 @@ describe('Header — κουδούνι ειδοποιήσεων (Notifications In
     await waitFor(async () => {
       expect(await screen.findByRole('link', { name: /Ειδοποιήσεις \(1\)/ })).toBeInTheDocument()
     })
+  })
+})
+
+describe('Header — user-menu (Teacher Profile + Settings)', () => {
+  it('χωρίς displayName, χωρίς σύνδεση → fallback «Εκπαιδευτικός», link προς /settings', async () => {
+    renderHeader()
+    const link = await screen.findByRole('link', { name: 'Προφίλ — Εκπαιδευτικός' })
+    expect(link).toHaveAttribute('href', '/settings')
+    expect(screen.getByText('Εκπαιδευτικός')).toBeInTheDocument()
+  })
+
+  it('με αποθηκευμένο displayName πολλαπλών λέξεων → δείχνει ΜΟΝΟ το πρώτο όνομα', async () => {
+    await db.userSettings.put({ key: 'displayName', value: 'Όλγα Παπαδοπούλου', updatedAt: '2026-01-01T00:00:00.000Z' })
+    renderHeader()
+
+    await screen.findByRole('link', { name: 'Προφίλ — Όλγα' })
+    expect(screen.getByText('Όλγα')).toBeInTheDocument()
+    expect(screen.queryByText('Παπαδοπούλου')).not.toBeInTheDocument()
   })
 })

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useParams } from 'react-router-dom'
 import db from '../db.js'
 import { todayLocalISO, addDays } from '../utils/date.js'
+import AuthProvider from '../auth/AuthProvider.jsx'
 import { NotificationsProvider } from './shell/NotificationsProvider.jsx'
 import NotificationsInbox from './NotificationsInbox.jsx'
 
@@ -20,13 +21,15 @@ function StudentProfileStub() {
 function renderInbox() {
   return render(
     <MemoryRouter initialEntries={['/notifications']}>
-      <NotificationsProvider>
-        <Routes>
-          <Route path="/notifications" element={<NotificationsInbox />} />
-          <Route path="/students/:id/goals/:goalId" element={<GoalDetailStub />} />
-          <Route path="/students/:id" element={<StudentProfileStub />} />
-        </Routes>
-      </NotificationsProvider>
+      <AuthProvider>
+        <NotificationsProvider>
+          <Routes>
+            <Route path="/notifications" element={<NotificationsInbox />} />
+            <Route path="/students/:id/goals/:goalId" element={<GoalDetailStub />} />
+            <Route path="/students/:id" element={<StudentProfileStub />} />
+          </Routes>
+        </NotificationsProvider>
+      </AuthProvider>
     </MemoryRouter>
   )
 }
@@ -57,9 +60,11 @@ describe('NotificationsInbox — v1', () => {
   it('αποδίδεται σωστά ΧΩΡΙΣ εξωτερικό NotificationsProvider (ίδιο μοτίβο με App.jsx πραγματικής χρήσης)', async () => {
     render(
       <MemoryRouter initialEntries={['/notifications']}>
-        <Routes>
-          <Route path="/notifications" element={<NotificationsInbox />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/notifications" element={<NotificationsInbox />} />
+          </Routes>
+        </AuthProvider>
       </MemoryRouter>
     )
     expect(await screen.findByText('Όλα ενημερωμένα!')).toBeInTheDocument()

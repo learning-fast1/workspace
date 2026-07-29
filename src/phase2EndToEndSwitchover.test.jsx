@@ -11,6 +11,7 @@ import {
 } from './migration/activeGeneration.js'
 import { MIGRATED_TABLE_NAMES, v2TableName } from './migration/migratedTableNames.js'
 import { deterministicId } from './migration/deterministicId.js'
+import AuthProvider from './auth/AuthProvider.jsx'
 import StudentList from './components/StudentList.jsx'
 
 // Sprint 5A Phase 2, Commit 4C — τελική, end-to-end επιβεβαίωση ΟΛΟΚΛΗΡΗΣ της αλυσίδας
@@ -123,7 +124,7 @@ describe('Phase 2 Commit 4C — πλήρης end-to-end ροή switchover', () =
     // στο students_v2· αναμένεται λογικά να ΕΞΑΚΟΛΟΥΘΗΣΕΙ να φαίνεται και μετά το switchover.
     await db.students.add({ code: 'ΜΙΓΜΕΝΟΣ-ΠΡΙΝ', active: true })
 
-    const { unmount } = render(<MemoryRouter><StudentList /></MemoryRouter>)
+    const { unmount } = render(<MemoryRouter><AuthProvider><StudentList /></AuthProvider></MemoryRouter>)
     await waitFor(() => expect(screen.getByText('ΜΙΓΜΕΝΟΣ-ΠΡΙΝ')).toBeInTheDocument())
     unmount()
     cleanup() // πλήρης καταστροφή του παλιού DOM/React root — ό,τι θα έκανε ένα πραγματικό hard reload
@@ -141,7 +142,7 @@ describe('Phase 2 Commit 4C — πλήρης end-to-end ροή switchover', () =
     // Μια ΓΝΗΣΙΑ νέα v2 γραμμή (π.χ. μέσω StudentForm μετά το switchover) — πρέπει να φαίνεται.
     await db.table('students_v2').add({ id: 'stu-fresh', code: 'ΜΟΝΟ-V2', active: true })
 
-    render(<MemoryRouter><StudentList /></MemoryRouter>) // ΦΡΕΣΚΟ instance, όπως μετά από πραγματικό reload
+    render(<MemoryRouter><AuthProvider><StudentList /></AuthProvider></MemoryRouter>) // ΦΡΕΣΚΟ instance, όπως μετά από πραγματικό reload
     await waitFor(() => expect(screen.getByText('ΜΟΝΟ-V2')).toBeInTheDocument())
     expect(screen.getByText('ΜΙΓΜΕΝΟΣ-ΠΡΙΝ')).toBeInTheDocument() // η μεταφερμένη γραμμή σωστά επιβιώνει
     expect(screen.queryByText('LEGACY-ΜΕΤΑ-ΤΟ-SWITCH')).not.toBeInTheDocument() // legacy-only ΜΕΤΑ το switch → αόρατο

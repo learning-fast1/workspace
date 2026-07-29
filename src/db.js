@@ -1014,35 +1014,63 @@ export async function setLastBackupAt(isoDate) {
   await db.appMeta.put({ key: 'lastBackupAt', value: isoDate })
 }
 
-// Readiness blockers (review χρήστη) — displayName μέσω του γενικού userSettings πίνακα (ΟΧΙ
-// appMeta: πρέπει να ταξιδεύει σε δεύτερη συσκευή/μετά από restore, βλ. db.version(13) παραπάνω
-// για πλήρη εξήγηση). ΠΑΝΤΑ πλήρες .toArray() + φιλτράρισμα στη μνήμη (ΟΧΙ .get('displayName') —
-// στη γενιά v2 το πραγματικό primary key είναι το deterministic `id`, όχι το `key`) — ίδιο idiom
-// με το ensureDomainTemplatesSeeded/domainTemplates, ασήμαντο κόστος αφού ο πίνακας έχει το πολύ
-// μία χούφτα γραμμές (v1: μία μόνο, 'displayName').
-export async function getDisplayName() {
+// Readiness blockers (review χρήστη) — γενικό key/value ζεύγος πάνω στο userSettings (ΟΧΙ appMeta:
+// πρέπει να ταξιδεύει σε δεύτερη συσκευή/μετά από restore, βλ. db.version(13) παραπάνω για πλήρη
+// εξήγηση). ΠΑΝΤΑ πλήρες .toArray() + φιλτράρισμα στη μνήμη (ΟΧΙ .get(key) — στη γενιά v2 το
+// πραγματικό primary key είναι το deterministic `id`, όχι το `key`) — ίδιο idiom με το
+// ensureDomainTemplatesSeeded/domainTemplates, ασήμαντο κόστος αφού ο πίνακας έχει το πολύ μία
+// χούφτα γραμμές. Ιδιωτικό (όχι exported) — μόνο τα ονομαστικά ζεύγη παρακάτω (displayName/
+// schoolName/specialty) εκτίθενται προς τα έξω, ίδιο μοτίβο με πριν.
+async function getUserSetting(key) {
   const rows = await activeTable('userSettings').toArray()
-  const row = rows.find((r) => r.key === 'displayName')
+  const row = rows.find((r) => r.key === key)
   return row?.value || null
 }
 
-export async function setDisplayName(name) {
+async function setUserSetting(key, value) {
   const table = activeTable('userSettings')
-  const fields = { key: 'displayName', value: name, updatedAt: new Date().toISOString() }
+  const fields = { key, value, updatedAt: new Date().toISOString() }
   if (getCachedGeneration() !== 'v2') {
     await table.put(fields)
     return
   }
   const userId = currentUserIdOrNull()
   if (typeof userId !== 'string' || userId.trim() === '') {
-    throw new Error('setDisplayName: απαιτείται συνδεδεμένος χρήστης στη γενιά v2 για τον υπολογισμό του deterministic id.')
+    throw new Error(`setUserSetting: απαιτείται συνδεδεμένος χρήστης στη γενιά v2 για τον υπολογισμό του deterministic id (${key}).`)
   }
   // ΙΔΙΟ deterministicId(userId, tableName, key) με το migration engine (Σταθερό ανά (χρήστη,
-  // key) — ΟΧΙ νέο, ξεχωριστό σχήμα) ώστε ένα ξανα-γράψιμο (π.χ. αλλαγή ονόματος δεύτερη φορά) να
+  // key) — ΟΧΙ νέο, ξεχωριστό σχήμα) ώστε ένα ξανα-γράψιμο (π.χ. αλλαγή τιμής δεύτερη φορά) να
   // ενημερώνει ΤΗΝ ΙΔΙΑ γραμμή αντί να δημιουργεί δεύτερη, και να μην συγκρούεται με ένα ήδη
   // μεταφερμένο (από πραγματικό legacy→v2 migration) row για τον ίδιο χρήστη/ρύθμιση.
-  const id = await deterministicId(userId, 'userSettings', 'displayName')
+  const id = await deterministicId(userId, 'userSettings', key)
   await table.put({ id, ...fields })
+}
+
+export async function getDisplayName() {
+  return getUserSetting('displayName')
+}
+
+export async function setDisplayName(name) {
+  await setUserSetting('displayName', name)
+}
+
+// Teacher Profile + Settings (review χρήστη) — προαιρετικά πεδία προφίλ, ίδιο μοτίβο ακριβώς με
+// το displayName. Δεν καταναλώνονται ακόμα πουθενά αλλού στην εφαρμογή πέρα από την ίδια την
+// οθόνη Ρυθμίσεις — υπάρχουν για να δίνουν πραγματικό νόημα στην έννοια «Προφίλ εκπαιδευτικού».
+export async function getSchoolName() {
+  return getUserSetting('schoolName')
+}
+
+export async function setSchoolName(name) {
+  await setUserSetting('schoolName', name)
+}
+
+export async function getSpecialty() {
+  return getUserSetting('specialty')
+}
+
+export async function setSpecialty(value) {
+  await setUserSetting('specialty', value)
 }
 
 // ---------------------------------------------------------------------------------------------

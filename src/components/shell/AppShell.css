@@ -184,12 +184,19 @@
   font-size: var(--font-sm);
   font-weight: 500;
   cursor: pointer;
+  max-width: 176px;
+  flex-shrink: 0;
+}
+
+.app-shell-user-menu:hover {
+  background: var(--color-surface-soft);
 }
 
 .app-shell-user-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -197,6 +204,34 @@
   color: var(--color-primary);
   font-weight: 600;
   font-size: var(--font-sm);
+}
+
+/* Κρυφά σε mobile (ίδιο σκεπτικό με το app-shell-search-soon παραπάνω) — σε στενό πλάτος το
+   user-menu μένει μόνο avatar (ίδιο tap-target μέγεθος με το κουδούνι δίπλα του), το πλήρες
+   όνομα+chevron εμφανίζονται από tablet και πάνω όπου υπάρχει άνετος χώρος. */
+.app-shell-user-name,
+.app-shell-user-chevron {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .app-shell-user-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .app-shell-user-chevron {
+    display: block;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+  }
+
+  .app-shell-user-menu {
+    padding: 0 var(--space-3) 0 var(--space-1);
+  }
 }
 
 /* ---------- Sidebar (desktop: fixed· tablet: drawer· mobile: κρυφό, βλ. bottom nav) ---------- */

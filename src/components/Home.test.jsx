@@ -5,6 +5,7 @@ import { render, screen, waitFor, cleanup, within } from '@testing-library/react
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import db, { setLastBackupAt } from '../db.js'
+import AuthProvider from '../auth/AuthProvider.jsx'
 import Home from './Home.jsx'
 
 // exportBackupFile() κάνει πραγματικό DOM download (Blob/createObjectURL/anchor click) — άσχετο με
@@ -29,7 +30,9 @@ afterEach(async () => {
 function renderHome() {
   return render(
     <MemoryRouter>
-      <Home />
+      <AuthProvider>
+        <Home />
+      </AuthProvider>
     </MemoryRouter>
   )
 }

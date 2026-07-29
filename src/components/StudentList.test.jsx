@@ -6,6 +6,7 @@ import db from '../db.js'
 import { claimLegacyDataOwnership } from '../migration/legacyOwnership.js'
 import { runMigration, resetMigrationForTests } from '../migration/migrationEngine.js'
 import { activateV2Generation, initializeActiveGeneration, resetActiveGenerationForTests } from '../migration/activeGeneration.js'
+import AuthProvider from '../auth/AuthProvider.jsx'
 import StudentList from './StudentList.jsx'
 
 beforeEach(async () => {
@@ -23,7 +24,9 @@ afterEach(async () => {
 function renderStudentList() {
   return render(
     <MemoryRouter>
-      <StudentList />
+      <AuthProvider>
+        <StudentList />
+      </AuthProvider>
     </MemoryRouter>
   )
 }

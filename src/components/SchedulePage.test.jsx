@@ -3,6 +3,7 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import db, { createScheduleSlot } from '../db.js'
+import AuthProvider from '../auth/AuthProvider.jsx'
 import SchedulePage from './SchedulePage.jsx'
 
 // Characterization tests (review χρήστη, Weekly Grid stage, σημείο 9) — καμία δοκιμή δεν υπήρχε
@@ -22,7 +23,9 @@ afterEach(async () => {
 function renderSchedulePage() {
   return render(
     <MemoryRouter>
-      <SchedulePage />
+      <AuthProvider>
+        <SchedulePage />
+      </AuthProvider>
     </MemoryRouter>
   )
 }

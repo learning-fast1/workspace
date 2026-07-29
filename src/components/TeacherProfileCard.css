@@ -1,0 +1,54 @@
+/* Assumes .app-shell ancestor context. UI Design v3 (εγκεκριμένο) — ~28% πιο κοντή από την αρχική
+   εκδοχή του review: 44px avatar, όνομα+badges στην ίδια γραμμή, email σε μικρότερη γραμμή από
+   κάτω. Card variant="soft" (χωρίς shadow) — σκόπιμα «ήσυχη», όχι το κύριο στοιχείο της σελίδας. */
+
+.teacher-profile-card {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.teacher-profile-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: var(--font-md);
+}
+
+.teacher-profile-card__avatar--empty {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.teacher-profile-card__text {
+  min-width: 0;
+}
+
+.teacher-profile-card__name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.teacher-profile-card__name {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  margin: 0;
+}
+
+.teacher-profile-card__email {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  margin: 2px 0 0;
+}

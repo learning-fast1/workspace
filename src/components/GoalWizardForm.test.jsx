@@ -5,6 +5,7 @@ import { render, screen, waitFor, cleanup, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import db from '../db.js'
+import AuthProvider from '../auth/AuthProvider.jsx'
 import GoalWizardForm from './GoalWizardForm.jsx'
 import { listMeasurementTypes } from '../utils/measurementTypes/index.js'
 import { DOMAINS } from '../config/domains.js'
@@ -31,10 +32,12 @@ function renderWizard(mode, { studentId = 1, goalId } = {}) {
   const path = mode === 'edit' ? `/students/${studentId}/goals/${goalId}/edit` : `/students/${studentId}/goals/new`
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/students/:id/goals/new" element={<GoalWizardForm mode="create" />} />
-        <Route path="/students/:id/goals/:goalId/edit" element={<GoalWizardForm mode="edit" />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/students/:id/goals/new" element={<GoalWizardForm mode="create" />} />
+          <Route path="/students/:id/goals/:goalId/edit" element={<GoalWizardForm mode="edit" />} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   )
 }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import db from '../db.js'
+import AuthProvider from '../auth/AuthProvider.jsx'
 import DayDetailPage from './DayDetailPage.jsx'
 
 beforeEach(async () => {
@@ -17,9 +18,11 @@ afterEach(async () => {
 function renderPage(date) {
   return render(
     <MemoryRouter initialEntries={[`/schedule/day/${date}`]}>
-      <Routes>
-        <Route path="/schedule/day/:date" element={<DayDetailPage />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/schedule/day/:date" element={<DayDetailPage />} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   )
 }

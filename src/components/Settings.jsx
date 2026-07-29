@@ -1,17 +1,22 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getActiveSchoolYear, listSchoolYears } from '../db.js'
+import { CLOUD_ENABLED, getActiveSchoolYear, listSchoolYears } from '../db.js'
 import { exportBackupFile, validateBackupPayload, restoreFromBackup } from '../utils/backup.js'
 import { schoolYearToDateRange } from '../utils/schoolYearFilter.js'
 import { formatDateEl } from '../utils/date.js'
-import DisplayNameSection from './DisplayNameSection.jsx'
+import AppShell from './shell/AppShell.jsx'
+import PageHeader from './ui/PageHeader.jsx'
+import Tabs from './ui/Tabs.jsx'
+import TeacherProfileCard from './TeacherProfileCard.jsx'
+import TeacherProfileSection from './TeacherProfileSection.jsx'
 import StorageSafetySection from './StorageSafetySection.jsx'
 import AccountSection from './AccountSection.jsx'
 import LegacyDataMigrationSection from './LegacyDataMigrationSection.jsx'
 import GenerationSwitchoverSection from './GenerationSwitchoverSection.jsx'
 import EnableSyncSection from './EnableSyncSection.jsx'
 import SyncDiagnosticsPanel from './SyncDiagnosticsPanel.jsx'
+import ApplicationSection from './ApplicationSection.jsx'
 
 const TABLE_LABELS = {
   students: 'Μαθητές',
@@ -27,6 +32,18 @@ const TABLE_LABELS = {
   calendarEvents: 'Γεγονότα ημερολογίου'
 }
 
+// Teacher Profile + Settings (UI Design v3, εγκεκριμένο — design freeze) — βάση: PROFILE_TABS +
+// προαιρετικό «Λογαριασμός & Sync» ΜΟΝΟ όταν CLOUD_ENABLED (καμία εμφάνιση tab χωρίς κανένα
+// περιεχόμενο). Σειρά ταιριάζει ΑΚΡΙΒΩΣ με το εγκεκριμένο mockup.
+const PROFILE_TAB = { id: 'profile', label: 'Προφίλ εκπαιδευτικού' }
+const ACCOUNT_TAB = { id: 'account', label: 'Λογαριασμός & Sync' }
+const REST_TABS = [
+  { id: 'backup', label: 'Backup & Αποθήκευση' },
+  { id: 'schoolYear', label: 'Σχολικό έτος' },
+  { id: 'application', label: 'Εφαρμογή' }
+]
+const TABS = CLOUD_ENABLED ? [PROFILE_TAB, ACCOUNT_TAB, ...REST_TABS] : [PROFILE_TAB, ...REST_TABS]
+
 // Χτίζει το URL προς το Session History με το κοινό date range ενός σχολικού έτους (Technical Plan
 // Στάδιο 11, σημείο 1) — ΚΑΜΙΑ δεύτερη μετατροπή, μόνο schoolYearToDateRange + query params. Το
 // yearLabel περνάει ΜΟΝΟ για την ορατή ένδειξη «Προβολή ιστορικού έτους: …» στο Session History
@@ -38,8 +55,14 @@ function sessionsHistoryLinkFor(schoolYear) {
 }
 
 export default function Settings() {
+  const location = useLocation()
   const fileInputRef = useRef(null)
   const fileRequestIdRef = useRef(0) // ακυρώνει πιο αργές, ξεπερασμένες αναγνώσεις αρχείου
+
+  // Deep-link (ίδιο idiom με StudentProfile.jsx's location.state.activeTab) — π.χ. το backup
+  // reminder banner/quick-action της Αρχικής περνάει state:{activeTab:'backup'} ώστε ένα κλικ εκεί
+  // να προσγειώνει κατευθείαν στο σωστό tab, όχι πάντα στο προεπιλεγμένο «Προφίλ».
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'profile')
 
   const [exporting, setExporting] = useState(false)
   const [exportStatus, setExportStatus] = useState(null)
@@ -147,165 +170,166 @@ export default function Settings() {
   }
 
   return (
-    <div className="page">
-      <div className="top-bar">
-        <Link to="/" className="btn btn-link">← Αρχική</Link>
+    <AppShell>
+      <PageHeader title="Ρυθμίσεις" />
+      <TeacherProfileCard />
+      <Tabs tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+
+      {/* Όλα τα tab panels μένουν ΠΑΝΤΑ mounted (hidden attribute, όχι conditional unmount) — ίδιο
+          idiom με το StudentProfile.jsx, ώστε π.χ. ένα ημιτελές auto-save στο Προφίλ να μη χαθεί
+          απλά επειδή ο χρήστης πήγε να δει ένα άλλο tab. */}
+      <div role="tabpanel" id="tabpanel-profile" aria-labelledby="tab-profile" hidden={activeTab !== 'profile'}>
+        <TeacherProfileSection />
       </div>
 
-      <h1>Ρυθμίσεις</h1>
-
-      {/* Readiness blockers v1 (review χρήστη) — ΠΡΩΤΗ ενότητα, πριν καν το Λογαριασμό: δεν
-          εξαρτάται από cloud/login (βλ. DisplayNameSection.jsx). */}
-      <DisplayNameSection />
-      {/* Sprint 5A Phase 1 — πάνω από το Σχολικό έτος (Technical Plan §Flows, ροή 1). Δεν αποδίδει
-          τίποτα αν CLOUD_ENABLED=false (βλ. AccountSection.jsx). */}
-      <AccountSection />
-      {/* Sprint 5A Phase 2, Commit 3 — αμέσως μετά το AccountSection: έχει νόημα μόνο ΜΕΤΑ τη
-          σύνδεση. Αυτο-gated (βλ. LegacyDataMigrationSection.jsx) — αποδίδει null αν δεν είναι
-          συνδεδεμένος ή δεν υπάρχουν καθόλου τοπικά δεδομένα προς προετοιμασία. */}
-      <LegacyDataMigrationSection />
-      {/* Sprint 5A Phase 2, Commit 4A — αμέσως μετά: έχει νόημα μόνο ΜΕΤΑ από ολοκληρωμένο
-          migration. Αυτο-gated (βλ. GenerationSwitchoverSection.jsx). */}
-      <GenerationSwitchoverSection />
-      {/* Sprint 5A Phase 2, Commit 6 — αμέσως μετά: έχει νόημα μόνο ΜΕΤΑ από ενεργή v2 γενιά.
-          Αυτο-gated (βλ. EnableSyncSection.jsx). */}
-      <EnableSyncSection />
-      {/* Προσωρινό — real-device multi-device sync validation (Sprint 5A Phase 2). Κρυμμένο πίσω
-          από ?diag=1 (βλ. SyncDiagnosticsPanel.jsx). Να αφαιρεθεί μετά την ολοκλήρωση. */}
-      <SyncDiagnosticsPanel />
-
-      <div className="section">
-        <h2>Σχολικό έτος</h2>
-
-        {activeYearResult === undefined && <p className="hint">Φόρτωση…</p>}
-
-        {activeYearResult?.status === 'error' && (
-          <p className="hint">⚠️ {activeYearResult.message}</p>
-        )}
-
-        {activeYearResult?.status === 'ok' && activeYearResult.year && (
-          <p className="hint">
-            Ενεργό σχολικό έτος: <strong>{activeYearResult.year.label}</strong>{' '}
-            ({formatDateEl(activeYearResult.year.startDate)} – {formatDateEl(activeYearResult.year.endDate)})
-          </p>
-        )}
-
-        {activeYearResult?.status === 'ok' && !activeYearResult.year && !isFreshInstall && (
-          <p className="hint">Κανένα ενεργό σχολικό έτος αυτή τη στιγμή.</p>
-        )}
-
-        {/* Fresh-install prompt (σημείο 3) — ήπιο, όχι modal/blocking, με σαφές κουμπί ορισμού ΚΑΙ
-            σαφή δυνατότητα κλεισίματος· καμία αυτόματη δημιουργία έτους χωρίς ρητή ενέργεια εδώ. */}
-        {isFreshInstall && !promptDismissed && (
-          <div className="notice">
-            <p><strong>Ποιο είναι το τρέχον σχολικό έτος;</strong></p>
-            <p>Ο ορισμός του βοηθά στην οργάνωση μαθητών, στόχων και προγράμματος ανά έτος.</p>
-            <div className="actions-row">
-              <Link to="/settings/school-year-transition" className="btn btn-primary">Ορισμός τώρα</Link>
-              <button type="button" className="btn btn-secondary" onClick={() => setPromptDismissed(true)}>
-                Αργότερα
-              </button>
-            </div>
-          </div>
-        )}
-
-        <p className="hint">
-          Στο τέλος της χρονιάς, μετάβαση στο νέο σχολικό έτος — ποιοι μαθητές συνεχίζουν, ποιοι
-          στόχοι ολοκληρώνονται ή συνεχίζονται, και προαιρετική ανανέωση του προγράμματος.
-        </p>
-        <div className="actions-row">
-          <Link to="/settings/school-year-transition" className="btn btn-secondary">
-            Μετάβαση σε νέο σχολικό έτος
-          </Link>
+      {CLOUD_ENABLED && (
+        <div role="tabpanel" id="tabpanel-account" aria-labelledby="tab-account" hidden={activeTab !== 'account'}>
+          <AccountSection />
+          <LegacyDataMigrationSection />
+          <GenerationSwitchoverSection />
+          <EnableSyncSection />
+          <SyncDiagnosticsPanel />
         </div>
+      )}
 
-        {historicalYears.length > 0 && (
-          <>
-            <h2>Ιστορικά σχολικά έτη</h2>
+      <div role="tabpanel" id="tabpanel-backup" aria-labelledby="tab-backup" hidden={activeTab !== 'backup'}>
+        <StorageSafetySection />
+
+        <div className="section" id="backup-section">
+          <h2>Αντίγραφο ασφαλείας</h2>
+          <p className="hint">
+            Όλα τα δεδομένα μένουν μόνο σε αυτή τη συσκευή. Κατέβασε τακτικά αντίγραφο ασφαλείας —
+            αν καθαριστεί η μνήμη του browser ή αλλάξεις συσκευή, χωρίς αντίγραφο τα δεδομένα χάνονται οριστικά.
+          </p>
+          <div className="actions-row">
+            <button type="button" className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+              {exporting ? 'Δημιουργία…' : '⬇️ Λήψη αντιγράφου ασφαλείας'}
+            </button>
+          </div>
+          {exportError && <p className="hint">⚠️ {exportError}</p>}
+          {exportStatus && !exporting && (
             <p className="hint">
-              Παλαιότερα δεδομένα, πριν καταγραφεί το πρώτο σχολικό έτος, παραμένουν προσβάσιμα
-              κανονικά μέσω των φίλτρων ημερομηνίας ή της επιλογής «Όλα» στις αντίστοιχες οθόνες.
+              ✓ Αποθηκεύτηκε ως «{exportStatus.filename}» —{' '}
+              {Object.entries(exportStatus.counts).map(([t, c]) => `${TABLE_LABELS[t]}: ${c}`).join(', ')}.
             </p>
-            <ul className="school-year-history-list">
-              {historicalYears.map((y) => (
-                <li key={y.id} className="school-year-history-list__row">
-                  <span>{y.label} ({formatDateEl(y.startDate)} – {formatDateEl(y.endDate)})</span>
-                  <Link to={sessionsHistoryLinkFor(y)} className="btn btn-secondary">
-                    Δες συνεδρίες αυτού του έτους
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-
-      {/* Readiness blockers v1 (review χρήστη) — ΑΜΕΣΩΣ πριν το «Αντίγραφο ασφαλείας»: ρητή οπτική
-          σύνδεση storage persistence ↔ ανάγκη τακτικού backup (βλ. StorageSafetySection.jsx). */}
-      <StorageSafetySection />
-
-      <div className="section" id="backup-section">
-        <h2>Αντίγραφο ασφαλείας</h2>
-        <p className="hint">
-          Όλα τα δεδομένα μένουν μόνο σε αυτή τη συσκευή. Κατέβασε τακτικά αντίγραφο ασφαλείας —
-          αν καθαριστεί η μνήμη του browser ή αλλάξεις συσκευή, χωρίς αντίγραφο τα δεδομένα χάνονται οριστικά.
-        </p>
-        <div className="actions-row">
-          <button type="button" className="btn btn-primary" onClick={handleExport} disabled={exporting}>
-            {exporting ? 'Δημιουργία…' : '⬇️ Λήψη αντιγράφου ασφαλείας'}
-          </button>
+          )}
         </div>
-        {exportError && <p className="hint">⚠️ {exportError}</p>}
-        {exportStatus && !exporting && (
+
+        <div className="section">
+          <h2>♻️ Επαναφορά από αντίγραφο</h2>
           <p className="hint">
-            ✓ Αποθηκεύτηκε ως «{exportStatus.filename}» —{' '}
-            {Object.entries(exportStatus.counts).map(([t, c]) => `${TABLE_LABELS[t]}: ${c}`).join(', ')}.
+            Διάλεξε ένα αρχείο JSON που κατέβασες προηγουμένως από εδώ.
           </p>
-        )}
-      </div>
-
-      <div className="section">
-        <h2>♻️ Επαναφορά από αντίγραφο</h2>
-        <p className="hint">
-          Διάλεξε ένα αρχείο JSON που κατέβασες προηγουμένως από εδώ.
-        </p>
-        <div className="actions-row">
-          <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
-            📂 Επιλογή αρχείου
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            onChange={handleFileChosen}
-            className="hidden-file-input"
-          />
-        </div>
-
-        {importError && <p className="hint">⚠️ {importError}</p>}
-
-        {pendingRestore && (
-          <div className="notice">
-            <h2>⚠️ Προσοχή — αντικατάσταση δεδομένων</h2>
-            <p>
-              Το αρχείο «{pendingRestore.filename}» περιέχει:{' '}
-              {Object.entries(pendingRestore.counts).map(([t, c]) => `${TABLE_LABELS[t]}: ${c}`).join(', ')}.
-            </p>
-            <p><strong>Η επαναφορά θα ΔΙΑΓΡΑΨΕΙ όλα τα τρέχοντα δεδομένα της εφαρμογής και θα τα αντικαταστήσει με αυτά του αρχείου. Δεν μπορεί να αναιρεθεί.</strong></p>
-            {restoreError && <p>⚠️ {restoreError}</p>}
-            <div className="actions-row">
-              <button type="button" className="btn btn-danger" onClick={handleConfirmRestore} disabled={restoring}>
-                {restoring ? 'Γίνεται επαναφορά…' : 'Ναι, αντικατέστησε τα δεδομένα'}
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setPendingRestore(null)} disabled={restoring}>
-                Άκυρο
-              </button>
-            </div>
+          <div className="actions-row">
+            <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+              📂 Επιλογή αρχείου
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleFileChosen}
+              className="hidden-file-input"
+            />
           </div>
-        )}
 
-        {restoreDone && <p className="hint">✓ Η επαναφορά ολοκληρώθηκε. Τα δεδομένα ενημερώθηκαν σε όλη την εφαρμογή.</p>}
+          {importError && <p className="hint">⚠️ {importError}</p>}
+
+          {pendingRestore && (
+            <div className="notice">
+              <h2>⚠️ Προσοχή — αντικατάσταση δεδομένων</h2>
+              <p>
+                Το αρχείο «{pendingRestore.filename}» περιέχει:{' '}
+                {Object.entries(pendingRestore.counts).map(([t, c]) => `${TABLE_LABELS[t]}: ${c}`).join(', ')}.
+              </p>
+              <p><strong>Η επαναφορά θα ΔΙΑΓΡΑΨΕΙ όλα τα τρέχοντα δεδομένα της εφαρμογής και θα τα αντικαταστήσει με αυτά του αρχείου. Δεν μπορεί να αναιρεθεί.</strong></p>
+              {restoreError && <p>⚠️ {restoreError}</p>}
+              <div className="actions-row">
+                <button type="button" className="btn btn-danger" onClick={handleConfirmRestore} disabled={restoring}>
+                  {restoring ? 'Γίνεται επαναφορά…' : 'Ναι, αντικατέστησε τα δεδομένα'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setPendingRestore(null)} disabled={restoring}>
+                  Άκυρο
+                </button>
+              </div>
+            </div>
+          )}
+
+          {restoreDone && <p className="hint">✓ Η επαναφορά ολοκληρώθηκε. Τα δεδομένα ενημερώθηκαν σε όλη την εφαρμογή.</p>}
+        </div>
       </div>
-    </div>
+
+      <div role="tabpanel" id="tabpanel-schoolYear" aria-labelledby="tab-schoolYear" hidden={activeTab !== 'schoolYear'}>
+        <div className="section">
+          <h2>Σχολικό έτος</h2>
+
+          {activeYearResult === undefined && <p className="hint">Φόρτωση…</p>}
+
+          {activeYearResult?.status === 'error' && (
+            <p className="hint">⚠️ {activeYearResult.message}</p>
+          )}
+
+          {activeYearResult?.status === 'ok' && activeYearResult.year && (
+            <p className="hint">
+              Ενεργό σχολικό έτος: <strong>{activeYearResult.year.label}</strong>{' '}
+              ({formatDateEl(activeYearResult.year.startDate)} – {formatDateEl(activeYearResult.year.endDate)})
+            </p>
+          )}
+
+          {activeYearResult?.status === 'ok' && !activeYearResult.year && !isFreshInstall && (
+            <p className="hint">Κανένα ενεργό σχολικό έτος αυτή τη στιγμή.</p>
+          )}
+
+          {/* Fresh-install prompt (σημείο 3) — ήπιο, όχι modal/blocking, με σαφές κουμπί ορισμού ΚΑΙ
+              σαφή δυνατότητα κλεισίματος· καμία αυτόματη δημιουργία έτους χωρίς ρητή ενέργεια εδώ. */}
+          {isFreshInstall && !promptDismissed && (
+            <div className="notice">
+              <p><strong>Ποιο είναι το τρέχον σχολικό έτος;</strong></p>
+              <p>Ο ορισμός του βοηθά στην οργάνωση μαθητών, στόχων και προγράμματος ανά έτος.</p>
+              <div className="actions-row">
+                <Link to="/settings/school-year-transition" className="btn btn-primary">Ορισμός τώρα</Link>
+                <button type="button" className="btn btn-secondary" onClick={() => setPromptDismissed(true)}>
+                  Αργότερα
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="hint">
+            Στο τέλος της χρονιάς, μετάβαση στο νέο σχολικό έτος — ποιοι μαθητές συνεχίζουν, ποιοι
+            στόχοι ολοκληρώνονται ή συνεχίζονται, και προαιρετική ανανέωση του προγράμματος.
+          </p>
+          <div className="actions-row">
+            <Link to="/settings/school-year-transition" className="btn btn-secondary">
+              Μετάβαση σε νέο σχολικό έτος
+            </Link>
+          </div>
+
+          {historicalYears.length > 0 && (
+            <>
+              <h2>Ιστορικά σχολικά έτη</h2>
+              <p className="hint">
+                Παλαιότερα δεδομένα, πριν καταγραφεί το πρώτο σχολικό έτος, παραμένουν προσβάσιμα
+                κανονικά μέσω των φίλτρων ημερομηνίας ή της επιλογής «Όλα» στις αντίστοιχες οθόνες.
+              </p>
+              <ul className="school-year-history-list">
+                {historicalYears.map((y) => (
+                  <li key={y.id} className="school-year-history-list__row">
+                    <span>{y.label} ({formatDateEl(y.startDate)} – {formatDateEl(y.endDate)})</span>
+                    <Link to={sessionsHistoryLinkFor(y)} className="btn btn-secondary">
+                      Δες συνεδρίες αυτού του έτους
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div role="tabpanel" id="tabpanel-application" aria-labelledby="tab-application" hidden={activeTab !== 'application'}>
+        <ApplicationSection />
+      </div>
+    </AppShell>
   )
 }

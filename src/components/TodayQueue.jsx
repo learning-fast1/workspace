@@ -317,6 +317,15 @@ export default function TodayQueue({ date: dateProp }) {
             )
           })}
 
+          {unplanned.length > 0 && (
+            // Sprint 8 (Technical Design, Διόρθωση 1): context-aware ετικέτα — το ΙΔΙΟ `isToday` που
+            // ήδη χρησιμοποιείται παραπάνω για τον κύριο τίτλο/empty state της κάρτας, καμία νέα
+            // prop/state. Χωρίς αυτό, «Έκτακτα σήμερα» θα ήταν λανθασμένο στο DayDetailPage (η ίδια
+            // κάρτα, γενικευμένη σε οποιαδήποτε ημερομηνία).
+            <p className="today-queue__unplanned-heading">
+              {isToday ? 'Έκτακτα σήμερα' : 'Έκτακτες συνεδρίες'}
+            </p>
+          )}
           {unplanned.map((session) => (
             <TodayQueueItem
               key={`unplanned-${session.id}`}

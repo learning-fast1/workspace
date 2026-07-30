@@ -180,6 +180,57 @@ describe('TodayQueue — Stage A: εμπλουτισμός με goal attention /
   })
 })
 
+// Sprint 8 (Technical Design, Διόρθωση 1): context-aware ετικέτα για τις έκτακτες/unplanned
+// γραμμές — ίδιο `isToday` που ήδη υπολογίζεται μέσα στο component, καμία νέα prop. Καλύπτει Home
+// (χωρίς date prop → σήμερα), DayDetailPage σε παρελθοντική ΚΑΙ μελλοντική ημερομηνία (η ίδια
+// κάρτα, γενικευμένη — βλ. σχόλιο DayDetailPage.jsx).
+describe('TodayQueue — context-aware sub-heading για έκτακτες/unplanned συνεδρίες', () => {
+  it('Home (χωρίς date prop, δηλαδή σήμερα) με unplanned συνεδρία → «Έκτακτα σήμερα»', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    await db.sessions.add({ date: today, studentIds: [studentId], status: 'completed', durationMinutes: 30 })
+
+    renderQueue()
+
+    expect(await screen.findByText('Έκτακτα σήμερα')).toBeInTheDocument()
+    expect(screen.queryByText('Έκτακτες συνεδρίες')).not.toBeInTheDocument()
+  })
+
+  it('DayDetailPage σε ΠΕΡΑΣΜΕΝΗ ημερομηνία με unplanned συνεδρία → «Έκτακτες συνεδρίες»', async () => {
+    const pastDate = addDays(todayLocalISO(), -5)
+    const studentId = await db.students.add({ code: 'Μ2', active: true })
+    await db.sessions.add({ date: pastDate, studentIds: [studentId], status: 'completed', durationMinutes: 30 })
+
+    renderQueue({ date: pastDate })
+
+    expect(await screen.findByText('Έκτακτες συνεδρίες')).toBeInTheDocument()
+    expect(screen.queryByText('Έκτακτα σήμερα')).not.toBeInTheDocument()
+  })
+
+  it('DayDetailPage σε ΜΕΛΛΟΝΤΙΚΗ ημερομηνία με unplanned συνεδρία → «Έκτακτες συνεδρίες»', async () => {
+    const futureDate = addDays(todayLocalISO(), 5)
+    const studentId = await db.students.add({ code: 'Μ3', active: true })
+    await db.sessions.add({ date: futureDate, studentIds: [studentId], status: 'completed', durationMinutes: 30 })
+
+    renderQueue({ date: futureDate })
+
+    expect(await screen.findByText('Έκτακτες συνεδρίες')).toBeInTheDocument()
+    expect(screen.queryByText('Έκτακτα σήμερα')).not.toBeInTheDocument()
+  })
+
+  it('καμία unplanned συνεδρία → κανένα sub-heading', async () => {
+    const today = todayLocalISO()
+    const studentId = await db.students.add({ code: 'Μ4', active: true })
+    await db.dailyQueue.add({ date: today, studentIds: [studentId], order: 0, status: 'pending' })
+
+    renderQueue()
+
+    await screen.findByText('Μ4')
+    expect(screen.queryByText('Έκτακτα σήμερα')).not.toBeInTheDocument()
+    expect(screen.queryByText('Έκτακτες συνεδρίες')).not.toBeInTheDocument()
+  })
+})
+
 // Responsive QA pass (τελικός συνολικός έλεγχος): «Όχι, θα τη φτιάξω τώρα» + «Ναι» δεν είχαν
 // flex-wrap — αρκετά μεγάλο κείμενο ώστε να ρισκάρει οριζόντιο overflow σε στενές οθόνες, ίδιο root
 // cause με το παλιότερο, ήδη διορθωμένο bug στο πρώην .today-queue__add-actions. «Καρφώνουμε» εδώ

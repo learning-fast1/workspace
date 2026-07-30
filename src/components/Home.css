@@ -52,12 +52,17 @@
   color: var(--color-text-secondary);
 }
 
-/* Μόνιμο status backup (feedback χρήστη — δεν εξαφανίζεται ποτέ, ΟΧΙ πια μόνο υπενθύμιση για
-   καθυστερημένο backup) — ίδιο σχήμα με το .dashboard-banner, πράσινη αριστερή γραμμή αντί για
-   κίτρινη/warning. */
+/* Sprint 8 (Product Design §5/§6, «Today first» / «Calm interface»): στην κανονική («ok») κατάσταση
+   το backup status δεν πρέπει να ανταγωνίζεται οπτικά το «Η μέρα μου» από κάτω — αφαιρείται το
+   πλαίσιο/background/αριστερή γραμμή του .dashboard-banner, μένει μία λεπτή, χαμηλής έντασης
+   γραμμή. Η warning-μορφή (.dashboard-banner χωρίς --ok) ΔΕΝ αλλάζει — πλήρες οπτικό βάρος
+   διατηρείται όταν πραγματικά χρειάζεται προσοχή (ποτέ backup / >7 μέρες). Ίδιο κείμενο/markup —
+   μόνο token-driven CSS, καμία αλλαγή στο υπάρχον visual language. */
 .dashboard-banner--ok {
-  background: var(--color-surface);
-  border-left-color: var(--color-success);
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  margin-bottom: var(--space-3);
 }
 
 .dashboard-banner--ok .dashboard-banner-icon {
@@ -186,33 +191,38 @@
 }
 
 /* ---------- Quick actions ---------- */
-
+/* Sprint 8 (Product Design §5/§6, Technical Design Διόρθωση 3): πιο συμπαγές — μικρότερο
+   padding/gap/εικονίδιο (32px, ίδιο μέγεθος με .dashboard-stat-icon παρακάτω, καμία νέα τιμή).
+   Accessibility ρητά ΔΙΑΤΗΡΕΙΤΑΙ: .dashboard-action-link/.dashboard-action-sublink κρατούν
+   min-height: 44px (ίδιο όριο με πριν), παραμένουν πραγματικά <a>/<button> (keyboard-focusable),
+   το :focus-visible outline παρακάτω δεν αλλάζει, και η σύντομη περιγραφή (.dashboard-action-desc)
+   ΔΕΝ αφαιρείται — μόνο μικρότερη γραμματοσειρά/απόσταση. */
 .dashboard-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
 }
 
 .dashboard-action-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--shell-radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-4);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .dashboard-action-link {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-height: 44px;
   color: var(--color-text);
   text-decoration: none;
   font-weight: 600;
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .dashboard-action-icon {
@@ -220,8 +230,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--shell-radius);
   background: var(--color-primary-soft);
   color: var(--color-primary);
@@ -230,7 +240,7 @@
 .dashboard-action-desc {
   color: var(--color-text-muted);
   font-size: var(--font-xs);
-  margin: calc(-1 * var(--space-2)) 0 0;
+  margin: calc(-1 * var(--space-1)) 0 0;
 }
 
 .dashboard-action-subrow {

@@ -51,6 +51,18 @@
   gap: var(--space-3);
 }
 
+/* Sprint 8 (Technical Design, Διόρθωση 1): διαχωρίζει οπτικά τις έκτακτες/unplanned γραμμές από τις
+   προγραμματισμένες αντί να «σέρνονται» σιωπηλά στο τέλος της λίστας — ίδιο μοτίβο μικρής,
+   uppercase ετικέτας με τα section subheadings αλλού στο προϊόν (π.χ. ApplicationSection.css). */
+.today-queue__unplanned-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  margin: var(--space-2) 0 0;
+}
+
 @media (max-width: 767px) {
   .today-queue-item {
     flex-wrap: wrap;

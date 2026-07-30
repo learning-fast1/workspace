@@ -19,6 +19,7 @@ import { getLastBackupAt, getDisplayName } from '../db.js'
 import { activeTable } from '../migration/activeGeneration.js'
 import { exportBackupFile } from '../utils/backup.js'
 import { formatDateEl, todayLocalISO } from '../utils/date.js'
+import { selectRecentActivity } from '../utils/sessions.js'
 import AppShell from './shell/AppShell.jsx'
 import TodayQueue from './TodayQueue.jsx'
 import HomeAttentionWidget from './HomeAttentionWidget.jsx'
@@ -68,22 +69,16 @@ async function loadDashboardStats() {
 async function loadRecentActivity() {
   // Sprint 6: μια συνεδρία που καταγράφηκε απευθείας ως notHeld (δεν πραγματοποιήθηκε) δεν είναι
   // πραγματική δραστηριότητα διδασκαλίας — δεν πρέπει να εμφανίζεται σαν «Συνεδρία με Χ» εδώ, ίδιο
-  // σκεπτικό με το loadHeroStats του StudentProfile.jsx. Παίρνουμε λίγο παραπάνω από 5 πριν το
-  // φίλτρο, ώστε η λίστα να μην αδειάζει άδικα όταν οι πιο πρόσφατες εγγραφές ήταν notHeld.
+  // σκεπτικό με το loadHeroStats του StudentProfile.jsx. Sprint 8: επίσης αποκλείεται η σημερινή
+  // ημέρα — ήδη ορατή ως ολοκληρωμένες γραμμές στο «Η μέρα μου» παραπάνω στην ίδια σελίδα (βλ.
+  // selectRecentActivity, utils/sessions.js). Παίρνουμε λίγο παραπάνω από 5 πριν το φίλτρο, ώστε η
+  // λίστα να μην αδειάζει άδικα όταν οι πιο πρόσφατες εγγραφές ήταν notHeld/σημερινές.
   const [recentSessions, students] = await Promise.all([
     activeTable('sessions').orderBy('date').reverse().limit(20).toArray(),
     activeTable('students').toArray()
   ])
   const studentById = Object.fromEntries(students.map((s) => [s.id, s]))
-  return recentSessions
-    .filter((s) => s.status !== 'notHeld')
-    .slice(0, 5)
-    .map((s) => ({
-      id: s.id,
-      date: s.date,
-      durationMinutes: s.durationMinutes,
-      studentLabel: s.studentIds.map((id) => studentById[id]?.code).filter(Boolean).join(', ') || '—'
-    }))
+  return selectRecentActivity(recentSessions, studentById, todayLocalISO())
 }
 
 function StatCard({ icon: Icon, label, value, emptyHint }) {
@@ -174,14 +169,10 @@ export default function Home() {
           αφαιρέθηκε (Sprint 7 cleanup) ώστε να μην υπάρχουν δύο ξεχωριστά attention systems εδώ. */}
       <HomeAttentionWidget />
 
-      <h2 className="dashboard-section-title">Επισκόπηση</h2>
-      <div className="dashboard-stats">
-        <StatCard icon={Users} label="Μαθητές" value={stats ? stats.activeStudents : '—'} />
-        <StatCard icon={CalendarDays} label="Συνεδρίες σήμερα" value={stats ? stats.sessionsToday : '—'} />
-        <StatCard icon={ClipboardList} label="Συνολικές συνεδρίες" value={stats ? stats.totalSessions : '—'} />
-        <StatCard icon={Target} label="Ενεργοί στόχοι" value={stats ? stats.activeGoals : '—'} />
-      </div>
-
+      {/* Sprint 8 (Product Design §5/§6): αναδιάταξη — οι γρήγορες ενέργειες έρχονται πλέον πριν
+          την «Επισκόπηση» (χρησιμοποιούνται μερικές φορές/μέρα, έναντι της εβδομαδιαίας/μηνιαίας
+          συχνότητας των στατιστικών) ώστε να μη χρειάζεται scroll πέρα από τα stats για να δράσει
+          κάποιος. Ίδιο περιεχόμενο/links — μόνο θέση + πιο συμπαγές restyle (βλ. Home.css). */}
       <h2 className="dashboard-section-title">Γρήγορες ενέργειες</h2>
       <div className="dashboard-actions">
         {/* «Νέα συνεδρία» πλέον ίδιου βάρους με τις υπόλοιπες — για έκτακτη/απρόγραμμη συνεδρία
@@ -248,6 +239,18 @@ export default function Home() {
           </Link>
           <p className="dashboard-action-desc">Επαναφορά δεδομένων από αρχείο JSON.</p>
         </div>
+      </div>
+
+      {/* Sprint 8 (Product Design §5/§6): μετακινήθηκε ΚΑΤΩ από τις γρήγορες ενέργειες — χαμηλότερη
+          πραγματική συχνότητα καθημερινής χρήσης. Η ίδια η κάρτα ΔΕΝ αλλάζει οπτικά σε αυτό το
+          Sprint (candidate visual change, εκκρεμεί ξεχωριστό visual design review — βλ. Product
+          Design §5, γραμμή «Επισκόπηση»). Μόνο η θέση αλλάζει εδώ. */}
+      <h2 className="dashboard-section-title">Επισκόπηση</h2>
+      <div className="dashboard-stats">
+        <StatCard icon={Users} label="Μαθητές" value={stats ? stats.activeStudents : '—'} />
+        <StatCard icon={CalendarDays} label="Συνεδρίες σήμερα" value={stats ? stats.sessionsToday : '—'} />
+        <StatCard icon={ClipboardList} label="Συνολικές συνεδρίες" value={stats ? stats.totalSessions : '—'} />
+        <StatCard icon={Target} label="Ενεργοί στόχοι" value={stats ? stats.activeGoals : '—'} />
       </div>
 
       {/* Mobile-only συντόμευση — ένα tap στο πιο συχνό ξεκίνημα (ατομικό) χωρίς να χρειάζεται

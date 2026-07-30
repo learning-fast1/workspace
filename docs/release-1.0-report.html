@@ -139,10 +139,10 @@
         οδικός χάρτης. Καμία αλλαγή κώδικα δεν συνοδεύει αυτό το έγγραφο.
       </p>
       <div class="cover__meta">
-        <div><strong>Commit</strong>5cd3d28 (main)</div>
-        <div><strong>Deploy</strong>learning-fast1.github.io/workspace — live, GitHub Actions run <a href="https://github.com/learning-fast1/workspace/actions/runs/30446839236">#30446839236</a> πράσινο (build/deploy/smoke-post-deploy, μηδέν retries)</div>
+        <div><strong>Commit</strong>0921ca2 (main)</div>
+        <div><strong>Deploy</strong>learning-fast1.github.io/workspace — live, GitHub Actions run <a href="https://github.com/learning-fast1/workspace/actions/runs/30522356839">#30522356839</a> πράσινο (build/deploy/smoke-post-deploy, μηδέν retries)</div>
         <div><strong>Schema</strong>Dexie <code>db.version(13)</code>, 18 migrated πίνακες</div>
-        <div><strong>Tests</strong>82 vitest αρχεία / 1136 tests, 5 Playwright smoke tests (pre + post deploy)</div>
+        <div><strong>Tests</strong>89 vitest αρχεία / 1201 tests, 5 Playwright smoke tests (pre + post deploy)</div>
       </div>
 
       <section id="summary">
@@ -152,19 +152,32 @@
           Timeline → προσχέδιο έκθεσης), εννέα επιπλέον sprints πάνω σε αυτά (Session History, «Η
           μέρα μου», Πρόγραμμα/ημερολόγιο, σχολικά έτη, lifecycle στόχων, κλινική εκτίμηση), μια
           πλήρη προαιρετική στρώση cloud-account/sync (Sprint 5A Phase 1–2), Smart Notifications
-          engine + Notifications Inbox, πέντε release-readiness blockers με πλήρες CI hardening, και
-          — το τελευταίο μεγάλο module πριν χαρακτηριστεί το v1.0 πλήρες — το ενιαίο Teacher
-          Profile + Settings module (§coverage). Η πιο πρόσφατη production deploy (GitHub Actions run
-          <a href="https://github.com/learning-fast1/workspace/actions/runs/30446839236">#30446839236</a>,
-          commit <code>5cd3d28</code>) ολοκληρώθηκε πράσινο σε build, deploy, και post-deploy smoke —
+          engine + Notifications Inbox, πέντε release-readiness blockers με πλήρες CI hardening, το
+          ενιαίο Teacher Profile + Settings module, και — το τελευταίο μεγάλο κομμάτι πριν
+          χαρακτηριστεί το v1.0 πλήρες — ένα ολοκληρωμένο <strong>Real Multi-Device Sync
+          Validation</strong>: 12 σενάρια πάνω σε δύο πραγματικές συσκευές έναντι του πραγματικού
+          production Dexie Cloud backend, ένα critical hotfix (γενιά-aware entity IDs) και ένα
+          δεύτερο fix (πραγματικό field-level merge αντί για ολόκληρα object snapshots στο
+          <code>Table.update()</code>), και τα δύο επιβεβαιωμένα ζωντανά στην παραγωγή. Η πιο
+          πρόσφατη production deploy (GitHub Actions run
+          <a href="https://github.com/learning-fast1/workspace/actions/runs/30522356839">#30522356839</a>,
+          commit <code>0921ca2</code>) ολοκληρώθηκε πράσινο σε build, deploy, και post-deploy smoke —
           μηδέν αποτυχίες, μηδέν retries σε κανένα από τα 3 jobs.</p>
+        <div class="callout callout--safeguard">
+          <p class="callout__label">v1 scope — τι σημαίνει «έτοιμο» εδώ</p>
+          <p>Το v1 θεωρείται κατάλληλο για: <strong>έναν εκπαιδευτικό, έναν προσωπικό λογαριασμό, μία
+            κύρια συσκευή με περιστασιακή χρήση δεύτερης συσκευής</strong> — όχι σκόπιμη ταυτόχρονη
+            επεξεργασία της ίδιας εγγραφής από πολλούς εκπαιδευτικούς/συσκευές ταυτόχρονα. Αυτό είναι
+            το ρητό, τεκμηριωμένο συμπέρασμα του Real Multi-Device Sync Validation (§backup-sync),
+            όχι υπόθεση.</p>
+        </div>
         <div class="callout callout--safeguard">
           <p class="callout__label">Τι σημαίνει «freeze» εδώ</p>
           <p>Καμία νέα λειτουργικότητα δεν ξεκινά μέχρι ρητή νέα έγκριση. Αυτό το έγγραφο είναι
             τεκμηρίωση only — καταγράφει την ΠΡΑΓΜΑΤΙΚΗ σημερινή κατάσταση του κώδικα, δεν αλλάζει
-            τίποτα σε αυτόν. Το Teacher Profile + Settings module θεωρείται πλέον επίσης κλειδωμένο
-            — καμία περαιτέρω αλλαγή/micropolishing σε αυτό εκτός αν προκύψει πραγματικό bug στη
-            χρήση.</p>
+            τίποτα σε αυτόν. Το Teacher Profile + Settings module ΚΑΙ το Real Multi-Device Sync
+            Validation θεωρούνται πλέον κλειδωμένα — καμία περαιτέρω αλλαγή/micropolishing εκτός αν
+            προκύψει πραγματικό bug στη χρήση.</p>
         </div>
       </section>
 
@@ -328,7 +341,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <li><strong>Σχολικά έτη</strong> — δημιουργία/μετάβαση, συμμετοχή ανά μαθητή/έτος, μαζική/ατομική μετάβαση στόχων.</li>
           <li><strong>Smart Notifications</strong> — 6 τύποι ζωντανά υπολογιζόμενων ειδοποιήσεων, Header-κουδούνι, Home-widget, πλήρες <code>/notifications</code> Inbox με φίλτρα severity/type/student, snooze/dismiss/unsnooze.</li>
           <li><strong>Backup/Restore</strong> — πλήρες export/import JSON, generation-aware, ownership-safe restore με auto pre-restore safety snapshot.</li>
-          <li><strong>Cloud account (προαιρετικό)</strong> — email+OTP login, ξεχωριστό από ενεργοποίηση sync, πλήρης migration πριν την ενεργοποίηση, ρητή ενημέρωση+επιβεβαίωση εξουσιοδότησης πριν το sync ενεργοποιηθεί.</li>
+          <li><strong>Cloud account (προαιρετικό)</strong> — email+OTP login, ξεχωριστό από ενεργοποίηση sync, πλήρης migration πριν την ενεργοποίηση, ρητή ενημέρωση+επιβεβαίωση εξουσιοδότησης πριν το sync ενεργοποιηθεί. Επιβεβαιωμένο ζωντανά σε πραγματικό δύο-συσκευών σενάριο (Real Multi-Device Sync Validation): <code>Table.update()</code> στέλνει πλέον πραγματικό partial changeSpec (μόνο τα πεδία που άλλαξαν), επιτρέποντας field-level merge όταν δύο συσκευές αλλάζουν διαφορετικά πεδία της ίδιας εγγραφής offline — πριν τη διόρθωση, μία από τις δύο αλλαγές χανόταν σιωπηλά.</li>
           <li><strong>Storage Safety</strong> — <code>navigator.storage.persist()</code> flow με σαφή κατάσταση και μόνιμη υπενθύμιση backup.</li>
           <li><strong>Teacher Profile + Settings</strong> — ενιαίο module (όχι πια δύο άσχετες οθόνες): <code>Settings</code> πλέον μέσα σε <code>&lt;AppShell&gt;</code> με tabbed IA (Προφίλ εκπαιδευτικού / Λογαριασμός &amp; Sync [μόνο όταν CLOUD_ENABLED] / Backup &amp; Αποθήκευση / Σχολικό έτος / Εφαρμογή), compact <code>TeacherProfileCard</code> σύνοψη πάνω από τα tabs, ρυθμιζόμενο displayName + προαιρετικά schoolName/specialty (ίδιο <code>userSettings</code> table, σωστό σε τοπική &amp; synced χρήση), disabled-until-dirty Save button, πραγματικός σύνδεσμος Header→Settings αντί για το παλιό στατικό «Εκπαιδευτικός».</li>
           <li><strong>PWA</strong> — offline-capable, εγκαταστάσιμο, service worker με auto-update.</li>
@@ -343,7 +356,7 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <li>Αυτόματη εισαγωγή επίσημων αργιών Κύπρου, εξωτερικός συγχρονισμός ημερολογίων (Google Calendar κ.λπ.), πολύπλοκα recurrence patterns.</li>
           <li>Πλήρες προφίλ χρήστη — το Teacher Profile καλύπτει πλέον displayName + email (read-only) + schoolName/specialty (προαιρετικά, δεν καταναλώνονται ακόμα πουθενά αλλού) — σκόπιμα ΧΩΡΙΣ φωτογραφία, ρόλο/permissions, ή πολλαπλά σχολεία/οργανισμούς.</li>
           <li>Bulk actions στο Notifications Inbox, dismissed-history, pagination/virtualization — ρητές αποφάσεις v1 σε ολόκληρο το app (καμία λίστα κάνει pagination/virtualization πουθενά).</li>
-          <li>Πραγματική two-device / offline↔online conflict δοκιμή για το Dexie Cloud sync — μόνο single-device συμπεριφορά έχει πραγματικά επαληθευτεί ζωντανά.</li>
+          <li>Ταυτόχρονη επεξεργασία της ίδιας εγγραφής από πολλούς εκπαιδευτικούς/συσκευές — το Real Multi-Device Sync Validation επιβεβαίωσε ότι ο μηχανισμός δουλεύει σωστά για το v1 usage pattern (μία κύρια συσκευή + περιστασιακή δεύτερη), όχι για σκόπιμη, ταυτόχρονη, πολύ-χρηστική επεξεργασία.</li>
           <li>Πλήρες, μόνιμο browser-level (Playwright) test suite πέρα από το νέο 5-test production smoke — καμία end-to-end κάλυψη flows όπως Teaching Mode ή backup/restore σε πραγματικό browser.</li>
           <li>Code-splitting/lazy-loading — ένα και μοναδικό JS bundle (~1.6MB minified) για ολόκληρη την εφαρμογή.</li>
           <li>Student creation batch-flow («Αποθήκευση και νέος μαθητής») — καταγεγραμμένο, αναβεβλημένο ήδη από το SPEC.md.</li>
@@ -373,7 +386,10 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <table>
             <thead><tr><th>Item</th><th>Λεπτομέρεια</th></tr></thead>
             <tbody>
-              <tr><td><code>SyncDiagnosticsPanel.jsx</code></td><td>Ρητά αυτο-τεκμηριωμένο ως «ΠΡΟΣΩΡΙΝΟ» (πίσω από <code>?diag=1</code>, read-only) — να αφαιρεθεί μετά την ολοκλήρωση του real-device sync validation.</td></tr>
+              <tr><td><code>SyncDiagnosticsPanel.jsx</code></td><td>Ρητά αυτο-τεκμηριωμένο ως «ΠΡΟΣΩΡΙΝΟ» (πίσω από <code>?diag=1</code>, read-only) — το real-device sync validation που το χρειαζόταν ολοκληρώθηκε πλέον (§backup-sync), άρα η αφαίρεσή του είναι τώρα actionable, όχι πια μπλοκαρισμένη σε προϋπόθεση.</td></tr>
+              <tr><td>Delete-versus-offline-edit transient resurrection</td><td>Επιβεβαιωμένο ζωντανά (Real Multi-Device Sync Validation, Scenario G): μια εγγραφή που διαγράφεται σε μία συσκευή ενώ μια άλλη έχει εκκρεμές offline update για την ίδια εγγραφή μπορεί να επανεμφανιστεί προσωρινά (~60-90+ δευτερόλεπτα) πριν η διαγραφή τελικά επικρατήσει. Καμία μόνιμη αλλοίωση σε καμία δοκιμή. Δεν τεκμηριώνεται επίσημα από το Dexie Cloud προς καμία κατεύθυνση. Παρακολουθείται ως follow-up, όχι v1 blocker.</td></tr>
+              <tr><td>Περιστασιακή καθυστέρηση συγχρονισμού 90+ δευτερολέπτων</td><td>Παρατηρήθηκε 2-3 φορές στο ίδιο validation — πάντα αυτοδιορθώθηκε, ποτέ <code>syncState.error</code>. Το test account είναι free/evaluation tier (επιβεβαιωμένο από το JWT) — πιθανός, όχι επιβεβαιωμένος παράγοντας. Χρειάζεται επαναληπτική μέτρηση ή σύγκριση με paid tier για οριστικό συμπέρασμα.</td></tr>
+              <tr><td><code>deleteStudent</code> δεν καθαρίζει <code>schoolYearParticipation</code></td><td>Επιβεβαιωμένο, πραγματικό κενό στο delete cascade (<code>db.js</code>, όχι σκόπιμη πολιτική διατήρησης ιστορικού όπως στο <code>deleteSession</code>/observations) — μαθητής με ιστορικό active/inactive toggle ή μετάβασης έτους αφήνει ορφανή εγγραφή μετά τη μόνιμη διαγραφή του. Αόρατο σήμερα (καμία λειτουργία δεν το διαβάζει), αλλά αφορά κανονική χρήση, όχι μόνο QA data.</td></tr>
               <tr><td>CI χωρίς lint</td><td>Κανένα ESLint config στο repo· η μόνη πύλη ποιότητας πριν το deploy είναι <code>npm test</code> + Playwright smoke, όχι static analysis.</td></tr>
               <tr><td>Δύο key/value πίνακες</td><td><code>appMeta</code> (μόνιμα per-device: backup timestamps, generation markers, migration state) και <code>userSettings</code>/<code>_v2</code> (synced: displayName) — σωστά διαχωρισμένα σκόπιμα, αλλά ένα μελλοντικό «ποια νέα ρύθμιση πάει πού» απαιτεί να θυμάται κανείς αυτή τη διάκριση.</td></tr>
               <tr><td>notificationState id remapping στο migration</td><td>Το <code>notificationState</code> έχει deterministic content-fingerprint id (π.χ. <code>goalStale:42:2026-01-01</code>) που ΤΟ ΙΔΙΟ generic migration engine ξαναχαρτογραφεί σε ένα SHA-256 hash κατά τη legacy→v2 μεταφορά — θεωρητική πιθανότητα μια ήδη-dismissed/snoozed ειδοποίηση να «ξαναφανεί» ως νέα μετά από ενεργοποίηση sync σε συσκευή με προϋπάρχον dismiss/snooze state. Δεν έχει επιβεβαιωθεί ζωντανά ως πραγματικό πρόβλημα (η ειδοποίηση θα υπολογιζόταν εκ νέου έτσι κι αλλιώς)· καταγράφεται για μελλοντική επιβεβαίωση.</td></tr>
@@ -397,12 +413,21 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Regression fix: <code>NotificationsInbox</code> crash σε κάθε φόρτωση/refresh του <code>/notifications</code> (provider-wiring bug, εντοπίστηκε από το νέο smoke suite) — διορθώθηκε, καλύπτεται από αποκλειστικό regression test.</span></div>
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Πραγματικό production deploy επιβεβαιωμένο πράσινο: build, deploy, ΚΑΙ post-deploy smoke πάνω στο ζωντανό site με πραγματική Dexie Cloud configuration.</span></div>
         </div>
-        <p>Έκτο, τελευταίο κομμάτι πριν χαρακτηριστεί το v1.0 πλήρες (commit <code>5cd3d28</code>,
+        <p>Έκτο κομμάτι πριν χαρακτηριστεί το v1.0 πλήρες (commit <code>5cd3d28</code>,
           run <a href="https://github.com/learning-fast1/workspace/actions/runs/30446839236">#30446839236</a>):</p>
         <div class="checklist">
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Teacher Profile + Settings redesign: <code>Settings</code> μέσα σε <code>&lt;AppShell&gt;</code> με tabbed IA, <code>TeacherProfileCard</code>, <code>TeacherProfileSection</code> (+schoolName/specialty), <code>ApplicationSection</code>, Header user-menu συνδεδεμένο στο <code>/settings</code>.</span></div>
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Browser-verified (όχι μόνο tests/build): desktop/tablet/mobile, cloud-enabled ΚΑΙ cloud-disabled builds, live production smoke πάνω στο πραγματικό deployed URL μετά το deploy.</span></div>
           <div class="checklist__row"><span class="checklist__mark">✓</span><span>Milestone κλειδωμένο — καμία περαιτέρω αλλαγή/micropolishing στο module εκτός αν προκύψει πραγματικό bug στη χρήση.</span></div>
+        </div>
+        <p>Έβδομο, τελευταίο κομμάτι πριν χαρακτηριστεί το v1.0 πλήρες (commit <code>0921ca2</code>,
+          run <a href="https://github.com/learning-fast1/workspace/actions/runs/30522356839">#30522356839</a>) — Real Multi-Device Sync Validation:</p>
+        <div class="checklist">
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>12 σενάρια (A-L) εκτελεσμένα σε δύο πραγματικές συσκευές έναντι του πραγματικού production Dexie Cloud backend: baseline/concurrent/offline sync, same-field &amp; different-field conflicts, delete-vs-edit, cross-tab reactivity, logout, bulk sync, interrupted-sync recovery.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Critical hotfix: γενιά-aware entity IDs (<code>resolveEntityId()</code>) — διόρθωσε ErrorBoundary crashes/μόνιμο loading σε view/edit μαθητή/στόχου και ένα silent invalid-foreign-key write path στο Teaching Mode, βρέθηκε ΚΑΤΑ τη διάρκεια του validation.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Δεύτερο fix: πραγματικό field-level merge (<code>diffFields()</code>) — πέντε edit-mode φόρμες έστελναν ολόκληρο object snapshot αντί για partial changeSpec, ακυρώνοντας σιωπηλά το merge capability που ήδη παρέχει το Dexie Cloud· επιβεβαιωμένο και τα δύο fixes ζωντανά στην παραγωγή, με πραγματικό re-run του conflict σεναρίου (Scenario E) μετά το deploy.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Ρητό συμπέρασμα production-readiness για το v1 usage pattern (§summary), με 3 καταγεγραμμένα follow-up items (§debt) — κανένα εξ αυτών v1 blocker.</span></div>
+          <div class="checklist__row"><span class="checklist__mark">✓</span><span>Milestone κλειδωμένο.</span></div>
         </div>
       </section>
 
@@ -422,7 +447,9 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
           <li>Το <code>unsyncedTables</code> configure() είναι fail-closed by default — χωρίς ρητό localStorage hint, ΚΥΡΙΟΛΕΚΤΙΚΑ τίποτα δεν συγχρονίζεται, ούτε η υποδομή του ίδιου του addon.</li>
           <li>Ενεργοποίηση sync απαιτεί: authenticated userId ταιριάζει με το claim, ολοκληρωμένο migration, ΚΑΙ ρητή, μη-persisted επιβεβαίωση εξουσιοδότησης (§checklist) σε κάθε προσπάθεια.</li>
           <li>Η εναλλαγή γενιάς (legacy↔v2) απαιτεί πάντα πλήρες reload — καμία in-place αντιδραστική εναλλαγή.</li>
-          <li><strong>Ανοιχτό, καταγεγραμμένο κενό:</strong> καμία πραγματική two-device ή offline→online conflict δοκιμή δεν έχει τρέξει ποτέ ζωντανά — μόνο single-device συμπεριφορά (dismiss/snooze/backup/restore/goal-deletion) έχει πλήρως QA-αρισθεί.</li>
+          <li><code>Table.update()</code> στέλνει πλέον πραγματικό partial changeSpec (<code>diffFields()</code>) — μόνο τα πεδία που πραγματικά άλλαξαν, όχι ολόκληρο το τοπικό object snapshot· αυτό επιτρέπει στο Dexie Cloud να κάνει πραγματικό field-level merge όταν δύο συσκευές αλλάζουν διαφορετικά πεδία της ίδιας εγγραφής offline.</li>
+          <li><strong>Πλέον κλειστό:</strong> το Real Multi-Device Sync Validation (12 σενάρια, δύο πραγματικές συσκευές, πραγματικό production Dexie Cloud backend) ολοκληρώθηκε — δείτε §checklist. Ρητό συμπέρασμα: κατάλληλο για έναν εκπαιδευτικό/έναν λογαριασμό/μία κύρια συσκευή με περιστασιακή δεύτερη, όχι για σκόπιμη ταυτόχρονη πολύ-συσκευή/πολύ-χρηστική επεξεργασία της ίδιας εγγραφής.</li>
+          <li><strong>Ανοιχτά, καταγεγραμμένα follow-ups</strong> (§debt, όχι v1 blockers): προσωρινή επανεμφάνιση διαγραμμένης εγγραφής σε race με offline edit· περιστασιακή καθυστέρηση συγχρονισμού 90+ δευτερολέπτων· <code>deleteStudent</code> δεν καθαρίζει <code>schoolYearParticipation</code>.</li>
           <li>CI-side: το pre-deploy smoke build τρέχει πάντα με <code>VITE_DEXIE_CLOUD_URL=''</code> — ανεξάρτητο από το αν το πραγματικό repository variable είναι ρυθμισμένο, ώστε να μην εξαρτάται ποτέ από το Dexie Cloud CORS allowlist.</li>
         </ul>
       </section>
@@ -430,8 +457,8 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
       <section id="tests">
         <div class="section__head"><p class="section__eyebrow">Ποιότητα</p><h2>Test coverage summary</h2></div>
         <div class="stat-grid">
-          <div class="stat-card"><p class="stat-card__value">82</p><p class="stat-card__label">Vitest αρχεία</p></div>
-          <div class="stat-card"><p class="stat-card__value">1136</p><p class="stat-card__label">Vitest tests</p></div>
+          <div class="stat-card"><p class="stat-card__value">89</p><p class="stat-card__label">Vitest αρχεία</p></div>
+          <div class="stat-card"><p class="stat-card__value">1201</p><p class="stat-card__label">Vitest tests</p></div>
           <div class="stat-card"><p class="stat-card__value">5</p><p class="stat-card__label">Playwright smoke tests</p></div>
           <div class="stat-card"><p class="stat-card__value">2×</p><p class="stat-card__label">smoke πέρασμα ανά deploy (pre + post)</p></div>
         </div>
@@ -456,14 +483,16 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
         <h3><span class="pill pill--new">v1.1</span> Στοχευμένη σκλήρυνση</h3>
         <ul>
           <li>Διόρθωση του Dexie Cloud native login dialog / ανεπιτήρητου <code>DexieError2</code> στο login-cancel (§technical debt) — προσθήκη <code>.catch()</code> στο <code>db.cloud.login()</code>, διερεύνηση γιατί εμφανίζεται το native dialog πάνω από το custom login form.</li>
-          <li>Αφαίρεση <code>SyncDiagnosticsPanel</code> μετά την ολοκλήρωση real-device sync validation.</li>
+          <li>Αφαίρεση <code>SyncDiagnosticsPanel</code> — το real-device sync validation που το χρειαζόταν έχει πλέον ολοκληρωθεί, η αφαίρεση είναι actionable τώρα.</li>
           <li>ESLint config + lint step στο CI.</li>
           <li>Επιβεβαίωση/διόρθωση του <code>notificationState</code> migration-id ερωτήματος (§technical debt).</li>
+          <li><code>deleteStudent</code>: προσθήκη καθαρισμού <code>schoolYearParticipation</code> στο ήδη υπάρχον delete cascade (§technical debt).</li>
         </ul>
 
-        <h3><span class="pill pill--mod">v1.2</span> Πραγματικός multi-device sync &amp; performance</h3>
+        <h3><span class="pill pill--mod">v1.2</span> Sync follow-ups &amp; performance</h3>
         <ul>
-          <li>Πραγματικό two-device authenticated sync test + offline→online conflict test (το ανοιχτό κενό του §backup-sync).</li>
+          <li>Διερεύνηση της προσωρινής επανεμφάνισης διαγραμμένης εγγραφής σε race με offline edit (§technical debt) — reproduction, ακριβής διάρκεια, πιθανές defensive UX λύσεις. Καμία αρχιτεκτονική αλλαγή (tombstones κ.λπ.) χωρίς ξεχωριστό design pass.</li>
+          <li>Διερεύνηση της περιστασιακής καθυστέρησης συγχρονισμού 90+ δευτερολέπτων (§technical debt) — επαναληπτική μέτρηση, ή σύγκριση με paid Dexie Cloud tier, ή ερώτημα προς Dexie Cloud.</li>
           <li>Code-splitting/lazy-loading ανά route (μείωση του ~1.6MB single bundle).</li>
           <li>Πλήρες NVDA/VoiceOver accessibility pass.</li>
           <li>Επέκταση του Playwright suite πέρα από smoke — βασικά end-to-end flows (Teaching Mode, backup/restore) σε πραγματικό browser.</li>
@@ -483,10 +512,13 @@ PageHeader, EmptyState, Tabs, OverflowMenu, AlertBanner, Modal — παρουσ�
       <div class="closing">
         <h2>Κλείσιμο</h2>
         <p>Το Workspace v1.0 είναι ένα πλήρες, λειτουργικό, local-first PWA για ειδικούς
-          παιδαγωγούς, με μια ώριμη, καλά δοκιμασμένη προαιρετική στρώση cloud sync, ένα ενιαίο
-          Teacher Profile + Settings module, και μια πλήρη production-readiness πύλη (test → build →
-          smoke → deploy → smoke). Development freeze σε ισχύ σε ολόκληρη την εφαρμογή — καμία νέα
-          λειτουργικότητα μέχρι ρητή νέα έγκριση.</p>
+          παιδαγωγούς, με μια ώριμη, δοκιμασμένη ΚΑΙ πλέον real-device-validated προαιρετική στρώση
+          cloud sync (field-level merge, offline queueing, bulk sync, interrupted-sync recovery),
+          ένα ενιαίο Teacher Profile + Settings module, και μια πλήρη production-readiness πύλη
+          (test → build → smoke → deploy → smoke). Το v1 είναι κατάλληλο για έναν εκπαιδευτικό, έναν
+          προσωπικό λογαριασμό, μία κύρια συσκευή με περιστασιακή δεύτερη — όχι για σκόπιμη
+          ταυτόχρονη πολύ-συσκευή επεξεργασία της ίδιας εγγραφής. Development freeze σε ισχύ σε
+          ολόκληρη την εφαρμογή — καμία νέα λειτουργικότητα μέχρι ρητή νέα έγκριση.</p>
       </div>
     </main>
   </div>

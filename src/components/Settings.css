@@ -3,9 +3,12 @@
    selectors διαβάζουν custom properties (--color-card, --color-milestone, --color-priority-medium,
    --color-priority-low, --color-primary-ink, --color-danger-ink) που ΔΕΝ αντικαθίστανται από το
    .app-shell (βλ. src/design/tokens.css) και άρα πέφτουν πίσω στις μπεζ/καφέ τιμές του :root.
-   Εδώ τα ξαναορίζουμε, scoped ΜΟΝΟ στα tabpanels της σελίδας Ρυθμίσεων, ώστε καμία άλλη σελίδα
-   που μοιράζεται τα ίδια legacy .section/.notice/.btn-* να μην επηρεαστεί. Reuse των ήδη
-   υπαρχόντων .app-shell tokens — καμία καινούρια απόχρωση. */
+   Το ίδιο ισχύει και για το tabpanel-profile — το TeacherProfileSection τυλίγεται σε
+   className="section teacher-profile-section" (βλ. TeacherProfileSection.jsx). Εδώ τα
+   ξαναορίζουμε, scoped ΜΟΝΟ στα tabpanels της σελίδας Ρυθμίσεων, ώστε καμία άλλη σελίδα που
+   μοιράζεται τα ίδια legacy .section/.notice/.btn-* να μην επηρεαστεί. Reuse των ήδη υπαρχόντων
+   .app-shell tokens — καμία καινούρια απόχρωση. */
+#tabpanel-profile,
 #tabpanel-account,
 #tabpanel-backup,
 #tabpanel-schoolYear,

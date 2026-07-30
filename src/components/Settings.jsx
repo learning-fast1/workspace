@@ -17,6 +17,7 @@ import GenerationSwitchoverSection from './GenerationSwitchoverSection.jsx'
 import EnableSyncSection from './EnableSyncSection.jsx'
 import SyncDiagnosticsPanel from './SyncDiagnosticsPanel.jsx'
 import ApplicationSection from './ApplicationSection.jsx'
+import './Settings.css'
 
 const TABLE_LABELS = {
   students: 'Μαθητές',

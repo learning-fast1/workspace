@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Library } from 'lucide-react'
 import { createGoal } from '../db.js'
 import { activeTable, resolveEntityId } from '../migration/activeGeneration.js'
+import { diffFields } from '../utils/formDiff.js'
 import { DOMAINS } from '../config/domains.js'
 import { PRIORITIES } from '../config/goalOptions.js'
 import { isRecommendedMeasurementType } from '../config/measurementRecommendations.js'
@@ -288,7 +289,13 @@ export default function GoalWizardForm({ mode }) {
         // αυτό το save να αγγίξει ποτέ την κατάσταση ή να δημιουργήσει goalEvent (Technical Plan
         // Στάδιο 3/4 — μοναδικό API για αλλαγή κατάστασης είναι το transitionGoalStatus).
         const { status: _status, statusChangedAt: _statusChangedAt, ...editableFields } = fieldsToSave
-        await activeTable('goals').update(resolvedGoalId, editableFields)
+        // Partial-update fix (Root Cause Investigation, Scenario E) — diffFields αντί για ολόκληρο
+        // editableFields· initialGoalRef.current περιέχει status/statusChangedAt αλλά αυτό δεν
+        // πειράζει, το diffFields κοιτάζει μόνο keys που υπάρχουν στο (ήδη stripped) editableFields.
+        const changes = diffFields(initialGoalRef.current, editableFields)
+        if (Object.keys(changes).length > 0) {
+          await activeTable('goals').update(resolvedGoalId, changes)
+        }
       } else {
         // studentId===null εδώ θα σήμαινε κατεστραμμένο route (π.χ. /goals/new/xyz) — ΠΟΤΕ να μη
         // γραφτεί goals.studentId=null/NaN σιωπηλά (βλ. Technical Fix Plan, createGoalCore δεν κάνει

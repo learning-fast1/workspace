@@ -3,6 +3,7 @@ import { bulkCancelDay } from '../db.js'
 import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
 import { resolveOccurrencesForDate } from '../utils/scheduleResolution.js'
 import { sameStudentSet } from '../utils/dailyQueue.js'
+import { diffFields } from '../utils/formDiff.js'
 import { CALENDAR_EVENT_CATEGORIES, BULK_CANCEL_CATEGORIES } from '../config/scheduleOptions.js'
 import Modal from './ui/Modal.jsx'
 import Button from './ui/Button.jsx'
@@ -55,7 +56,21 @@ export default function CalendarEventForm({ date, event, onClose, onSaved }) {
     try {
       const fields = { date, title: trimmed, category: category || null, startTime: startTime || null, note }
       if (isEdit) {
-        await activeTable('calendarEvents').update(event.id, fields)
+        // Partial-update fix (Root Cause Investigation, Scenario E) — diffFields αντί για ολόκληρο
+        // fields. normalizedInitial καθρεφτίζει ΑΚΡΙΒΩΣ την ίδια προεπιλογή/normalization που
+        // χρησιμοποιήθηκε για το αρχικό local state (event?.x || ...), αλλιώς ένα ανέγγιχτο πεδίο
+        // θα καταγραφόταν ως ψευδής αλλαγή (π.χ. undefined -> '').
+        const normalizedInitial = {
+          date: event.date,
+          title: (event.title || '').trim(),
+          category: event.category || null,
+          startTime: event.startTime || null,
+          note: event.note || ''
+        }
+        const changes = diffFields(normalizedInitial, fields)
+        if (Object.keys(changes).length > 0) {
+          await activeTable('calendarEvents').update(event.id, changes)
+        }
         onSaved?.()
         onClose()
       } else {

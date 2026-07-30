@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, cleanup, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
@@ -785,5 +785,38 @@ describe('GoalWizardForm — v2 γενιά (κρίσιμο hotfix regression)', 
     // το mount/loading, ΟΧΙ το submit flow (που θα απαιτούσε συμπλήρωση όλων των υποχρεωτικών πεδίων).
     await waitFor(() => expect(screen.queryByText('Φόρτωση…')).not.toBeInTheDocument())
     expect(await activeTable('goals').count()).toBe(0)
+  })
+})
+
+describe('GoalWizardForm — partial updates (Root Cause Investigation, Scenario E fix)', () => {
+  it('αλλαγή ΜΟΝΟ του τίτλου στέλνει changeSpec με ΑΚΡΙΒΩΣ ένα key', async () => {
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    const goalId = await seedLegacyGoal(studentId, { title: 'Αρχικός τίτλος' })
+    const updateSpy = vi.spyOn(db.table('goals'), 'update')
+
+    const user = userEvent.setup()
+    renderWizard('edit', { studentId, goalId })
+    await screen.findByDisplayValue('Αρχικός τίτλος')
+    await user.clear(screen.getByLabelText('Τι θέλουμε να πετύχει', { exact: false }))
+    await user.type(screen.getByLabelText('Τι θέλουμε να πετύχει', { exact: false }), 'Νέος τίτλος')
+    await user.click(screen.getByRole('button', { name: 'Επόμενο →' }))
+    await user.click(screen.getByRole('button', { name: 'Επόμενο →' }))
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση στόχου' }))
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+    expect(updateSpy).toHaveBeenCalledWith(goalId, { title: 'Νέος τίτλος' })
+    updateSpy.mockRestore()
+  })
+
+  it('δύο ανεξάρτητα partial updates στον ΙΔΙΟ στόχο διατηρούν και τις δύο αλλαγές', async () => {
+    const studentId = await db.students.add({ code: 'Μ2', active: true })
+    const goalId = await seedLegacyGoal(studentId, { title: 'Τ', priority: 'medium' })
+
+    await db.goals.update(goalId, { title: 'Νέος τίτλος από Α' })
+    await db.goals.update(goalId, { priority: 'high' })
+
+    const goal = await db.goals.get(goalId)
+    expect(goal.title).toBe('Νέος τίτλος από Α')
+    expect(goal.priority).toBe('high')
   })
 })

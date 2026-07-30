@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, UserX } from 'lucide-react'
 import { activeTable, resolveEntityId, withNewRowId } from '../migration/activeGeneration.js'
+import { diffFields } from '../utils/formDiff.js'
 import AppShell from './shell/AppShell.jsx'
 import PageHeader from './ui/PageHeader.jsx'
 import Card from './ui/Card.jsx'
@@ -138,7 +139,17 @@ export default function StudentForm({ mode }) {
       } else {
         // studentId εγγυημένα όχι null εδώ — το notFound branch παραπάνω στο render θα είχε ήδη
         // εμποδίσει να φτάσει η φόρμα (άρα και το submit) σε αυτό το σημείο.
-        await studentsTable.update(studentId, { ...form, code })
+        //
+        // Partial-update fix (Root Cause Investigation, Scenario E) — ΠΟΤΕ πια { ...form, code }
+        // ολόκληρο· diffFields() πάνω στο ΤΕΛΙΚΟ normalized payload (trimmed code και στις δύο
+        // πλευρές της σύγκρισης, αλλιώς ένα καθαρά κοσμητικό leading/trailing space θα καταγραφόταν
+        // ως ψευδής αλλαγή) ώστε το πραγματικό property-level merge του Dexie Cloud να λειτουργήσει.
+        const normalizedInitial = { ...initialFormRef.current, code: initialFormRef.current.code.trim() }
+        const normalizedCurrent = { ...form, code }
+        const changes = diffFields(normalizedInitial, normalizedCurrent)
+        if (Object.keys(changes).length > 0) {
+          await studentsTable.update(studentId, changes)
+        }
         navigate(`/students/${id}`)
       }
     } catch (err) {

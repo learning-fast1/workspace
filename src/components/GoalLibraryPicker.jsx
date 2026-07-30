@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Pencil, Trash2 } from 'lucide-react'
 import { listGoalTemplates, updateGoalTemplate, deleteGoalTemplate } from '../db.js'
 import { prefillFromSource } from '../utils/goalTemplates.js'
+import { diffFields } from '../utils/formDiff.js'
 import { DOMAINS, domainName } from '../config/domains.js'
 import { listMeasurementTypes } from '../utils/measurementTypes/index.js'
 import Modal from './ui/Modal.jsx'
@@ -72,7 +73,15 @@ export default function GoalLibraryPicker({ open, onClose, onApply, isDirty }) {
     setBusy(true)
     setEditError(null)
     try {
-      await updateGoalTemplate(selected.id, editFields)
+      // Partial-update fix (Root Cause Investigation, Scenario E) — diffFields αντί για ολόκληρο
+      // editFields· `selected` παραμένει το αμετάβλητο στιγμιότυπο όπως φορτώθηκε στο openEdit().
+      const changes = diffFields(
+        { domain: selected.domain, title: selected.title, description: selected.description, criterion: selected.criterion, measurementType: selected.measurementType },
+        editFields
+      )
+      if (Object.keys(changes).length > 0) {
+        await updateGoalTemplate(selected.id, changes)
+      }
       setView('list')
       setSelected(null)
     } catch (err) {

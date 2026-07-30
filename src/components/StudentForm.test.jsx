@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
@@ -105,6 +105,65 @@ describe('StudentForm — edit λειτουργεί ανεξάρτητα από 
       expect(row.nickname).toBe('Νέο όνομα')
     })
     expect(await activeTable('students').count()).toBe(1) // καμία ορφανή/επιπλέον γραμμή (π.χ. NaN key)
+  })
+})
+
+describe('StudentForm — partial updates (Root Cause Investigation, Scenario E fix)', () => {
+  it('αλλαγή ΜΟΝΟ του nickname στέλνει changeSpec με ΑΚΡΙΒΩΣ ένα key', async () => {
+    const id = await db.students.add({ code: 'Μ1', nickname: '', grade: 'Α', notes: '', functionalProfile: [], preferences: {}, active: true })
+    const updateSpy = vi.spyOn(db.table('students'), 'update')
+    const user = userEvent.setup()
+    renderEdit(id)
+    await screen.findByDisplayValue('Μ1')
+    await user.type(screen.getByLabelText('Μικρό όνομα', { exact: false }), 'Νέο')
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+    expect(updateSpy).toHaveBeenCalledWith(id, { nickname: 'Νέο' })
+    updateSpy.mockRestore()
+  })
+
+  it('leading/trailing κενά στον κωδικό ΔΕΝ παράγουν ψευδές diff (normalization πριν τη σύγκριση)', async () => {
+    const id = await db.students.add({ code: 'Μ1', nickname: 'Ν', grade: '', notes: '', functionalProfile: [], preferences: {}, active: true })
+    const updateSpy = vi.spyOn(db.table('students'), 'update')
+    const user = userEvent.setup()
+    renderEdit(id)
+    await screen.findByDisplayValue('Μ1')
+    const codeInput = screen.getByLabelText('Κωδικός μαθητή', { exact: false })
+    await user.type(codeInput, '  ') // μόνο κενά στο τέλος — το trim() θα το εξουδετερώσει
+    await user.type(screen.getByLabelText('Μικρό όνομα', { exact: false }), '2')
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+    // code ΔΕΝ πρέπει να εμφανίζεται στο changeSpec — μετά το trim() παραμένει ίδιο με το αρχικό
+    expect(updateSpy).toHaveBeenCalledWith(id, { nickname: 'Ν2' })
+    updateSpy.mockRestore()
+  })
+
+  it('άδειο diff (καμία πραγματική αλλαγή) → ΔΕΝ καλεί .update(), αλλά ολοκληρώνει κανονικά το save flow', async () => {
+    const id = await db.students.add({ code: 'Μ1', nickname: 'Ν', grade: '', notes: '', functionalProfile: [], preferences: {}, active: true })
+    const updateSpy = vi.spyOn(db.table('students'), 'update')
+    const user = userEvent.setup()
+    renderEdit(id)
+    await screen.findByDisplayValue('Μ1')
+    // Καμία αλλαγή — απλά ξανα-αποθήκευση όπως είναι.
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /Επεξεργασία/ })).not.toBeInTheDocument())
+    expect(updateSpy).not.toHaveBeenCalled()
+    updateSpy.mockRestore()
+  })
+
+  it('δύο ανεξάρτητα partial updates στην ΙΔΙΑ γραμμή διατηρούν και τις δύο αλλαγές (προσομοίωση 2 συσκευών)', async () => {
+    const id = await db.students.add({ code: 'Μ1', nickname: '', grade: '', notes: '', functionalProfile: [], preferences: {}, active: true })
+    // "Συσκευή Α": αλλάζει μόνο nickname
+    await db.students.update(id, { nickname: 'ΑπόΑ' })
+    // "Συσκευή Β": αλλάζει μόνο grade, ΑΝΕΞΑΡΤΗΤΑ — πραγματικό partial update, όχι ολόκληρο form
+    await db.students.update(id, { grade: 'Ε2' })
+
+    const row = await db.students.get(id)
+    expect(row.nickname).toBe('ΑπόΑ') // ΔΕΝ χάθηκε, σε αντίθεση με το Scenario E πριν τη διόρθωση
+    expect(row.grade).toBe('Ε2')
   })
 })
 

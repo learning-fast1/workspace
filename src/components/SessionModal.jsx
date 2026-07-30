@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Pencil, Star, ClipboardList, Stethoscope } from 'lucide-react'
 import { db, transitionGoalStatus, getAllowedGoalStatusTransitions } from '../db.js'
 import { activeTable, withNewRowId } from '../migration/activeGeneration.js'
+import { diffFields } from '../utils/formDiff.js'
 import { formatDateEl } from '../utils/date.js'
 import { domainName } from '../config/domains.js'
 import { sortByPriority, statusLabel } from '../config/goalOptions.js'
@@ -81,6 +82,10 @@ async function loadSessionDetail(sessionId) {
 export default function SessionModal({ sessionId, initialMode = 'view', onClose }) {
   const [mode, setMode] = useState(initialMode)
   const [formReady, setFormReady] = useState(false)
+  // Partial-update fix (Root Cause Investigation, Scenario E) — στιγμιότυπο των πεδίων της
+  // συνεδρίας ΟΠΩΣ φορτώθηκαν αρχικά (ίδια normalization με το syncForm παρακάτω), ώστε το save
+  // να μπορεί να στείλει diffFields() αντί για ολόκληρο το τοπικό state.
+  const initialSessionFieldsRef = useRef(null)
 
   const [date, setDate] = useState('')
   const [status, setStatus] = useState('completed')
@@ -122,6 +127,10 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
     setActivity(s.activity || '')
     setNote(s.note || '')
     setMoods(s.moods || {})
+    initialSessionFieldsRef.current = {
+      date: s.date, status: s.status, durationMinutes: s.durationMinutes,
+      activity: s.activity || '', note: s.note || '', moods: s.moods || {}
+    }
 
     const nextMeasurements = {}
     for (const rows of Object.values(d.measurementsByStudent)) {
@@ -217,7 +226,15 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
       const goalsTable = activeTable('goals')
       const goalEventsTable = activeTable('goalEvents')
       await db.transaction('rw', [sessionsTable, measurementsTable, sessionGoalAssessmentsTable, goalsTable, goalEventsTable], async () => {
-        await sessionsTable.update(sessionId, { date, status, durationMinutes: duration, activity, note, moods })
+        // Partial-update fix (Root Cause Investigation, Scenario E) — diffFields αντί για ολόκληρο
+        // το σύνολο πεδίων της συνεδρίας.
+        const sessionChanges = diffFields(
+          initialSessionFieldsRef.current,
+          { date, status, durationMinutes: duration, activity, note, moods }
+        )
+        if (Object.keys(sessionChanges).length > 0) {
+          await sessionsTable.update(sessionId, sessionChanges)
+        }
 
         const existingMeasurementByGoalId = {}
         for (const rows of Object.values(detail.measurementsByStudent)) {

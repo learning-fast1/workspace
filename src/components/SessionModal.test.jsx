@@ -436,3 +436,46 @@ describe('SessionModal — Edit Session: επεξεργασία measurements/κ�
     expect(await db.measurements.count()).toBe(1)
   })
 })
+
+describe('SessionModal — partial updates (Root Cause Investigation, Scenario E fix)', () => {
+  async function openEdit(user, sessionId) {
+    render(<SessionModal sessionId={sessionId} onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Επεξεργασία' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Επεξεργασία' }))
+  }
+
+  it('αλλαγή ΜΟΝΟ της σημείωσης στέλνει changeSpec με ΑΚΡΙΒΩΣ ένα key', async () => {
+    const user = userEvent.setup()
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    await seedSuccessRatioGoal(studentId)
+    const sessionId = await db.sessions.add({
+      date: '2026-02-01', studentIds: [studentId], status: 'completed', absentStudentIds: [],
+      durationMinutes: 30, activity: '', note: '', moods: {}
+    })
+    const updateSpy = vi.spyOn(db.table('sessions'), 'update')
+
+    await openEdit(user, sessionId)
+    await user.type(screen.getByLabelText('Σημείωση', { exact: false }), 'Νέα σημείωση')
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+    const sessionUpdateCall = updateSpy.mock.calls.find(([key]) => key === sessionId)
+    expect(sessionUpdateCall[1]).toEqual({ note: 'Νέα σημείωση' })
+    updateSpy.mockRestore()
+  })
+
+  it('δύο ανεξάρτητα partial updates στην ΙΔΙΑ συνεδρία διατηρούν και τις δύο αλλαγές', async () => {
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    const sessionId = await db.sessions.add({
+      date: '2026-02-01', studentIds: [studentId], status: 'completed', absentStudentIds: [],
+      durationMinutes: 30, activity: '', note: '', moods: {}
+    })
+
+    await db.sessions.update(sessionId, { note: 'Σημείωση από Α' })
+    await db.sessions.update(sessionId, { durationMinutes: 45 })
+
+    const session = await db.sessions.get(sessionId)
+    expect(session.note).toBe('Σημείωση από Α')
+    expect(session.durationMinutes).toBe(45)
+  })
+})

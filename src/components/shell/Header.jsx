@@ -1,13 +1,12 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Bell, ChevronDown, Menu, Search, User } from 'lucide-react'
-import { getDisplayName } from '../../db.js'
+import { Bell, ChevronDown, LogOut, Menu, Settings as SettingsIcon, User } from 'lucide-react'
+import { CLOUD_ENABLED, getDisplayName } from '../../db.js'
 import useAuth from '../../auth/useAuth.js'
 import { useNotifications } from './NotificationsProvider.jsx'
+import OverflowMenu from '../ui/OverflowMenu.jsx'
+import HeaderSearch from './HeaderSearch.jsx'
 
-// Search είναι σκόπιμα μη-λειτουργικός placeholder προς το παρόν (βλ. οδηγία) — καμία πραγματική
-// αναζήτηση.
-//
 // Κουδούνι ειδοποιήσεων (Notifications Inbox, review χρήστη) — ΕΔΩ, ΟΧΙ έκτο στοιχείο στο
 // Sidebar/BottomNav: το Header είναι το ΜΟΝΟ κομμάτι του κελύφους ορατό σε ΚΑΘΕ πλάτος οθόνης
 // (το Sidebar/BottomNav εναλλάσσονται ανά breakpoint), και το BottomNav είναι ήδη ισομοιρασμένο
@@ -15,22 +14,29 @@ import { useNotifications } from './NotificationsProvider.jsx'
 // ΑΚΡΙΒΩΣ το πλήθος ορατών ειδοποιήσεων (visible.length) — ΟΧΙ «unread» (καμία νέα seenAt
 // σημασιολογία, review χρήστη), το ΙΔΙΟ νούμερο με τον τίτλο του HomeAttentionWidget.
 //
-// Teacher Profile + Settings (UI Design v3, εγκεκριμένο) — το user-menu ήταν μέχρι πρόσφατα
-// στατικό, μη-λειτουργικό κείμενο («Εκπαιδευτικός», χωρίς onClick). Πλέον πραγματικός σύνδεσμος
-// προς το /settings (tab «Προφίλ»), με το πραγματικό μικρό όνομα — ΜΟΝΟ το πρώτο όνομα (όχι
-// ολόκληρο το displayName): πιο ευανάγνωστο σε ένα στενό κουμπί από ένα κομμένο αρχικό επιθέτου.
-// Το ChevronDown δίπλα σηματοδοτεί «μενού» — ίδιο εικονίδιο/έννοια με το ήδη υπάρχον
-// disclosure-pattern του FunctionalProfileEditor/GoalRecorderCard (rotating chevron = «εδώ ανοίγει
-// κάτι»), όχι νέο οπτικό λεξιλόγιο.
+// User menu (review χρήστη — «πραγματικό dropdown, όχι απευθείας link»): πλέον πραγματικό menu
+// (OverflowMenu, γενικευμένο trigger — βλ. OverflowMenu.jsx), ΟΧΙ πια <Link> κατευθείαν στο
+// /settings. Ένα μόνο στοιχείο «Ρυθμίσεις» (ΧΩΡΙΣ ξεχωριστό «Το προφίλ μου» — το Settings.jsx ήδη
+// προσγειώνεται στο tab «Προφίλ» εξ ορισμού χωρίς state, άρα ένα δεύτερο item θα ήταν ακριβώς ο
+// ίδιος προορισμός με άλλο όνομα, review χρήστη). «Αποσύνδεση» εμφανίζεται ΜΟΝΟ όταν υπάρχει
+// πράγματι ενεργή σύνδεση να τερματιστεί — ίδια συνθήκη με το κουμπί στο AccountSection.jsx.
 export default function Header({ onMenuClick }) {
+  const navigate = useNavigate()
   const { status: notifStatus, visible } = useNotifications()
   const count = notifStatus === 'ok' ? visible.length : 0
 
   const displayName = useLiveQuery(getDisplayName, [])
-  const { status: authStatus, email } = useAuth()
+  const { status: authStatus, email, actions } = useAuth()
   const firstName = displayName ? displayName.trim().split(/\s+/)[0] : null
   const userLabel = firstName || (authStatus === 'loggedIn' && email) || 'Εκπαιδευτικός'
   const avatarInitial = userLabel !== 'Εκπαιδευτικός' ? userLabel.charAt(0).toUpperCase() : null
+
+  const menuItems = [
+    { label: 'Ρυθμίσεις', icon: SettingsIcon, onClick: () => navigate('/settings') }
+  ]
+  if (CLOUD_ENABLED && authStatus === 'loggedIn') {
+    menuItems.push({ label: 'Αποσύνδεση', icon: LogOut, variant: 'danger', onClick: () => actions.logout() })
+  }
 
   return (
     <header className="app-shell-header">
@@ -43,11 +49,7 @@ export default function Header({ onMenuClick }) {
         <Menu size={22} />
       </button>
 
-      <div className="app-shell-search">
-        <Search size={18} />
-        <input type="text" placeholder="Αναζήτηση…" disabled />
-        <span className="app-shell-search-soon">Σύντομα</span>
-      </div>
+      <HeaderSearch />
 
       <div className="app-shell-header-spacer" />
 
@@ -56,13 +58,20 @@ export default function Header({ onMenuClick }) {
         {count > 0 && <span className="app-shell-notifications-badge">{count}</span>}
       </Link>
 
-      <Link to="/settings" className="app-shell-user-menu" aria-label={`Προφίλ — ${userLabel}`}>
-        <span className="app-shell-user-avatar">
-          {avatarInitial || <User size={16} />}
-        </span>
-        <span className="app-shell-user-name">{userLabel}</span>
-        <ChevronDown size={15} aria-hidden="true" className="app-shell-user-chevron" />
-      </Link>
+      <OverflowMenu
+        items={menuItems}
+        ariaLabel={`Προφίλ — ${userLabel}`}
+        triggerClassName="app-shell-user-menu"
+        renderTrigger={() => (
+          <>
+            <span className="app-shell-user-avatar">
+              {avatarInitial || <User size={16} />}
+            </span>
+            <span className="app-shell-user-name">{userLabel}</span>
+            <ChevronDown size={15} aria-hidden="true" className="app-shell-user-chevron" />
+          </>
+        )}
+      />
     </header>
   )
 }

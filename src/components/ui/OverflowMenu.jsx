@@ -6,7 +6,14 @@ import './OverflowMenu.css'
 // πάντα δεξιά κάτω από το trigger (βλ. OverflowMenu.css) — αρκεί όσο το trigger βρίσκεται πάντα
 // πάνω-δεξιά της κάρτας του (η σημερινή χρήση, στο StudentCard), αφού έτσι το menu ανοίγει πάντα
 // ΠΡΟΣ ΤΑ ΜΕΣΑ στην κάρτα, ποτέ έξω από το άκρο της οθόνης.
-export default function OverflowMenu({ items, ariaLabel = 'Περισσότερες ενέργειες' }) {
+//
+// `renderTrigger`/`triggerClassName` (Header user-menu, review χρήστη): προαιρετική γενίκευση ώστε
+// το ΙΔΙΟ, ήδη αποδεδειγμένο interaction pattern (open/close, click-outside, Escape, focus
+// management — όλο το useEffect παρακάτω, ΑΝΕΓΓΙΧΤΟ) να ξαναχρησιμοποιείται με διαφορετικό trigger
+// markup (π.χ. avatar+όνομα+chevron) αντί για πάντα το ίδιο MoreVertical εικονίδιο. Προεπιλογές =
+// ακριβώς η προηγούμενη συμπεριφορά — καμία από τις 9 ήδη υπάρχουσες χρήσεις (GoalCard,
+// StudentCard, HomeAttentionWidget, ...) αλλάζει.
+export default function OverflowMenu({ items, ariaLabel = 'Περισσότερες ενέργειες', renderTrigger, triggerClassName = '' }) {
   const [open, setOpen] = useState(false)
   // Αν το panel (προεπιλογή: ανοίγει προς τα κάτω) θα ξεπερνούσε το κάτω άκρο του viewport —
   // π.χ. σε mobile, με αρκετά items, πίσω/κάτω από το fixed bottom nav — ανοίγει προς τα ΠΑΝΩ
@@ -60,13 +67,13 @@ export default function OverflowMenu({ items, ariaLabel = 'Περισσότερ�
       <button
         type="button"
         ref={triggerRef}
-        className="overflow-menu__trigger"
+        className={`overflow-menu__trigger ${triggerClassName}`.trim()}
         aria-label={ariaLabel}
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <MoreVertical size={18} />
+        {renderTrigger ? renderTrigger({ open }) : <MoreVertical size={18} />}
       </button>
       {open && (
         <div className={`overflow-menu__panel ${flipUp ? 'overflow-menu__panel--flip-up' : ''}`} role="menu">

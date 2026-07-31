@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import db, { dismissNotification } from '../../db.js'
 import { todayLocalISO, addDays } from '../../utils/date.js'
 import AuthProvider from '../../auth/AuthProvider.jsx'
@@ -22,10 +23,13 @@ afterEach(async () => {
 // επιστρέφει συγχρονικά το static DISABLED_VALUE, καμία πραγματική κλήση δικτύου/db.cloud).
 function renderHeader() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/']}>
       <AuthProvider>
         <NotificationsProvider>
-          <Header onMenuClick={() => {}} />
+          <Routes>
+            <Route path="/" element={<Header onMenuClick={() => {}} />} />
+            <Route path="/settings" element={<p>Σελίδα Ρυθμίσεων</p>} />
+          </Routes>
         </NotificationsProvider>
       </AuthProvider>
     </MemoryRouter>
@@ -68,20 +72,64 @@ describe('Header — κουδούνι ειδοποιήσεων (Notifications In
   })
 })
 
-describe('Header — user-menu (Teacher Profile + Settings)', () => {
-  it('χωρίς displayName, χωρίς σύνδεση → fallback «Εκπαιδευτικός», link προς /settings', async () => {
+// User menu (review χρήστη — «πραγματικό dropdown, όχι απευθείας link»): πλέον OverflowMenu
+// (γενικευμένο trigger), ΟΧΙ πια <Link> κατευθείαν στο /settings. «Αποσύνδεση» εμφανίζεται ΜΟΝΟ
+// όταν CLOUD_ENABLED && authStatus==='loggedIn' — στο test env CLOUD_ENABLED=false, άρα ΠΟΤΕ
+// ορατό εδώ (καλύπτεται ξεχωριστά σε επίπεδο πηγαίου κώδικα, όχι εδώ, αφού απαιτεί CLOUD_ENABLED
+// build-time flag που δεν αλλάζει ανά test).
+describe('Header — user-menu (πραγματικό dropdown)', () => {
+  it('κλειστό αρχικά, ΔΕΝ πλοηγεί απευθείας κατά το render — fallback «Εκπαιδευτικός»', async () => {
     renderHeader()
-    const link = await screen.findByRole('link', { name: 'Προφίλ — Εκπαιδευτικός' })
-    expect(link).toHaveAttribute('href', '/settings')
+    const trigger = await screen.findByRole('button', { name: 'Προφίλ — Εκπαιδευτικός' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'true')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText('Εκπαιδευτικός')).toBeInTheDocument()
+    expect(screen.queryByText('Σελίδα Ρυθμίσεων')).not.toBeInTheDocument()
   })
 
   it('με αποθηκευμένο displayName πολλαπλών λέξεων → δείχνει ΜΟΝΟ το πρώτο όνομα', async () => {
     await db.userSettings.put({ key: 'displayName', value: 'Όλγα Παπαδοπούλου', updatedAt: '2026-01-01T00:00:00.000Z' })
     renderHeader()
 
-    await screen.findByRole('link', { name: 'Προφίλ — Όλγα' })
+    await screen.findByRole('button', { name: 'Προφίλ — Όλγα' })
     expect(screen.getByText('Όλγα')).toBeInTheDocument()
     expect(screen.queryByText('Παπαδοπούλου')).not.toBeInTheDocument()
+  })
+
+  it('click ανοίγει το menu με ΜΟΝΟ «Ρυθμίσεις» (χωρίς ξεχωριστό «Το προφίλ μου» — ίδιος προορισμός)', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+
+    const trigger = await screen.findByRole('button', { name: 'Προφίλ — Εκπαιδευτικός' })
+    await user.click(trigger)
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Ρυθμίσεις' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /προφίλ μου/i })).not.toBeInTheDocument()
+    // CLOUD_ENABLED=false στο test env → καμία σύνδεση να τερματιστεί, άρα καμία «Αποσύνδεση».
+    expect(screen.queryByRole('menuitem', { name: 'Αποσύνδεση' })).not.toBeInTheDocument()
+  })
+
+  it('«Ρυθμίσεις» πλοηγεί πραγματικά στο /settings', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+
+    await user.click(await screen.findByRole('button', { name: 'Προφίλ — Εκπαιδευτικός' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Ρυθμίσεις' }))
+
+    expect(await screen.findByText('Σελίδα Ρυθμίσεων')).toBeInTheDocument()
+  })
+
+  it('Escape κλείνει το menu, click εκτός κλείνει το menu', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+
+    const trigger = await screen.findByRole('button', { name: 'Προφίλ — Εκπαιδευτικός' })
+    await user.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 })

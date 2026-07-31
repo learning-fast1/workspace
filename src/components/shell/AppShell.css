@@ -62,67 +62,8 @@
   outline-offset: 2px;
 }
 
-.app-shell-search {
-  flex: 1;
-  min-width: 0;
-  max-width: 280px;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 44px;
-  padding: 0 var(--space-3);
-  border-radius: var(--shell-radius);
-  background: var(--color-surface-soft);
-  color: var(--color-text-muted);
-}
-
-.app-shell-search input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  border: none;
-  background: none;
-  outline: none;
-  font: inherit;
-  font-size: var(--font-sm);
-  color: var(--color-text);
-}
-
-.app-shell-search input::placeholder {
-  color: var(--color-text-muted);
-}
-
-/* Δεν κάνει ακόμα πραγματική αναζήτηση — σκόπιμα disabled + ρητή ένδειξη, ώστε να μη μοιάζει
-   λειτουργικό (COMPONENT_GUIDE.md: SearchBar «δεν εμφανίζεται ως λειτουργικό αν δεν αναζητά»). */
-.app-shell-search:has(input:disabled) {
-  cursor: not-allowed;
-  opacity: 0.75;
-}
-
-.app-shell-search input:disabled {
-  cursor: not-allowed;
-}
-
-.app-shell-search-soon {
-  /* Κρυφό σε στενές οθόνες όπου δεν υπάρχει αρκετός χώρος (θα συνέθλιβε το input) — η γκριζωμένη
-     disabled όψη (βλ. :has παραπάνω) παραμένει από μόνη της αρκετή ένδειξη εκεί. */
-  display: none;
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: var(--color-text-muted);
-  background: var(--color-border);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-@media (min-width: 640px) {
-  .app-shell-search-soon {
-    display: inline-block;
-  }
-}
+/* Το πραγματικό search UI (input/dropdown/mobile overlay) ζει πλέον στο δικό του
+   HeaderSearch.jsx/.css (review χρήστη — real global search, ΟΧΙ πια disabled placeholder). */
 
 .app-shell-header-spacer {
   flex: 1;
@@ -170,10 +111,16 @@
   line-height: 1;
 }
 
-.app-shell-user-menu {
+/* Selector .overflow-menu__trigger.app-shell-user-menu (ΟΧΙ μόνο .app-shell-user-menu) — higher
+   specificity, ώστε να νικά ΝΤΕΤΕΡΜΙΝΙΣΤΙΚΑ το width:44px/height:44px του .overflow-menu__trigger
+   (OverflowMenu.css) ανεξάρτητα από τη σειρά import των δύο CSS αρχείων (review χρήστη — trigger
+   γενίκευση του OverflowMenu). Σε mobile το 44x44 square παραμένει σκόπιμα (avatar-only, ίδιο
+   tap-target με το κουδούνι δίπλα του) — μόνο από tablet και πάνω πλαταίνει για name+chevron. */
+.overflow-menu__trigger.app-shell-user-menu {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  width: auto;
   height: 44px;
   padding: 0 var(--space-2) 0 var(--space-1);
   border: 1px solid var(--color-border);
@@ -206,9 +153,9 @@
   font-size: var(--font-sm);
 }
 
-/* Κρυφά σε mobile (ίδιο σκεπτικό με το app-shell-search-soon παραπάνω) — σε στενό πλάτος το
-   user-menu μένει μόνο avatar (ίδιο tap-target μέγεθος με το κουδούνι δίπλα του), το πλήρες
-   όνομα+chevron εμφανίζονται από tablet και πάνω όπου υπάρχει άνετος χώρος. */
+/* Κρυφά σε mobile — σε στενό πλάτος το user-menu μένει μόνο avatar (ίδιο tap-target μέγεθος με το
+   κουδούνι δίπλα του), το πλήρες όνομα+chevron εμφανίζονται από tablet και πάνω όπου υπάρχει άνετος
+   χώρος. */
 .app-shell-user-name,
 .app-shell-user-chevron {
   display: none;
@@ -229,7 +176,7 @@
     color: var(--color-text-muted);
   }
 
-  .app-shell-user-menu {
+  .overflow-menu__trigger.app-shell-user-menu {
     padding: 0 var(--space-3) 0 var(--space-1);
   }
 }

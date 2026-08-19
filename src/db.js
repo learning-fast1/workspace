@@ -276,6 +276,19 @@ db.version(13).stores({
   userSettings_v2: 'id, key'
 })
 
+// Προσωπική λίστα εργασιών στην Αρχική (review χρήστη) — απλός, ανεξάρτητος πίνακας, ΙΔΙΟ
+// στάνταρ σχήμα με τους αρχικούς 16 πίνακες (++id legacy / id (UUID) v2 μέσω withNewRowId — ΟΧΙ
+// το deterministic-id μοτίβο του notificationState/userSettings, αφού τα todos δεν χρειάζονται
+// cross-device merge σε ΤΗΝ ΙΔΙΑ γραμμή· κάθε todo είναι ανεξάρτητο user-content, ίδια λογική με
+// goals/sessions). Καμία foreign key — πλήρως ανεξάρτητο, γι' αυτό προστίθεται στο τέλος του
+// MIGRATED_TABLE_NAMES (βλ. migration/migratedTableNames.js) ώστε να επιβιώνει κανονικά στο
+// legacy→v2 migration όταν ενεργοποιηθεί cloud sync, ίδια αντιμετώπιση με goalTemplates/
+// calendarEvents — ΟΧΙ σαν το appMeta (εκείνο είναι σκόπιμα μόνιμα τοπικό/ανά-συσκευή).
+db.version(14).stores({
+  todos: '++id, createdAt',
+  todos_v2: 'id, createdAt'
+})
+
 // Sprint 5A Phase 1 — ΠΡΕΠΕΙ να τρέξει εδώ: αμέσως μετά την ΤΕΛΕΥΤΑΙΑ δήλωση schema (db.tables
 // είναι πλήρες μόνο μετά από αυτές) και πριν από οποιοδήποτε query/open.
 //

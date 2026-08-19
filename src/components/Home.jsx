@@ -23,6 +23,7 @@ import { selectRecentActivity } from '../utils/sessions.js'
 import AppShell from './shell/AppShell.jsx'
 import TodayQueue from './TodayQueue.jsx'
 import HomeAttentionWidget from './HomeAttentionWidget.jsx'
+import TodoList from './TodoList.jsx'
 import './Home.css'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
@@ -168,6 +169,13 @@ export default function Home() {
           προσοχή» στην Αρχική — το παλιότερο, επικαλυπτόμενο findStaleGoals()/.dashboard-notice
           αφαιρέθηκε (Sprint 7 cleanup) ώστε να μην υπάρχουν δύο ξεχωριστά attention systems εδώ. */}
       <HomeAttentionWidget />
+
+      {/* Προσωπική λίστα εργασιών (review χρήστη — «εύκολα προσβάσιμο, να μπορεί να χρησιμοποιεί
+          οποτεδήποτε»). Ίδια θέση-λογική με το HomeAttentionWidget από πάνω — ορατό χωρίς πολύ
+          scroll, ΔΕΝ ανταγωνίζεται το «Η μέρα μου». Σε αντίθεση με το HomeAttentionWidget, ΔΕΝ
+          κρύβεται όταν είναι άδειο (δικό του empty state με CTA να προσθέσεις κάτι) — είναι το
+          ίδιο το εργαλείο, όχι μια ειδοποίηση για κάτι αλλού. */}
+      <TodoList />
 
       {/* Sprint 8 (Product Design §5/§6): αναδιάταξη — οι γρήγορες ενέργειες έρχονται πλέον πριν
           την «Επισκόπηση» (χρησιμοποιούνται μερικές φορές/μέρα, έναντι της εβδομαδιαίας/μηνιαίας

@@ -35,7 +35,10 @@ export const MIGRATED_TABLE_NAMES = [
   // με το domainTemplates/`domain`) — ΟΧΙ το `id`. Σε αντίθεση με το notificationState, ΕΔΩ ο v2
   // πίνακας χρειάζεται πραγματικό migration-safe `id` (deterministic hash) ΓΙΑΤΙ πρέπει να
   // ταξιδεύει σε δεύτερη συσκευή/μετά από restore — βλ. db.js#userSettings_v2 για την πλήρη εξήγηση.
-  'userSettings'
+  'userSettings',
+  // Προσωπική λίστα εργασιών (Αρχική, review χρήστη) — πλήρως ανεξάρτητος πίνακας, στάνταρ ++id
+  // (legacy) / id UUID (v2) σχήμα, ίδια αντιμετώπιση με goalTemplates/calendarEvents παραπάνω.
+  'todos'
 ]
 
 // domainTemplates είναι η ΜΟΝΑΔΙΚΗ εξαίρεση όπου το legacy primary key ΔΕΝ είναι `id` — είναι το

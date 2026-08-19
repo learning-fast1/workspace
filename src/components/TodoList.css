@@ -1,0 +1,171 @@
+/* Assumes .app-shell ancestor context (βλ. src/design/tokens.css). Ίδιο visual language με τα
+   υπόλοιπα Home.jsx sections (.dashboard-stat-card/.dashboard-activity) — λευκή κάρτα, ίδιο
+   padding/radius/shadow — αλλά δικές του κλάσεις, το component ζει έξω από το Home.jsx. */
+
+.todo-list {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius-lg);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.todo-list__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.todo-list__title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin: 0;
+}
+
+.todo-list__count {
+  flex-shrink: 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+}
+
+.todo-list__loading {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+.todo-list__form {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.todo-list__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius);
+  background: var(--color-surface-soft);
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.todo-list__input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.todo-list__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--shell-radius);
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+}
+
+.todo-list__add:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.todo-list__add:disabled {
+  background: var(--color-border);
+  cursor: not-allowed;
+}
+
+.todo-list__add:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.todo-list__empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+.todo-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.todo-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border-radius: var(--shell-radius);
+}
+
+.todo-list__item:hover {
+  background: var(--color-surface-soft);
+}
+
+.todo-list__item-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.todo-list__item-label input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.todo-list__item-text {
+  min-width: 0;
+  overflow-wrap: break-word;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.todo-list__item-text--done {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.todo-list__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.todo-list__delete:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.todo-list__delete:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}

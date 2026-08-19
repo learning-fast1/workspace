@@ -1849,10 +1849,10 @@ describe('Sprint 5A Phase 1 — CLOUD_ENABLED feature flag (db.js)', () => {
 // πραγματικά χρησιμοποιήσιμοι — όχι μόνο δηλωμένοι.
 describe('Schema v11 (Phase 2 parallel-table foundation, reconciled μετά τα Sprint 7/8)', () => {
   it('ανοίγει στο v11 και δηλώνει _v2 αντίστοιχο για ΚΑΘΕ πίνακα δεδομένων του legacy σχήματος', async () => {
-    // db.verno: 13 (Smart Notifications v12 + userSettings v13, βλ. db.version(12)/db.version(13)
-    // — και οι δύο προστέθηκαν ΜΕΤΑ το v11 που αυτό το describe block ελέγχει, δεν αγγίζουν τίποτα
-    // από όσα ελέγχονται εδώ).
-    expect(db.verno).toBe(13)
+    // db.verno: 14 (Smart Notifications v12 + userSettings v13 + todos v14, βλ.
+    // db.version(12)/db.version(13)/db.version(14) — όλα προστέθηκαν ΜΕΤΑ το v11 που αυτό το
+    // describe block ελέγχει, δεν αγγίζουν τίποτα από όσα ελέγχονται εδώ).
+    expect(db.verno).toBe(14)
 
     const tableNames = db.tables.map((t) => t.name)
     const legacyDataTables = [

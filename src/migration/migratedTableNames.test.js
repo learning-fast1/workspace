@@ -5,9 +5,9 @@ import {
 import { DATA_TABLE_NAMES } from '../db.js'
 
 describe('MIGRATED_TABLE_NAMES — canonical manifest', () => {
-  it('περιέχει ακριβώς 18 πίνακες, χωρίς διπλότυπα', () => {
-    expect(MIGRATED_TABLE_NAMES).toHaveLength(18)
-    expect(new Set(MIGRATED_TABLE_NAMES).size).toBe(18)
+  it('περιέχει ακριβώς 19 πίνακες, χωρίς διπλότυπα', () => {
+    expect(MIGRATED_TABLE_NAMES).toHaveLength(19)
+    expect(new Set(MIGRATED_TABLE_NAMES).size).toBe(19)
   })
 
   it('δεν περιλαμβάνει appMeta (μόνιμα τοπικό, ποτέ δεν μεταφέρεται)', () => {

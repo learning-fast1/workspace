@@ -9,7 +9,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Backlog fix (review χρήστη — «update-available UX» αντί για σιωπηλή ενημέρωση): με
+      // 'autoUpdate' το Workbox ενεργοποιεί/reload-άρει τη νέα έκδοση ΧΩΡΙΣ να ρωτήσει — ρίσκο
+      // απώλειας ημιτελούς φόρμας αν ο εκπαιδευτικός βρίσκεται μέσα σε Teaching Mode/φόρμα τη
+      // στιγμή που ενεργοποιείται. 'prompt' αφήνει την εφαρμογή (main.jsx registerSW onNeedRefresh
+      // → components/PwaUpdateBanner.jsx) να δείξει ορατή ειδοποίηση, ο χρήστης αποφασίζει ΠΟΤΕ.
+      registerType: 'prompt',
       includeAssets: ['icons/icon.svg'],
       manifest: {
         name: 'Workspace Ειδικού Παιδαγωγού',

@@ -3,6 +3,7 @@ import Sidebar from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import Header from './Header.jsx'
 import { NotificationsProvider } from './NotificationsProvider.jsx'
+import PwaUpdateBanner from '../PwaUpdateBanner.jsx'
 import '../../design/tokens.css'
 import './AppShell.css'
 
@@ -28,6 +29,7 @@ export default function AppShell({ children }) {
           </div>
         </div>
         <BottomNav />
+        <PwaUpdateBanner />
       </div>
     </NotificationsProvider>
   )

@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
+import { setUpdateAvailable } from './pwaUpdate.js'
 import { ensureDomainTemplatesSeeded, migrateDomainNamesToIds, migrateGoalDomainsToBroaderDomains } from './db.js'
 import { initializeActiveGeneration } from './migration/activeGeneration.js'
 import { verifySyncAuthorizationOrShutdown } from './migration/syncAuthorization.js'
@@ -18,7 +19,14 @@ import './index.css'
 // επίδραση στην κανονική λειτουργία της εφαρμογής όταν δεν είναι armed.
 if (isCaptureArmed()) installConsoleCapture()
 
-registerSW({ immediate: true })
+// Backlog fix (review χρήστη — «update-available UX» αντί για σιωπηλό reload, βλ. vite.config.js
+// registerType:'prompt'): onNeedRefresh γεμίζει το μικρό external store (pwaUpdate.js) που
+// διαβάζει το PwaUpdateBanner.jsx (αποδίδεται μέσα στο AppShell) — ο ίδιος ο χρήστης αποφασίζει
+// πότε θα γίνει reload, όχι το Workbox αυτόματα μέσα σε μια φόρμα.
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh: () => setUpdateAvailable(updateSW)
+})
 
 function renderApp() {
   ReactDOM.createRoot(document.getElementById('root')).render(

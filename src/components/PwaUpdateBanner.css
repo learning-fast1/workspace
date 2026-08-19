@@ -1,0 +1,59 @@
+/* Assumes .app-shell ancestor context. Ίδιο z-index tier/bottom-offset μοτίβο με το
+   .dashboard-new-session-fab (Home.css) — πάνω από το bottom nav, κάτω από modals (50)/search
+   overlay (40). Οριζόντια κεντραρισμένο (όχι δεξιά, όπως το FAB) — αυτό είναι σελίδο-ανεξάρτητη,
+   συστημική ειδοποίηση, όχι page action. */
+.pwa-update-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--shell-bottom-nav-height) + var(--space-4));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--shell-radius-lg);
+  background: var(--color-text);
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+}
+
+.pwa-update-banner__text {
+  font-size: var(--font-sm);
+}
+
+.pwa-update-banner__action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--shell-radius);
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pwa-update-banner__action:hover {
+  background: var(--color-primary-hover);
+}
+
+.pwa-update-banner__action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .pwa-update-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+}

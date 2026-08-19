@@ -45,11 +45,24 @@ async function loadSearchData() {
 const CATEGORY_ORDER = ['students', 'sessions', 'goals', 'reports']
 const CATEGORY_LABEL = { students: 'Μαθητές', sessions: 'Συνεδρίες', goals: 'Στόχοι', reports: 'Αναφορές' }
 
-function flattenResults(results) {
+// «Δες όλα» (backlog, review χρήστη — άνοιχτο ερώτημα του αρχικού proposal): DISPLAY_LIMIT είναι
+// πόσα φαίνονται ανά κατηγορία πριν το «Δες όλα», FETCH_LIMIT το ανώτατο πλήθος που φέρνει καν το
+// searchAll (ίδιο μοτίβο «cap+expand» με το HomeAttentionWidget, ΟΧΙ ξεχωριστή σελίδα/route — εδώ
+// επεκτείνεται ΜΕΣΑ στο ίδιο panel). Το keyboard-nav flat array πρέπει να αντανακλά ΑΚΡΙΒΩΣ ό,τι
+// φαίνεται οπτικά — γι' αυτό και το flattenResults παρακάτω σέβεται το ίδιο expandedCategories set.
+const DISPLAY_LIMIT = 5
+const FETCH_LIMIT = 50
+
+function visibleItems(results, category, expandedCategories) {
+  const { items } = results[category]
+  return expandedCategories.has(category) ? items : items.slice(0, DISPLAY_LIMIT)
+}
+
+function flattenResults(results, expandedCategories) {
   if (!results) return []
   const flat = []
   for (const category of CATEGORY_ORDER) {
-    for (const item of results[category].items) {
+    for (const item of visibleItems(results, category, expandedCategories)) {
       flat.push({ category, item, optionId: `header-search-option-${category}-${item.id}` })
     }
   }
@@ -122,7 +135,7 @@ function ResultRow({ category, item, optionId, active, onSelect, onMouseEnter })
   )
 }
 
-function ResultsPanel({ results, flat, activeOptionId, onSelect, query }) {
+function ResultsPanel({ results, activeOptionId, onSelect, query, expandedCategories, onExpand }) {
   if (!query) return null
 
   const totalCount = CATEGORY_ORDER.reduce((sum, c) => sum + results[c].total, 0)
@@ -138,12 +151,14 @@ function ResultsPanel({ results, flat, activeOptionId, onSelect, query }) {
   return (
     <ul id="header-search-listbox" role="listbox" aria-label="Αποτελέσματα αναζήτησης" className="header-search__list">
       {CATEGORY_ORDER.map((category) => {
-        const { items, total } = results[category]
+        const { total } = results[category]
+        const items = visibleItems(results, category, expandedCategories)
         if (items.length === 0) return null
+        const hasMore = total > items.length
         return (
           <li key={category} role="group" aria-label={CATEGORY_LABEL[category]} className="header-search__group">
             <p className="header-search__group-heading">
-              {CATEGORY_LABEL[category]}{total > items.length ? ` (${total})` : ''}
+              {CATEGORY_LABEL[category]}{total > DISPLAY_LIMIT ? ` (${total})` : ''}
             </p>
             <ul className="header-search__group-list">
               {items.map((item) => {
@@ -161,6 +176,11 @@ function ResultsPanel({ results, flat, activeOptionId, onSelect, query }) {
                 )
               })}
             </ul>
+            {hasMore && (
+              <button type="button" className="header-search__show-more" onClick={() => onExpand(category)}>
+                Δες όλα ({total})
+              </button>
+            )}
           </li>
         )
       })}
@@ -175,17 +195,27 @@ export default function HeaderSearch() {
   const [desktopOpen, setDesktopOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [expandedCategories, setExpandedCategories] = useState(() => new Set())
   const containerRef = useRef(null)
   const desktopInputRef = useRef(null)
   const mobileInputRef = useRef(null)
 
   const debouncedQuery = useDebouncedValue(query, DEBOUNCE_MS)
-  const results = useMemo(() => searchAll(debouncedQuery, data || {}), [debouncedQuery, data])
-  const flat = useMemo(() => flattenResults(results), [results])
+  const results = useMemo(() => searchAll(debouncedQuery, data || {}, { limit: FETCH_LIMIT }), [debouncedQuery, data])
+  const flat = useMemo(() => flattenResults(results, expandedCategories), [results, expandedCategories])
+
+  // Νέο query → ξαναξεκινάει συμπτυγμένο (ίδιο σκεπτικό με reset του activeIndex από κάτω).
+  useEffect(() => {
+    setExpandedCategories(new Set())
+  }, [debouncedQuery])
 
   useEffect(() => {
     setActiveIndex(flat.length > 0 ? 0 : -1)
   }, [flat.length, debouncedQuery])
+
+  function expandCategory(category) {
+    setExpandedCategories((prev) => new Set(prev).add(category))
+  }
 
   function ensureDataLoaded() {
     if (data === null) loadSearchData().then(setData)
@@ -289,7 +319,7 @@ export default function HeaderSearch() {
       </div>
       {desktopOpen && (
         <div className="header-search__dropdown">
-          <ResultsPanel results={results} flat={flat} activeOptionId={activeOptionId} onSelect={goTo} query={debouncedQuery} />
+          <ResultsPanel results={results} activeOptionId={activeOptionId} onSelect={goTo} query={debouncedQuery} expandedCategories={expandedCategories} onExpand={expandCategory} />
         </div>
       )}
 
@@ -335,7 +365,7 @@ export default function HeaderSearch() {
               <button type="button" className="header-search__cancel" onClick={resetAndClose}>Άκυρο</button>
             </div>
             <div className="header-search__overlay-results">
-              <ResultsPanel results={results} flat={flat} activeOptionId={activeOptionId} onSelect={goTo} query={debouncedQuery} />
+              <ResultsPanel results={results} activeOptionId={activeOptionId} onSelect={goTo} query={debouncedQuery} expandedCategories={expandedCategories} onExpand={expandCategory} />
             </div>
           </div>
         </div>,

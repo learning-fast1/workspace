@@ -151,6 +151,32 @@
   flex-direction: column;
 }
 
+/* «Δες όλα» (backlog) — ίδιο ghost-button ύφος με τα Button variant="ghost" αλλού, min-height 44px
+   tap target, χωρίς περιττό οπτικό βάρος μέσα στο ήδη συμπαγές results panel. */
+.header-search__show-more {
+  align-self: flex-start;
+  min-height: 44px;
+  margin: 2px 0 0;
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  border-radius: var(--shell-radius);
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.header-search__show-more:hover {
+  background: var(--color-primary-soft);
+}
+
+.header-search__show-more:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .header-search__row {
   display: flex;
   align-items: center;

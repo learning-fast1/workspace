@@ -125,6 +125,41 @@ describe('HeaderSearch — click εκτός κλείνει το desktop dropdown
   })
 })
 
+describe('HeaderSearch — «Δες όλα» (backlog, inline expand ίδιο μοτίβο με HomeAttentionWidget)', () => {
+  it('πάνω από 5 αποτελέσματα σε μια κατηγορία → κουμπί «Δες όλα (N)», κλικ δείχνει όλα', async () => {
+    for (let i = 1; i <= 8; i++) {
+      await db.students.add({ code: `Μαθητης${i}`, active: true })
+    }
+    const user = userEvent.setup()
+    renderSearch()
+
+    const input = screen.getByRole('combobox', { name: /Αναζήτηση μαθητών/ })
+    await user.click(input)
+    await user.type(input, 'μαθητης')
+
+    const showMore = await screen.findByRole('button', { name: 'Δες όλα (8)' })
+    expect(screen.getAllByRole('option')).toHaveLength(5)
+
+    await user.click(showMore)
+
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(8))
+    expect(screen.queryByRole('button', { name: /Δες όλα/ })).not.toBeInTheDocument()
+  })
+
+  it('5 ή λιγότερα αποτελέσματα → κανένα κουμπί «Δες όλα»', async () => {
+    await seedBasicData()
+    const user = userEvent.setup()
+    renderSearch()
+
+    const input = screen.getByRole('combobox', { name: /Αναζήτηση μαθητών/ })
+    await user.click(input)
+    await user.type(input, 'Μ1')
+
+    await screen.findByRole('option', { name: /Μ1/ })
+    expect(screen.queryByRole('button', { name: /Δες όλα/ })).not.toBeInTheDocument()
+  })
+})
+
 describe('HeaderSearch — mobile overlay', () => {
   it('trigger εικονιδίου ανοίγει overlay με «Άκυρο», που καθαρίζει και κλείνει', async () => {
     await seedBasicData()

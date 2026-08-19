@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   NOTIFICATION_STATE_SCHEMA_VERSION,
   computeCandidateNotifications,
@@ -40,11 +40,24 @@ describe('computeCandidateNotifications — goalStale (reuse goalAttention.js, �
     expect(notification.snoozable).toBe(true)
   })
 
+  // CI εύρημα (deploy απέτυχε, review χρήστη): αυτό το test απέτυχε επειδή βασιζόταν σιωπηλά στο
+  // πραγματικό ρολόι του μηχανήματος να είναι «κοντά» στο 2026-07-27/28 — το computeCandidateNotifications
+  // ΣΚΟΠΙΜΑ χρησιμοποιεί πάντα το πραγματικό `new Date()` για τον υπολογισμό ημερών-χωρίς-μέτρηση
+  // (βλ. σχόλιο notificationEngine.js#106-107, αποφυγή UTC-μεσάνυχτα parsing bug) — ΟΧΙ το `today`
+  // string param. Καθώς περνά ο πραγματικός χρόνος, η μέτρηση «2026-07-27» έπαψε να είναι
+  // πραγματικά πρόσφατη. Fake system clock εδώ ώστε το test να είναι ντετερμινιστικό ανεξάρτητα
+  // από το πότε πραγματικά τρέχει — ΟΧΙ αλλαγή στην ίδια την (σκόπιμη) production συμπεριφορά.
   it('goal active, ΠΡΟΣΦΑΤΗ μέτρηση → καμία goalStale notification', () => {
-    const goal = { id: 100, studentId: 1, title: 'Στόχος Α', status: 'active', startDate: '2020-01-01', measurementType: 'successRatio' }
-    const measurements = { 100: [{ id: 5, date: '2026-07-27', goalId: 100, value: { successes: 1, attempts: 1 } }] }
-    const results = computeCandidateNotifications([entry({ goals: [goal], datedMeasurementsByGoalId: measurements })], { sessionsByDate: {}, today })
-    expect(results.find((n) => n.type === 'goalStale')).toBeUndefined()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'))
+    try {
+      const goal = { id: 100, studentId: 1, title: 'Στόχος Α', status: 'active', startDate: '2020-01-01', measurementType: 'successRatio' }
+      const measurements = { 100: [{ id: 5, date: '2026-07-27', goalId: 100, value: { successes: 1, attempts: 1 } }] }
+      const results = computeCandidateNotifications([entry({ goals: [goal], datedMeasurementsByGoalId: measurements })], { sessionsByDate: {}, today })
+      expect(results.find((n) => n.type === 'goalStale')).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

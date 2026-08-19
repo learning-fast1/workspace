@@ -627,13 +627,18 @@ export async function deleteStudent(studentId) {
   const sessionsTable = activeTable('sessions')
   const scheduleSlotsTable = activeTable('scheduleSlots')
   const sessionGoalAssessmentsTable = activeTable('sessionGoalAssessments')
+  const schoolYearParticipationTable = activeTable('schoolYearParticipation')
 
-  await db.transaction('rw', [studentsTable, goalsTable, measurementsTable, observationsTable, sessionsTable, scheduleSlotsTable, sessionGoalAssessmentsTable], async () => {
+  await db.transaction('rw', [studentsTable, goalsTable, measurementsTable, observationsTable, sessionsTable, scheduleSlotsTable, sessionGoalAssessmentsTable, schoolYearParticipationTable], async () => {
     await goalsTable.where('studentId').equals(studentId).delete()
     await measurementsTable.where('studentId').equals(studentId).delete()
     await observationsTable.where('studentId').equals(studentId).delete()
     // Ίδιο σκεπτικό με τα measurements παραπάνω — μια κλινική εκτίμηση χωρίς τον μαθητή της δεν έχει νόημα.
     await sessionGoalAssessmentsTable.where('studentId').equals(studentId).delete()
+    // Backlog fix (confirmed gap, όχι σκόπιμη πολιτική διατήρησης — βλ. deleteSession παρακάτω για
+    // το ΜΟΝΟ πραγματικό σκόπιμο precedent, observations.sessionId:null): γράφεται από
+    // setStudentActive/applySchoolYearTransition, ίδιο σκεπτικό με goals/measurements παραπάνω.
+    await schoolYearParticipationTable.where('studentId').equals(studentId).delete()
 
     // studentIds δεν είναι indexed (πίνακας) — φιλτράρισμα στη μνήμη αντί για .where().
     const allSessions = await sessionsTable.toArray()

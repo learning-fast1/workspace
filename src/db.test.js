@@ -984,6 +984,19 @@ describe('deleteStudent/deleteSession — cascade delete του sessionGoalAsses
 
     expect(await db.sessionGoalAssessments.where('sessionId').equals(sessionId).count()).toBe(0)
   })
+
+  // Backlog fix (confirmed gap, βρέθηκε κατά το Real Multi-Device Sync Validation cleanup — 17
+  // ορφανές εγγραφές μετά τη διαγραφή 41 QA μαθητών): schoolYearParticipation γράφεται από
+  // setStudentActive/applySchoolYearTransition σε κανονική χρήση, όχι μόνο QA δεδομένα.
+  it('deleteStudent αφαιρεί ΚΑΙ τις εγγραφές schoolYearParticipation του μαθητή', async () => {
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    const schoolYearId = await db.schoolYears.add({ label: '2025-2026', startDate: '2025-09-01', endDate: '2026-06-30', isActive: true })
+    await db.schoolYearParticipation.add({ studentId, schoolYearId, status: 'continued' })
+
+    await deleteStudent(studentId)
+
+    expect(await db.schoolYearParticipation.where('studentId').equals(studentId).count()).toBe(0)
+  })
 })
 
 describe('createGoal (Technical Plan Στάδιο 2)', () => {

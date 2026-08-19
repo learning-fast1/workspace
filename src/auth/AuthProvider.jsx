@@ -41,7 +41,13 @@ function EnabledAuthProvider({ children }) {
       ...derived,
       actions: {
         // Ξεκινά τη ροή — το ίδιο το Dexie Cloud θα ζητήσει email μέσω του userInteraction.
-        login: () => db.cloud.login(),
+        // Backlog fix (review χρήστη): χωρίς αυτό το .catch(), μια απόρριψη (π.χ. ο χρήστης
+        // ακυρώνει το native browser dialog που εμφανίζει το ίδιο το addon) έφτανε ως unhandled
+        // promise rejection — uncaught DexieError2 στο console, βρέθηκε ζωντανά κατά το Teacher
+        // Profile QA. Το πραγματικό, ορατό στον χρήστη error state εξακολουθεί να έρχεται μέσω του
+        // ήδη υπάρχοντος userInteraction/deriveAuthStatus (authStatus.js) όταν το addon δίνει ένα
+        // πραγματικό alert — εδώ απλώς αποτρέπεται η unhandled exception, όχι νέο UI.
+        login: () => db.cloud.login().catch((err) => console.warn('[Σύνδεση] Ακυρώθηκε ή απέτυχε:', err?.message || err)),
         // Delegation στο ΠΡΑΓΜΑΤΙΚΟ API custom-UI (DXCUserInteraction.onSubmit) — όχι δεύτερο
         // απευθείας login() call με {otp}, που δεν αντιστοιχεί στο πραγματικό contract.
         submitEmail: (email) => userInteraction?.type === 'email' && userInteraction.onSubmit({ email }),

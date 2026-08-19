@@ -29,7 +29,10 @@ class FakeSubject {
 function makeFakeDb({ initialUser, initialInteraction } = {}) {
   const currentUser = new FakeSubject(initialUser ?? {})
   const userInteraction = new FakeSubject(initialInteraction)
-  const login = vi.fn(() => {
+  // Επιστρέφει Promise (ίδιο contract με το πραγματικό db.cloud.login() — βλ. AuthProvider.jsx
+  // actions.login .catch()) — χωρίς αυτό, οποιοσδήποτε καλών κάνει .then()/.catch() στην τιμή
+  // επιστροφής θα πετούσε «Cannot read properties of undefined».
+  const login = vi.fn(async () => {
     userInteraction.next({
       type: 'email',
       alerts: [],
@@ -214,6 +217,37 @@ describe('AuthProvider — CLOUD_ENABLED=true (mocked db.cloud, καμία πρ�
     })
 
     db.close()
+    vi.doUnmock('../db.js')
+  })
+
+  // Backlog fix (review χρήστη — βρέθηκε κατά το Teacher Profile QA): ακύρωση του native browser
+  // login dialog που εμφανίζει το ίδιο το dexie-cloud-addon απορρίπτει το db.cloud.login() promise
+  // — χωρίς .catch() αυτό έφτανε ως unhandled rejection (uncaught DexieError2 στο console).
+  it('login: απόρριψη του db.cloud.login() (π.χ. ακύρωση native dialog) ΔΕΝ γίνεται unhandled rejection', async () => {
+    vi.resetModules()
+    const login = vi.fn(() => Promise.reject(new Error('Login cancelled')))
+    vi.doMock('../db.js', () => ({
+      db: { cloud: { currentUser: new FakeSubject({ isLoggedIn: false }), userInteraction: new FakeSubject(undefined), login, logout: vi.fn() } },
+      CLOUD_ENABLED: true
+    }))
+    const { default: AuthProvider } = await import('./AuthProvider.jsx')
+    const { default: useAuth } = await import('./useAuth.js')
+
+    function Probe() {
+      const { actions } = useAuth()
+      return <button onClick={actions.login}>Σύνδεση</button>
+    }
+
+    render(<AuthProvider><Probe /></AuthProvider>)
+    const user = userEvent.setup()
+
+    // Αν το actions.login() (το onClick handler) πετούσε/απέρριπτε χωρίς να πιαστεί, αυτό το
+    // click θα προκαλούσε unhandled rejection — testing-library/vitest θα το ανέβαζε ως test
+    // failure. Το ίδιο το login mock ΗΔΗ απορρίπτει· η επιτυχία αυτού του await αποδεικνύει ότι
+    // το .catch() μέσα στο AuthProvider.jsx το χειρίστηκε.
+    await user.click(screen.getByText('Σύνδεση'))
+    expect(login).toHaveBeenCalledTimes(1)
+
     vi.doUnmock('../db.js')
   })
 })

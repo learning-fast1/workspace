@@ -95,6 +95,37 @@ describe('SchedulePage — λίστα (χαρακτηρισμός υπάρχου
     expect(screen.queryByRole('button', { name: 'Διαγραφή' })).not.toBeInTheDocument()
   })
 
+  it('Τύπος: προεπιλογή «Ατομική» (ένας μαθητής)· «Ομαδική» θέλει ≥2 και αποθηκεύει type=group', async () => {
+    await db.students.add({ code: 'Μ1', active: true })
+    await db.students.add({ code: 'Μ2', active: true })
+
+    const user = userEvent.setup()
+    renderSchedulePage()
+
+    const addButtons = await screen.findAllByRole('button', { name: 'Πρόσθεσε' })
+    await user.click(addButtons[0])
+    await screen.findByText('Νέα σταθερή συνεδρία')
+
+    expect(screen.getByRole('radio', { name: 'Ατομική' })).toBeChecked()
+    await user.click(screen.getByRole('radio', { name: /Μ1/ }))
+    await user.click(screen.getByRole('radio', { name: /Μ2/ }))
+    expect(screen.getByRole('radio', { name: /Μ1/ })).not.toBeChecked() // ατομική: μόνο ένας
+
+    await user.click(screen.getByRole('radio', { name: 'Ομαδική' }))
+    expect(screen.getByText('Η ομαδική συνεδρία χρειάζεται τουλάχιστον δύο μαθητές.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Προσθήκη' })).toBeDisabled()
+
+    await user.click(screen.getByRole('checkbox', { name: /Μ1/ }))
+    await user.click(screen.getByRole('button', { name: 'Προσθήκη' }))
+
+    await waitFor(async () => {
+      const slots = await db.scheduleSlots.toArray()
+      expect(slots).toHaveLength(1)
+      expect(slots[0].type).toBe('group')
+      expect(slots[0].studentIds).toHaveLength(2)
+    })
+  })
+
   it('«Πρόσθεσε» εξακολουθεί να ανοίγει το ScheduleSlotForm σε λειτουργία δημιουργίας', async () => {
     const user = userEvent.setup()
     renderSchedulePage()

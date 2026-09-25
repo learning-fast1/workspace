@@ -8,6 +8,7 @@ import { WEEKDAYS_MON_FRI, WEEKDAYS } from '../config/scheduleOptions.js'
 import Modal from './ui/Modal.jsx'
 import Button from './ui/Button.jsx'
 import FormField from './ui/FormField.jsx'
+import ChoiceGroup from './ui/ChoiceGroup.jsx'
 import Input from './ui/Input.jsx'
 import DateField from './ui/DateField.jsx'
 import DurationChips from './ui/DurationChips.jsx'
@@ -25,6 +26,11 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
   const activeStudents = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
   const allStudents = activeStudents?.filter((s) => s.active)
 
+  // Ρητή επιλογή τύπου (αίτημα χρήστη) αντί για σιωπηλό συμπέρασμα από το πλήθος μαθητών: Ατομική =
+  // radio, ΕΝΑΣ μαθητής· Ομαδική = checkboxes, τουλάχιστον δύο.
+  const [sessionType, setSessionType] = useState(() =>
+    isEdit ? slot.type || (slot.studentIds.length > 1 ? 'group' : 'individual') : 'individual'
+  )
   const [selectedStudentIds, setSelectedStudentIds] = useState(() => (isEdit ? slot.studentIds : []))
   const [selectedDays, setSelectedDays] = useState(() => (isEdit ? [slot.dayOfWeek] : initialDayOfWeek != null ? [initialDayOfWeek] : []))
   const [startTime, setStartTime] = useState(() => (isEdit ? slot.startTime : defaultStartTime || '09:00'))
@@ -47,7 +53,17 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
   }, [justSaved])
 
   function toggleStudent(id) {
+    if (sessionType === 'individual') {
+      setSelectedStudentIds([id])
+      return
+    }
     setSelectedStudentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  function changeSessionType(type) {
+    setSessionType(type)
+    // Ομαδική → Ατομική: κρατά μόνο τον πρώτο επιλεγμένο (ένα radio δεν μπορεί να δείξει πολλούς).
+    if (type === 'individual') setSelectedStudentIds((prev) => prev.slice(0, 1))
   }
 
   function toggleDay(value) {
@@ -55,7 +71,8 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
   }
 
   const effectiveDateMissing = isEdit && effectiveMode === 'date' && !effectiveDate
-  const isValid = selectedStudentIds.length > 0 && selectedDays.length > 0 && startTime && duration && !effectiveDateMissing
+  const groupNeedsMore = sessionType === 'group' && selectedStudentIds.length === 1
+  const isValid = selectedStudentIds.length > 0 && !groupNeedsMore && selectedDays.length > 0 && startTime && duration && !effectiveDateMissing
 
   function resetForNextAdd(lastStartTime) {
     // «Λειτουργία προσθήκης» (Product Design §8): καθαρίζει μαθητή/ετικέτα, ΚΡΑΤΑΕΙ τις ίδιες
@@ -77,7 +94,7 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
           dayOfWeek,
           startTime,
           durationMinutes: duration,
-          type: selectedStudentIds.length > 1 ? 'group' : 'individual',
+          type: sessionType,
           studentIds: selectedStudentIds,
           label
         })
@@ -98,7 +115,7 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
         {
           startTime,
           durationMinutes: duration,
-          type: selectedStudentIds.length > 1 ? 'group' : 'individual',
+          type: sessionType,
           studentIds: selectedStudentIds,
           label
         },
@@ -178,7 +195,20 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
         <DurationChips options={DURATION_OPTIONS} value={duration} onChange={setDuration} />
       </FormField>
 
-      <FormField label="Μαθητής/ές">
+      <FormField label="Τύπος">
+        <ChoiceGroup
+          name="schedule-slot-type"
+          ariaLabel="Τύπος συνεδρίας"
+          value={sessionType}
+          onChange={changeSessionType}
+          options={[
+            { value: 'individual', label: 'Ατομική' },
+            { value: 'group', label: 'Ομαδική' }
+          ]}
+        />
+      </FormField>
+
+      <FormField label={sessionType === 'group' ? 'Μαθητές' : 'Μαθητής'}>
         <div className="schedule-slot-form__students">
           {allStudents.map((s) => (
             <SelectableStudentRow
@@ -187,11 +217,14 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
               nickname={s.nickname}
               selected={selectedStudentIds.includes(s.id)}
               onSelect={() => toggleStudent(s.id)}
-              mode="multiple"
+              mode={sessionType === 'group' ? 'multiple' : 'single'}
               name="schedule-slot-students"
             />
           ))}
         </div>
+        {groupNeedsMore && (
+          <p className="schedule-slot-form__hint">Η ομαδική συνεδρία χρειάζεται τουλάχιστον δύο μαθητές.</p>
+        )}
       </FormField>
 
       <FormField htmlFor="scheduleSlotLabel" label="Ετικέτα (προαιρετικό)">

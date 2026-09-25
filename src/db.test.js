@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Dexie from 'dexie'
 import db, {
   migrateDomainNamesToIds, ensureDomainTemplatesSeeded, createScheduleSlot, saveScheduleSlotEdit,
-  copyScheduleDay, ensureDayGenerated, recordSessionNotHeld, applyScheduleException, bulkCancelDay,
+  copyScheduleDay, endScheduleSlotSeries, ensureDayGenerated, recordSessionNotHeld, applyScheduleException, bulkCancelDay,
   migrateRevisedGoalStatusToActive, backfillGoalEvents,
   transitionGoalStatus, createGoal, getAllowedGoalStatusTransitions,
   saveGoalAsTemplate, listGoalTemplates, updateGoalTemplate, deleteGoalTemplate,
@@ -333,6 +333,57 @@ describe('saveScheduleSlotEdit — effective dating', () => {
 
 // Regression tests για το δεύτερο bug (Sprint 6, δεύτερος γύρος): «Αντικατάσταση» σε ήδη
 // παραχθείσα ημέρα άφηνε «ορφανές» τις παλιές γραμμές αντί να τις αντικαθιστά πραγματικά.
+// Bug από πραγματική χρήση: προσθήκη μαθητών σε σταθερή συνεδρία ΜΕΤΑ την παραγωγή της σημερινής
+// ημέρας → η «Η μέρα μου» έδειχνε ακόμα μόνο τον αρχικό μαθητή (στιγμιότυπο dailyQueue).
+describe('saveScheduleSlotEdit / endScheduleSlotSeries — ήδη παραχθείσα ημέρα', () => {
+  const today = todayLocalISO()
+  const dow = weekdayOf(today)
+
+  it('επεξεργασία «από σήμερα» (προσθήκη μαθητών) ενημερώνει τη σημερινή γραμμή — καμία διπλή', async () => {
+    const id = await createScheduleSlot({ dayOfWeek: dow, startTime: '13:50', durationMinutes: 60, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+
+    await saveScheduleSlotEdit(id, { studentIds: [1, 2, 3], type: 'group' }, 'today', null)
+
+    const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
+    expect(queueToday).toHaveLength(1)
+    expect(queueToday[0].studentIds).toEqual([1, 2, 3])
+  })
+
+  it('επεξεργασία από ΜΕΛΛΟΝΤΙΚΗ ημερομηνία δεν αγγίζει τη σημερινή γραμμή', async () => {
+    const id = await createScheduleSlot({ dayOfWeek: dow, startTime: '13:50', durationMinutes: 60, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+
+    await saveScheduleSlotEdit(id, { studentIds: [1, 2], type: 'group' }, 'date', addDays(today, 7))
+
+    const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
+    expect(queueToday).toHaveLength(1)
+    expect(queueToday[0].studentIds).toEqual([1])
+  })
+
+  it('επεξεργασία ΔΕΝ αγγίζει γραμμή που έχει ήδη καταγεγραμμένη συνεδρία (notHeld)', async () => {
+    const id = await createScheduleSlot({ dayOfWeek: dow, startTime: '13:50', durationMinutes: 60, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+    await recordSessionNotHeld({ date: today, studentIds: [1], note: '' })
+
+    await saveScheduleSlotEdit(id, { studentIds: [1, 2], type: 'group' }, 'today', null)
+
+    const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
+    expect(queueToday).toHaveLength(1)
+    expect(queueToday[0].studentIds).toEqual([1])
+  })
+
+  it('διαγραφή «από σήμερα» αφαιρεί τη σημερινή pending γραμμή', async () => {
+    const id = await createScheduleSlot({ dayOfWeek: dow, startTime: '13:50', durationMinutes: 60, type: 'individual', studentIds: [1], label: '' })
+    await ensureDayGenerated(today)
+
+    await endScheduleSlotSeries(id, 'today')
+
+    const queueToday = await db.dailyQueue.where('date').equals(today).toArray()
+    expect(queueToday).toHaveLength(0)
+  })
+})
+
 describe('copyScheduleDay — mode "replace" πάνω σε ήδη παραχθείσα ημέρα', () => {
   const today = todayLocalISO()
   const dow = weekdayOf(today)

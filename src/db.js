@@ -737,20 +737,25 @@ export async function saveScheduleSlotEdit(currentSlotId, changes, effectiveMode
 
   if (current.effectiveFrom === today && newEffectiveFrom === today) {
     await scheduleSlotsTable.update(currentSlotId, changes)
-    return
+  } else {
+    const { id: _oldId, ...currentWithoutId } = current
+    await db.transaction('rw', scheduleSlotsTable, async () => {
+      await scheduleSlotsTable.update(currentSlotId, { effectiveUntil: addDays(newEffectiveFrom, -1) })
+      await scheduleSlotsTable.add(withNewRowId({
+        ...currentWithoutId,
+        ...changes,
+        seriesId: current.seriesId,
+        effectiveFrom: newEffectiveFrom,
+        effectiveUntil: null
+      }))
+    })
   }
 
-  const { id: _oldId, ...currentWithoutId } = current
-  await db.transaction('rw', scheduleSlotsTable, async () => {
-    await scheduleSlotsTable.update(currentSlotId, { effectiveUntil: addDays(newEffectiveFrom, -1) })
-    await scheduleSlotsTable.add(withNewRowId({
-      ...currentWithoutId,
-      ...changes,
-      seriesId: current.seriesId,
-      effectiveFrom: newEffectiveFrom,
-      effectiveUntil: null
-    }))
-  })
+  // Bug fix (βρέθηκε σε πραγματική χρήση): οι γραμμές dailyQueue είναι στιγμιότυπο της στιγμής
+  // παραγωγής — μια επεξεργασία (π.χ. προσθήκη μαθητών) σε ήδη παραχθείσα ημέρα (σήμερα) δεν
+  // φαινόταν στη «Η μέρα μου». Ίδιος μηχανισμός με το copyScheduleDay(replace): αφαίρεση των μη
+  // επιλυμένων γραμμών της σειράς από την ημερομηνία ισχύος και μετά + επαναπαραγωγή.
+  await cleanupReplacedScheduleEntries([current.seriesId], newEffectiveFrom > today ? newEffectiveFrom : today)
 }
 
 // Παύση/επανενεργοποίηση — άμεση, in-place, ΧΩΡΙΣ effective-dating (αναστρέψιμο tap, όχι
@@ -769,6 +774,9 @@ export async function endScheduleSlotSeries(currentSlotId, effectiveMode, effect
   const today = todayLocalISO()
   const stopFrom = effectiveMode === 'date' ? effectiveDate : today
   await scheduleSlotsTable.update(currentSlotId, { effectiveUntil: addDays(stopFrom, -1) })
+  // Ίδιο bug fix με το saveScheduleSlotEdit: χωρίς αυτό, μια σειρά που διαγράφεται «από σήμερα»
+  // έμενε στη «Η μέρα μου» αν η σημερινή μέρα είχε ήδη παραχθεί.
+  await cleanupReplacedScheduleEntries([current.seriesId], stopFrom > today ? stopFrom : today)
 }
 
 // «Αντιγραφή ημέρας»: αντιγράφει τα ενεργά, τρέχοντα slots μιας ημέρας εβδομάδας σε μία ή
@@ -821,16 +829,17 @@ export async function copyScheduleDay(fromDayOfWeek, toDayOfWeek, mode = 'append
   }
 }
 
-// Βοηθητική για το copyScheduleDay(mode='replace') παραπάνω — δεν εξάγεται, δεν χρειάζεται
+// Βοηθητική για το copyScheduleDay(mode='replace') παραπάνω (και για saveScheduleSlotEdit/
+// endScheduleSlotSeries, με fromDate = η ημερομηνία ισχύος της αλλαγής) — δεν εξάγεται, δεν χρειάζεται
 // ξεχωριστό δημόσιο σημείο εισόδου. Idempotent: αν κληθεί ξανά με τις ίδιες σειρές, οι γραμμές
 // προς αφαίρεση είτε ήδη έχουν αφαιρεθεί (τίποτα να διαγραφεί) είτε πλέον έχουν πραγματική
 // συνεδρία (πλέον προστατεύονται) — καμία περίπτωση διπλής διαγραφής ή διπλής παραγωγής, αφού το
 // ensureDayGenerated είναι ήδη το ίδιο idempotent.
-async function cleanupReplacedScheduleEntries(closedSeriesIds, today) {
+async function cleanupReplacedScheduleEntries(closedSeriesIds, fromDate) {
   const closedSet = new Set(closedSeriesIds)
   const dailyQueueTable = activeTable('dailyQueue')
   const sessionsTable = activeTable('sessions')
-  const entries = await dailyQueueTable.where('date').aboveOrEqual(today).toArray()
+  const entries = await dailyQueueTable.where('date').aboveOrEqual(fromDate).toArray()
   const affectedDates = new Set()
 
   for (const entry of entries) {

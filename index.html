@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <meta name="theme-color" content="#c9a876" />
     <title>Workspace Ειδικού Παιδαγωγού</title>
-    <!-- Google tag (gtag.js) — μόνο σε production (όχι localhost/dev/e2e), χωρίς Google Signals και
+    <!-- Google tag (gtag.js) — μόνο σε production (όχι localhost/dev/e2e, ούτε τα Playwright
+         smoke tests του CI πάνω στο live URL — navigator.webdriver), χωρίς Google Signals και
          ad personalization. Τα routes (HashRouter) περιέχουν μόνο αδιαφανή IDs, ποτέ ονόματα μαθητών. -->
     <script>
-      if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !navigator.webdriver) {
         var s = document.createElement('script')
         s.async = true
         s.src = 'https://www.googletagmanager.com/gtag/js?id=G-NKD27PPPE6'

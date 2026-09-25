@@ -178,6 +178,14 @@ export default function SchedulePage() {
           defaultStartTime={formState.defaultStartTime}
           onClose={() => setFormState(null)}
           onSaved={() => {}}
+          onDelete={
+            formState.mode === 'edit'
+              ? () => {
+                  setDeleteTarget(formState.slot)
+                  setFormState(null)
+                }
+              : undefined
+          }
         />
       )}
 

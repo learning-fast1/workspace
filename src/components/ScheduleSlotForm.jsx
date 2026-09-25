@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createScheduleSlot, saveScheduleSlotEdit } from '../db.js'
 import { activeTable } from '../migration/activeGeneration.js'
@@ -19,7 +20,7 @@ import './ScheduleSlotForm.css'
 // §8 — «Μ2, 9:00, 30′, Δε/Τε/Πα» σε ένα βήμα) και το modal ΜΕΝΕΙ ανοιχτό μετά την αποθήκευση
 // («λειτουργία προσθήκης» — καθαρίζει και προτείνει την επόμενη ώρα)· στην επεξεργασία η μέρα
 // είναι σταθερή (ανήκει ήδη σε ΜΙΑ σειρά) και εμφανίζεται η ερώτηση «Από πότε ισχύει;».
-export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, defaultStartTime, onClose, onSaved }) {
+export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, defaultStartTime, onClose, onSaved, onDelete }) {
   const isEdit = mode === 'edit'
   const activeStudents = useLiveQuery(() => activeTable('students').orderBy('code').toArray(), [])
   const allStudents = activeStudents?.filter((s) => s.active)
@@ -127,6 +128,11 @@ export default function ScheduleSlotForm({ mode, slot, initialDayOfWeek, default
       footer={
         isEdit ? (
           <>
+            {/* Διαγραφή κι από εδώ — στο grid view το modal επεξεργασίας είναι η ΜΟΝΗ είσοδος στο slot.
+                Το onDelete του γονέα κλείνει τη φόρμα και ανοίγει το ίδιο confirm modal με το ⋮ μενού. */}
+            {onDelete && (
+              <Button variant="danger" icon={Trash2} className="schedule-slot-form__delete" onClick={onDelete}>Διαγραφή</Button>
+            )}
             <Button variant="ghost" onClick={onClose}>Ακύρωση</Button>
             <Button variant="primary" loading={saving} disabled={!isValid} onClick={handleEditSave}>Αποθήκευση</Button>
           </>

@@ -69,3 +69,8 @@
   font-weight: 500;
   margin-right: auto;
 }
+
+/* Η καταστροφική ενέργεια στα αριστερά, μακριά από το «Αποθήκευση». */
+.schedule-slot-form__delete {
+  margin-right: auto;
+}

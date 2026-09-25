@@ -64,6 +64,37 @@ describe('SchedulePage — λίστα (χαρακτηρισμός υπάρχου
     expect(await screen.findByText('Επεξεργασία σταθερής συνεδρίας')).toBeInTheDocument()
   })
 
+  it('«Διαγραφή» μέσα στο modal επεξεργασίας ανοίγει το ίδιο confirm και τερματίζει τη σειρά', async () => {
+    const studentId = await db.students.add({ code: 'Μ1', active: true })
+    await createScheduleSlot({ dayOfWeek: 1, startTime: '09:00', durationMinutes: 30, type: 'individual', studentIds: [studentId], label: '' })
+
+    const user = userEvent.setup()
+    renderSchedulePage()
+
+    await screen.findByText('Μ1')
+    await user.click(screen.getByRole('button', { name: /Ενέργειες για Μ1/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Επεξεργασία' }))
+    await screen.findByText('Επεξεργασία σταθερής συνεδρίας')
+    await user.click(screen.getByRole('button', { name: 'Διαγραφή' }))
+
+    expect(await screen.findByText('Διαγραφή σταθερής συνεδρίας')).toBeInTheDocument()
+    expect(screen.queryByText('Επεξεργασία σταθερής συνεδρίας')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Διαγραφή από σήμερα' }))
+
+    await waitFor(() => expect(screen.queryByText('Μ1')).not.toBeInTheDocument())
+  })
+
+  it('στη δημιουργία ΔΕΝ υπάρχει κουμπί «Διαγραφή»', async () => {
+    const user = userEvent.setup()
+    renderSchedulePage()
+
+    const addButtons = await screen.findAllByRole('button', { name: 'Πρόσθεσε' })
+    await user.click(addButtons[0])
+
+    await screen.findByText('Νέα σταθερή συνεδρία')
+    expect(screen.queryByRole('button', { name: 'Διαγραφή' })).not.toBeInTheDocument()
+  })
+
   it('«Πρόσθεσε» εξακολουθεί να ανοίγει το ScheduleSlotForm σε λειτουργία δημιουργίας', async () => {
     const user = userEvent.setup()
     renderSchedulePage()

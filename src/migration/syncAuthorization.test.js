@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import db from '../db.js'
 import {
   checkSyncPrerequisites, verifySyncAuthorizationOrShutdown, activateSyncForCurrentUser,
-  isSessionSyncActive, deactivateSessionSync, resetSessionSyncForTests
+  isSessionSyncActive, deactivateSessionSync, resetSessionSyncForTests, refreshLicenseIfInvalid
 } from './syncAuthorization.js'
 import { readSyncAuthorizationHint, writeSyncAuthorizationHint } from './syncAuthorizationHint.js'
 import { claimLegacyDataOwnership } from './legacyOwnership.js'
@@ -184,5 +184,56 @@ describe('deactivateSessionSync', () => {
     // Το hint ΚΑΙ οι προϋποθέσεις παραμένουν ανεπηρέαστα — deactivateSessionSync αγγίζει ΜΟΝΟ το
     // in-memory session state (review, verbatim).
     expect(readSyncAuthorizationHint()).toBe(ALICE)
+  })
+})
+
+// Bug από πραγματική χρήση: ληγμένο EVAL → upgrade σε PROD, αλλά η συσκευή έμενε offline γιατί το
+// addon δεν ξαναελέγχει την άδεια χωρίς ρητό db.cloud.sync().
+describe('refreshLicenseIfInvalid', () => {
+  function fakeCloud(licenseStatus) {
+    const calls = []
+    return {
+      calls,
+      currentUser: { value: { license: licenseStatus ? { status: licenseStatus } : undefined } },
+      sync: async (opts) => { calls.push(opts) }
+    }
+  }
+
+  async function activateSessionForAlice() {
+    await makeAliceFullyReady()
+    writeSyncAuthorizationHint(ALICE)
+    await verifySyncAuthorizationOrShutdown({ getAuthenticatedUserId: () => ALICE, configure: () => {} })
+  }
+
+  it('άδεια expired + sync εξουσιοδοτημένο → καλεί db.cloud.sync() (ανανέωση token/άδειας)', async () => {
+    await activateSessionForAlice()
+    const cloud = fakeCloud('expired')
+    expect(refreshLicenseIfInvalid({ cloud })).toBe(true)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(cloud.calls).toHaveLength(1)
+  })
+
+  it('άδεια ok (ή χωρίς πεδίο license) → καμία κλήση', async () => {
+    await activateSessionForAlice()
+    for (const status of ['ok', undefined]) {
+      const cloud = fakeCloud(status)
+      expect(refreshLicenseIfInvalid({ cloud })).toBe(false)
+      await new Promise((r) => setTimeout(r, 0))
+      expect(cloud.calls).toHaveLength(0)
+    }
+  })
+
+  it('sync ΜΗ εξουσιοδοτημένο σε αυτή τη φόρτωση → καμία κλήση, ακόμα κι αν η άδεια έχει λήξει', async () => {
+    const cloud = fakeCloud('expired')
+    expect(refreshLicenseIfInvalid({ cloud })).toBe(false)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(cloud.calls).toHaveLength(0)
+  })
+
+  it('αποτυχία του sync() δεν πετάει προς τα έξω', async () => {
+    await activateSessionForAlice()
+    const cloud = { currentUser: { value: { license: { status: 'expired' } } }, sync: async () => { throw new Error('network') } }
+    expect(() => refreshLicenseIfInvalid({ cloud })).not.toThrow()
+    await new Promise((r) => setTimeout(r, 0))
   })
 })

@@ -82,6 +82,7 @@ export default function SyncDiagnosticsPanel() {
       syncPhase: syncState?.phase ?? null,
       syncStatus: syncState?.status ?? null,
       syncError: serializeError(syncState?.error),
+      syncLicense: syncState?.license ?? currentUser?.license?.status ?? null,
       initiallySynced: persistedSyncState?.initiallySynced ?? null,
       serverRevision: persistedSyncState?.serverRevision ?? null,
       yServerRevision: persistedSyncState?.yServerRevision ?? null,
@@ -173,6 +174,7 @@ export default function SyncDiagnosticsPanel() {
             <tr><th>syncState.phase</th><td>{snapshot.syncPhase ?? '—'}</td></tr>
             <tr><th>syncState.status</th><td>{snapshot.syncStatus ?? '—'}</td></tr>
             <tr><th>syncState.error</th><td>{snapshot.syncError ?? '—'}</td></tr>
+            <tr><th>Άδεια χρήστη (license)</th><td>{snapshot.syncLicense ?? '—'}</td></tr>
             <tr><th>persistedSyncState.initiallySynced</th><td>{String(snapshot.initiallySynced)}</td></tr>
             <tr><th>persistedSyncState.serverRevision</th><td>{snapshot.serverRevision ?? '—'}</td></tr>
             <tr><th>persistedSyncState.yServerRevision</th><td>{snapshot.yServerRevision ?? '—'}</td></tr>

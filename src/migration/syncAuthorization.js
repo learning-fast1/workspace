@@ -104,6 +104,23 @@ export async function verifySyncAuthorizationOrShutdown({
   return false
 }
 
+// Bug fix (πραγματική χρήση, 2026-09-28): όταν η άδεια του χρήστη στο Dexie Cloud ΔΕΝ είναι 'ok'
+// (π.χ. έληξε το EVAL), το dexie-cloud-addon απενεργοποιεί το eager sync (isEagerSyncDisabled) και
+// δείχνει syncState offline ΧΩΡΙΣ error — και ΔΕΝ ξαναελέγχει ποτέ μόνο του την άδεια. Το token
+// (άρα και η ενημερωμένη άδεια, π.χ. μετά από upgrade σε PROD) ανανεώνεται ΜΟΝΟ μέσα από ρητό
+// db.cloud.sync() (loadAccessToken όταν license !== 'ok'). Άρα μετά από upgrade η συσκευή έμενε
+// κολλημένη offline επ' αόριστον. Fire-and-forget, μόνο όταν το sync είναι ήδη εξουσιοδοτημένο σε
+// αυτή τη φόρτωση — καμία αλλαγή στο authorization gate.
+export function refreshLicenseIfInvalid({ cloud = db.cloud } = {}) {
+  if (!sessionSyncActive || !cloud) return false
+  const licenseStatus = cloud.currentUser?.value?.license?.status || 'ok'
+  if (licenseStatus === 'ok') return false
+  Promise.resolve()
+    .then(() => cloud.sync({ wait: false, purpose: 'push' }))
+    .catch((err) => console.warn('Dexie Cloud license refresh failed:', err))
+  return true
+}
+
 // Ρητή, χρήστη-ενεργοποιημένη ενέργεια (EnableSyncSection.jsx) — ΞΑΝΑ-ελέγχει τις προϋποθέσεις ΤΩΡΑ
 // (ζωντανά, ΟΧΙ από cache) και, αν περάσουν, γράφει ΜΟΝΟ το hint. ΔΕΝ καλεί configure() εδώ (review,
 // evidence-based εύρημα: μια δεύτερη configure() ΜΕΣΑ στην ΙΔΙΑ φόρτωση δεν έχει ΚΑΝΕΝΑ αποτέλεσμα

@@ -4,7 +4,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { setUpdateAvailable } from './pwaUpdate.js'
 import { ensureDomainTemplatesSeeded, migrateDomainNamesToIds, migrateGoalDomainsToBroaderDomains } from './db.js'
 import { initializeActiveGeneration } from './migration/activeGeneration.js'
-import { verifySyncAuthorizationOrShutdown } from './migration/syncAuthorization.js'
+import { verifySyncAuthorizationOrShutdown, refreshLicenseIfInvalid } from './migration/syncAuthorization.js'
 import { performStartupRecovery } from './auth/startupRecovery.js'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -97,6 +97,8 @@ async function bootstrap() {
     // ολοκληρωθεί μέχρι εδώ). Ξανα-επιβεβαιώνει το (μη έμπιστο) localStorage hint πάνω στα πραγματικά
     // δεδομένα ΚΑΙ αναιρεί αμέσως αν δεν ταιριάζει — ΠΡΙΝ αποδοθεί οτιδήποτε άλλο.
     await verifySyncAuthorizationOrShutdown()
+    // Κολλημένη ληγμένη άδεια (βλ. syncAuthorization.js#refreshLicenseIfInvalid) — fire-and-forget.
+    refreshLicenseIfInvalid()
 
     await ensureDomainTemplatesSeeded()
   } finally {

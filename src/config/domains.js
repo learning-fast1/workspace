@@ -9,15 +9,27 @@
 export const DOMAINS = [
   { id: 'mobility', name: 'Κινητική' },
   { id: 'sensory', name: 'Αισθητηριακή' },
-  { id: 'cognitive', name: 'Γνωστικές & Εκτελεστικές λειτουργίες' },
+  { id: 'cognitive', name: 'Γνωσιοαντιληπτική' },
   { id: 'emotional-development', name: 'Συναισθηματική' },
   { id: 'social-skills', name: 'Κοινωνική' },
   { id: 'self-care', name: 'Αυτομέριμνα' },
-  { id: 'communication', name: 'Επικοινωνία' },
-  { id: 'behavior', name: 'Συμπεριφορά' }
+  // Αποσυρμένοι (αίτημα χρήστη, 2026-09): ΔΕΝ προσφέρονται πια για νέους στόχους/πρότυπα, αλλά
+  // μένουν εδώ ώστε υπάρχοντες στόχοι με αυτό το domain να εμφανίζουν ακόμα σωστή ονομασία.
+  { id: 'communication', name: 'Επικοινωνία', retired: true },
+  { id: 'behavior', name: 'Συμπεριφορά', retired: true }
 ]
 
 export const DOMAIN_IDS = DOMAINS.map((d) => d.id)
+
+// Οι τομείς που προσφέρονται για επιλογή σε νέο στόχο/πρότυπο (χωρίς τους αποσυρμένους).
+export const SELECTABLE_DOMAINS = DOMAINS.filter((d) => !d.retired)
+
+// Για dropdown επεξεργασίας: οι επιλέξιμοι + ο τρέχων τομέας αν είναι αποσυρμένος, ώστε ένας
+// υπάρχων στόχος να μη «χάνει» σιωπηλά την τιμή του στο select.
+export function selectableDomainsIncluding(currentId) {
+  const current = DOMAINS.find((d) => d.id === currentId)
+  return current?.retired ? [...SELECTABLE_DOMAINS, current] : SELECTABLE_DOMAINS
+}
 
 export function domainName(id) {
   return DOMAINS.find((d) => d.id === id)?.name || id

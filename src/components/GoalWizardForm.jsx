@@ -4,7 +4,7 @@ import { AlertTriangle, Library } from 'lucide-react'
 import { createGoal } from '../db.js'
 import { activeTable, resolveEntityId } from '../migration/activeGeneration.js'
 import { diffFields } from '../utils/formDiff.js'
-import { DOMAINS } from '../config/domains.js'
+import { selectableDomainsIncluding } from '../config/domains.js'
 import { PRIORITIES } from '../config/goalOptions.js'
 import { isRecommendedMeasurementType } from '../config/measurementRecommendations.js'
 import { todayLocalISO } from '../utils/date.js'
@@ -377,7 +377,7 @@ export default function GoalWizardForm({ mode }) {
                 aria-invalid={fieldErrors.domain ? 'true' : undefined}
               >
                 <option value="">— Επίλεξε τομέα —</option>
-                {DOMAINS.map((d) => (
+                {selectableDomainsIncluding(goal.domain).map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </Select>

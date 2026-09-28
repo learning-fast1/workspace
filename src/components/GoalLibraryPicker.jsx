@@ -4,7 +4,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { listGoalTemplates, updateGoalTemplate, deleteGoalTemplate } from '../db.js'
 import { prefillFromSource } from '../utils/goalTemplates.js'
 import { diffFields } from '../utils/formDiff.js'
-import { DOMAINS, domainName } from '../config/domains.js'
+import { domainName, selectableDomainsIncluding } from '../config/domains.js'
 import { listMeasurementTypes } from '../utils/measurementTypes/index.js'
 import Modal from './ui/Modal.jsx'
 import Button from './ui/Button.jsx'
@@ -204,7 +204,7 @@ export default function GoalLibraryPicker({ open, onClose, onApply, isDirty }) {
               onChange={(e) => setEditFields((prev) => ({ ...prev, domain: e.target.value }))}
               disabled={busy}
             >
-              {DOMAINS.map((d) => (
+              {selectableDomainsIncluding(editFields.domain).map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>

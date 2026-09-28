@@ -479,3 +479,73 @@ describe('SessionModal — partial updates (Root Cause Investigation, Scenario E
     expect(session.durationMinutes).toBe(45)
   })
 })
+
+// Αίτημα χρήστη: ξεχασμένο «απών» σε ομαδική συνεδρία — διόρθωση ΜΕΤΑ την αποθήκευση.
+describe('SessionModal — Edit Session: παρουσίες σε ομαδική συνεδρία', () => {
+  async function openEdit(user, sessionId) {
+    render(<SessionModal sessionId={sessionId} onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Επεξεργασία' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Επεξεργασία' }))
+  }
+
+  it('σήμανση ως απόντος: αποθηκεύεται στο absentStudentIds, οι μετρήσεις/διάθεσή του αφαιρούνται, του άλλου μένουν', async () => {
+    const user = userEvent.setup()
+    const s1 = await db.students.add({ code: 'Μ1', active: true })
+    const s2 = await db.students.add({ code: 'Μ2', active: true })
+    const g1 = await seedSuccessRatioGoal(s1)
+    const g2 = await seedSuccessRatioGoal(s2, { title: 'Δεύτερος στόχος' })
+    const sessionId = await db.sessions.add({
+      date: '2026-02-01', studentIds: [s1, s2], status: 'completed', absentStudentIds: [],
+      durationMinutes: 30, activity: '', note: '', moods: { [s1]: 'happy', [s2]: 'happy' }
+    })
+    await db.measurements.add({ studentId: s1, goalId: g1, sessionId, value: { successes: 1, attempts: 1 }, context: 'group', note: '' })
+    await db.measurements.add({ studentId: s2, goalId: g2, sessionId, value: { successes: 1, attempts: 1 }, context: 'group', note: '' })
+
+    await openEdit(user, sessionId)
+    await user.click(screen.getByRole('checkbox', { name: /Μ2 — απών/ }))
+    expect(screen.queryByRole('button', { name: /Δεύτερος στόχος/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(async () => {
+      const session = await db.sessions.get(sessionId)
+      expect(session.absentStudentIds).toEqual([s2])
+    })
+    const session = await db.sessions.get(sessionId)
+    expect(session.moods).toEqual({ [s1]: 'happy' })
+    const remaining = await db.measurements.toArray()
+    expect(remaining.map((m) => m.studentId)).toEqual([s1])
+  })
+
+  it('αναίρεση απουσίας: ο μαθητής ξαναγίνεται παρών και εμφανίζονται οι στόχοι του', async () => {
+    const user = userEvent.setup()
+    const s1 = await db.students.add({ code: 'Μ1', active: true })
+    const s2 = await db.students.add({ code: 'Μ2', active: true })
+    await seedSuccessRatioGoal(s1)
+    await seedSuccessRatioGoal(s2, { title: 'Δεύτερος στόχος' })
+    const sessionId = await db.sessions.add({
+      date: '2026-02-01', studentIds: [s1, s2], status: 'completed', absentStudentIds: [s2],
+      durationMinutes: 30, activity: '', note: '', moods: {}
+    })
+
+    await openEdit(user, sessionId)
+    expect(screen.queryByRole('button', { name: /Δεύτερος στόχος/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: /Μ2 — απών/ }))
+    expect(screen.getByRole('button', { name: /Δεύτερος στόχος/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }))
+
+    await waitFor(async () => {
+      expect((await db.sessions.get(sessionId)).absentStudentIds).toEqual([])
+    })
+  })
+
+  it('ατομική συνεδρία: καμία ενότητα «Παρουσίες»', async () => {
+    const user = userEvent.setup()
+    const s1 = await db.students.add({ code: 'Μ1', active: true })
+    const sessionId = await db.sessions.add({
+      date: '2026-02-01', studentIds: [s1], status: 'completed', absentStudentIds: [],
+      durationMinutes: 30, activity: '', note: '', moods: {}
+    })
+    await openEdit(user, sessionId)
+    expect(screen.queryByText('Παρουσίες')).not.toBeInTheDocument()
+  })
+})

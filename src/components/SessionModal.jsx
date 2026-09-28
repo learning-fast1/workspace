@@ -14,6 +14,7 @@ import Modal from './ui/Modal.jsx'
 import Badge from './ui/Badge.jsx'
 import Button from './ui/Button.jsx'
 import FormField from './ui/FormField.jsx'
+import ToggleRow from './ui/ToggleRow.jsx'
 import Input from './ui/Input.jsx'
 import DateField from './ui/DateField.jsx'
 import Select from './ui/Select.jsx'
@@ -94,6 +95,8 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
   const [activity, setActivity] = useState('')
   const [note, setNote] = useState('')
   const [moods, setMoods] = useState({})
+  // Διόρθωση απουσίας ΜΕΤΑ την αποθήκευση (αίτημα χρήστη: ξεχασμένο «απών» σε ομαδική συνεδρία).
+  const [absentIds, setAbsentIds] = useState([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
@@ -127,9 +130,11 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
     setActivity(s.activity || '')
     setNote(s.note || '')
     setMoods(s.moods || {})
+    setAbsentIds(s.absentStudentIds || [])
     initialSessionFieldsRef.current = {
       date: s.date, status: s.status, durationMinutes: s.durationMinutes,
-      activity: s.activity || '', note: s.note || '', moods: s.moods || {}
+      activity: s.activity || '', note: s.note || '', moods: s.moods || {},
+      absentStudentIds: s.absentStudentIds || []
     }
 
     const nextMeasurements = {}
@@ -157,6 +162,21 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
       else next[studentId] = value
       return next
     })
+  }
+
+  // Ίδια συμπεριφορά με το toggleAbsent του TeachingMode.jsx: σήμανση ως απόντος καθαρίζει ό,τι είχε
+  // καταγραφεί γι' αυτόν τον μαθητή (μετρήσεις, κλινικές εκτιμήσεις, διάθεση) — η αποθήκευση τα
+  // αφαιρεί και από τη βάση (βλ. handleSave, υπάρχουσα λογική «!hasValue && existing → delete»).
+  function toggleAbsent(studentId) {
+    if (absentIds.includes(studentId)) {
+      setAbsentIds((prev) => prev.filter((id) => id !== studentId))
+      return
+    }
+    setAbsentIds((prev) => [...prev, studentId])
+    const isThisStudent = (goalId) => detail.goalById[goalId]?.studentId === studentId
+    setMeasurements((prev) => Object.fromEntries(Object.entries(prev).filter(([goalId]) => !isThisStudent(goalId))))
+    setClinicalAssessments((prev) => Object.fromEntries(Object.entries(prev).filter(([goalId]) => !isThisStudent(goalId))))
+    setMood(studentId, null)
   }
 
   function updateMeasurement(goalId, value) {
@@ -230,7 +250,7 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
         // το σύνολο πεδίων της συνεδρίας.
         const sessionChanges = diffFields(
           initialSessionFieldsRef.current,
-          { date, status, durationMinutes: duration, activity, note, moods }
+          { date, status, durationMinutes: duration, activity, note, moods, absentStudentIds: absentIds }
         )
         if (Object.keys(sessionChanges).length > 0) {
           await sessionsTable.update(sessionId, sessionChanges)
@@ -383,10 +403,22 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
             <Textarea id="sessionModalNote" value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
 
+          {session.studentIds.length > 1 && (
+            <div className="session-modal__mood-section">
+              <p className="session-modal__mood-title">Παρουσίες</p>
+              {session.studentIds.map((id) => (
+                <ToggleRow key={id} checked={absentIds.includes(id)} onChange={() => toggleAbsent(id)}>
+                  {studentById[id]?.code} — απών/απούσα
+                </ToggleRow>
+              ))}
+              <p className="hint">Όταν σημειώνεις έναν μαθητή ως απόντα, αφαιρούνται οι καταγραφές του σε αυτή τη συνεδρία μετά την αποθήκευση.</p>
+            </div>
+          )}
+
           <div className="session-modal__mood-section">
             <p className="session-modal__mood-title">Διάθεση μαθητή</p>
             {session.studentIds
-              .filter((id) => !session.absentStudentIds?.includes(id))
+              .filter((id) => !absentIds.includes(id))
               .map((id) => (
                 <MoodPicker
                   key={id}
@@ -405,7 +437,7 @@ export default function SessionModal({ sessionId, initialMode = 'view', onClose 
             {session.studentIds.map((studentId) => {
               const student = studentById[studentId]
               const studentGoals = editableGoalsByStudent[studentId] || []
-              if (studentGoals.length === 0) return null
+              if (studentGoals.length === 0 || absentIds.includes(studentId)) return null
               return (
                 <div key={studentId} className="session-modal__student-goals">
                   {session.studentIds.length > 1 && (

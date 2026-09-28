@@ -815,7 +815,7 @@ describe('restoreFromBackup — παλιό v8 backup, idempotent migrations, ato
     // Το ίδιο domainName() που καλούν Goal Card/Goal Detail/Βιβλιοθήκη/Reports — σωστή ελληνική
     // ονομασία μετά τη μετανάστευση, χωρίς να χρειάζεται ξεχωριστό component test ανά οθόνη.
     expect(domainName(goal10.domain)).toBe('Επικοινωνία')
-    expect(domainName(goal11.domain)).toBe('Γνωσιοαντιληπτική')
+    expect(domainName(goal11.domain)).toBe('Γνωσιοαντιληπτικός')
 
     // Το Λειτουργικό Προφίλ ΔΕΝ αγγίχτηκε — ίδιο ελεύθερο κείμενο id ('reading'), ίδιες επιλογές/σημείωση.
     const student = await db.students.get(1)

@@ -7,11 +7,11 @@
 // ΑΝΕΞΑΡΤΗΤΟ από το Λειτουργικό Προφίλ του μαθητή, το οποίο παραμένει σκόπιμα στους παλιούς,
 // αναλυτικούς 14 τομείς — βλ. config/functionalProfileDomains.js (ξεχωριστό, παγωμένο αρχείο).
 export const DOMAINS = [
-  { id: 'mobility', name: 'Κινητική' },
-  { id: 'sensory', name: 'Αισθητηριακή' },
-  { id: 'cognitive', name: 'Γνωσιοαντιληπτική' },
-  { id: 'emotional-development', name: 'Συναισθηματική' },
-  { id: 'social-skills', name: 'Κοινωνική' },
+  { id: 'mobility', name: 'Κινητικός' },
+  { id: 'sensory', name: 'Αισθητηριακός' },
+  { id: 'cognitive', name: 'Γνωσιοαντιληπτικός' },
+  { id: 'emotional-development', name: 'Συναισθηματικός' },
+  { id: 'social-skills', name: 'Κοινωνικός' },
   { id: 'self-care', name: 'Αυτομέριμνα' },
   // Αποσυρμένοι (αίτημα χρήστη, 2026-09): ΔΕΝ προσφέρονται πια για νέους στόχους/πρότυπα, αλλά
   // μένουν εδώ ώστε υπάρχοντες στόχοι με αυτό το domain να εμφανίζουν ακόμα σωστή ονομασία.

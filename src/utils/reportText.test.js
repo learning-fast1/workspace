@@ -202,7 +202,7 @@ describe('generateReportText — ταξινόμηση τομέων/στόχων'
       { id: 3, domain: 'communication', title: 'Στόχος επικοινωνίας', status: 'active', startDate: '2026-01-01', priority: 'medium' }
     ]
     const text = generateReportText(baseArgs({ goals }))
-    const mobilityIndex = text.indexOf('## Κινητική')
+    const mobilityIndex = text.indexOf('## Κινητικός')
     const communicationIndex = text.indexOf('## Επικοινωνία')
     const behaviorIndex = text.indexOf('## Συμπεριφορά')
     expect(mobilityIndex).toBeGreaterThan(-1)

@@ -7,11 +7,11 @@ import { DOMAINS, DOMAIN_IDS, SELECTABLE_DOMAINS, domainName, selectableDomainsI
 describe('DOMAINS (τομείς στόχων) — τελική ταξινόμηση 8 τομέων', () => {
   it('ακριβώς η εγκεκριμένη λίστα, με αυτή τη σειρά', () => {
     expect(DOMAINS).toEqual([
-      { id: 'mobility', name: 'Κινητική' },
-      { id: 'sensory', name: 'Αισθητηριακή' },
-      { id: 'cognitive', name: 'Γνωσιοαντιληπτική' },
-      { id: 'emotional-development', name: 'Συναισθηματική' },
-      { id: 'social-skills', name: 'Κοινωνική' },
+      { id: 'mobility', name: 'Κινητικός' },
+      { id: 'sensory', name: 'Αισθητηριακός' },
+      { id: 'cognitive', name: 'Γνωσιοαντιληπτικός' },
+      { id: 'emotional-development', name: 'Συναισθηματικός' },
+      { id: 'social-skills', name: 'Κοινωνικός' },
       { id: 'self-care', name: 'Αυτομέριμνα' },
       { id: 'communication', name: 'Επικοινωνία', retired: true },
       { id: 'behavior', name: 'Συμπεριφορά', retired: true }
@@ -25,7 +25,7 @@ describe('DOMAINS (τομείς στόχων) — τελική ταξινόμη�
 
   it('domainName() επιστρέφει τη σωστή ελληνική ονομασία', () => {
     expect(domainName('communication')).toBe('Επικοινωνία')
-    expect(domainName('cognitive')).toBe('Γνωσιοαντιληπτική')
+    expect(domainName('cognitive')).toBe('Γνωσιοαντιληπτικός')
     expect(domainName('behavior')).toBe('Συμπεριφορά')
   })
 

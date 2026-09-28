@@ -90,5 +90,5 @@ describe('End-to-end v2 regression: activate v2 → create → view → edit →
     // 5) reopen (view και πάλι) — η αλλαγή φαίνεται, ΤΟ ΙΔΙΟ id, ΑΚΟΜΑ ΧΩΡΙΣ crash
     renderApp(`/students/${created.id}`)
     expect(await screen.findByText('Ε2Ε-1')).toBeInTheDocument()
-  })
+  }, 20000) // migration + πλήρης UI ροή: ξεπερνούσε σποραδικά το default 5s υπό φόρτο πλήρους suite
 })

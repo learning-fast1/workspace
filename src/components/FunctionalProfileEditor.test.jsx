@@ -28,8 +28,8 @@ describe('FunctionalProfileEditor — παραμένει στους 14 αναλ�
 
     const nav = screen.getByRole('navigation', { name: 'Τομείς λειτουργικού προφίλ' })
     expect(within(nav).queryByText('Επικοινωνία')).not.toBeInTheDocument()
-    expect(within(nav).queryByText('Γνωσιοαντιληπτική')).not.toBeInTheDocument()
-    expect(within(nav).queryByText('Κινητική')).not.toBeInTheDocument()
+    expect(within(nav).queryByText('Γνωσιοαντιληπτικός')).not.toBeInTheDocument()
+    expect(within(nav).queryByText('Κινητικός')).not.toBeInTheDocument()
   })
 
   it('οι υπάρχουσες επιλογές του profileOptions.js παραμένουν διαθέσιμες (π.χ. Λεπτή κινητικότητα)', async () => {
